@@ -10,6 +10,24 @@ A fast, terminal-based interface for streaming Chinese animation with intelligen
 
 ---
 
+## Screenshots
+
+<details>
+<summary>Click to view screenshots</summary>
+
+### Banner
+![Banner](screenshots/banner.png)
+
+### Episode Selection
+![Episode Selection](screenshots/episode-selection.png)
+
+### Playback Controls
+![Playback Controls](screenshots/playback-controls.png)
+
+</details>
+
+---
+
 ## Quick Start
 
 ```bash

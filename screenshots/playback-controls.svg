@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 450" style="background: #0a1512;">
+  <defs>
+    <style>
+      .terminal-text {
+        font-size: 13px;
+        font-family: 'Fira Code', 'Courier New', monospace;
+        fill: #f5f0e1;
+      }
+      .jade { fill: #00A86B; }
+      .gold { fill: #d4af37; }
+      .light-gold { fill: #f0d060; }
+      .white { fill: #f5f0e1; }
+      .gray { fill: #7a8a6e; }
+      .red { fill: #c41e3a; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="450" fill="#0a1512"/>
+
+  <!-- Now Playing box -->
+  <text x="40" y="40" class="terminal-text jade">┌────────────────────────────────────────────────────────────┐</text>
+  <text x="40" y="60" class="terminal-text jade">│</text>
+  <text x="60" y="60" class="terminal-text">🦚</text>
+  <text x="90" y="60" class="terminal-text red">⚔️ CULTIVATION IN PROGRESS ⚔️</text>
+  <text x="420" y="60" class="terminal-text">🐅</text>
+  <text x="810" y="60" class="terminal-text jade">│</text>
+
+  <text x="40" y="80" class="terminal-text jade">│</text>
+  <text x="330" y="80" class="terminal-text gold">Golden Core</text>
+  <text x="810" y="80" class="terminal-text jade">│</text>
+
+  <text x="40" y="100" class="terminal-text jade">│</text>
+  <text x="280" y="100" class="terminal-text light-gold">Battle Through the Heavens</text>
+  <text x="810" y="100" class="terminal-text jade">│</text>
+
+  <text x="40" y="120" class="terminal-text jade">│</text>
+  <text x="60" y="120" class="terminal-text gray">Episode</text>
+  <text x="140" y="120" class="terminal-text gold">042</text>
+  <text x="170" y="120" class="terminal-text gray">/</text>
+  <text x="180" y="120" class="terminal-text gold">120</text>
+  <text x="220" y="120" class="terminal-text">🌙</text>
+  <text x="810" y="120" class="terminal-text jade">│</text>
+
+  <text x="40" y="140" class="terminal-text jade">└────────────────────────────────────────────────────────────┘</text>
+
+  <!-- Status indicator -->
+  <text x="40" y="170" class="terminal-text jade">✓</text>
+  <text x="60" y="170" class="terminal-text white">Player launched instantly!</text>
+
+  <!-- Playback controls header -->
+  <text x="40" y="210" class="terminal-text gold">◈ Playback Controls ◈</text>
+
+  <!-- Controls box -->
+  <text x="40" y="240" class="terminal-text jade">┌──────────────────────────────────────────────────────┐</text>
+
+  <text x="40" y="260" class="terminal-text jade">│</text>
+  <text x="60" y="260" class="terminal-text light-gold">[D]</text>
+  <text x="100" y="260" class="terminal-text white">Download this technique</text>
+  <text x="790" y="260" class="terminal-text jade">│</text>
+
+  <text x="40" y="280" class="terminal-text jade">│</text>
+  <text x="60" y="280" class="terminal-text light-gold">[P]</text>
+  <text x="100" y="280" class="terminal-text white">Previous technique</text>
+  <text x="790" y="280" class="terminal-text jade">│</text>
+
+  <text x="40" y="300" class="terminal-text jade">│</text>
+  <text x="60" y="300" class="terminal-text light-gold">[N]</text>
+  <text x="100" y="300" class="terminal-text white">Next technique</text>
+  <text x="790" y="300" class="terminal-text jade">│</text>
+
+  <text x="40" y="320" class="terminal-text jade">│</text>
+  <text x="60" y="320" class="terminal-text light-gold">[S]</text>
+  <text x="100" y="320" class="terminal-text white">Skip to specific technique</text>
+  <text x="790" y="320" class="terminal-text jade">│</text>
+
+  <text x="40" y="340" class="terminal-text jade">│</text>
+  <text x="60" y="340" class="terminal-text light-gold">[R]</text>
+  <text x="100" y="340" class="terminal-text white">Restart cultivation</text>
+  <text x="790" y="340" class="terminal-text jade">│</text>
+
+  <text x="40" y="360" class="terminal-text jade">│</text>
+  <text x="60" y="360" class="terminal-text light-gold">[Q]</text>
+  <text x="100" y="360" class="terminal-text white">Return to sect</text>
+  <text x="790" y="360" class="terminal-text jade">│</text>
+
+  <text x="40" y="380" class="terminal-text jade">└──────────────────────────────────────────────────────┘</text>
+
+  <!-- Help text -->
+  <text x="40" y="410" class="terminal-text gray">⚡ Close MPV window or enter command to continue...</text>
+</svg>

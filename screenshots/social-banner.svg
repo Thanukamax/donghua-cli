@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" style="background: linear-gradient(135deg, #0a1512 0%, #132822 100%);">
+  <defs>
+    <linearGradient id="jadeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00A86B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2ed89a;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#d4af37;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f0d060;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="glowJade" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#00A86B;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#00A86B;stop-opacity:0" />
+    </radialGradient>
+    <radialGradient id="glowGold" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#d4af37;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:#d4af37;stop-opacity:0" />
+    </radialGradient>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&amp;display=swap');
+      .title { font-family: 'Cinzel', serif; font-weight: 700; font-size: 80px; fill: url(#goldGradient); }
+      .subtitle { font-family: 'Cinzel', serif; font-size: 32px; fill: #b8c5a6; }
+      .chinese { font-family: 'Noto Sans SC', sans-serif; font-size: 48px; fill: url(#jadeGradient); }
+      .description { font-family: 'Inter', sans-serif; font-size: 24px; fill: #7a8a6e; }
+      .badge { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 600; }
+      .code { font-family: 'Fira Code', monospace; font-size: 20px; fill: #00A86B; }
+    </style>
+  </defs>
+
+  <!-- Background gradient -->
+  <rect width="1200" height="630" fill="url(#bgGradient)"/>
+
+  <!-- Glow effects -->
+  <ellipse cx="300" cy="200" rx="400" ry="300" fill="url(#glowJade)" opacity="0.4"/>
+  <ellipse cx="900" cy="400" rx="400" ry="300" fill="url(#glowGold)" opacity="0.3"/>
+
+  <!-- Decorative borders -->
+  <rect x="40" y="40" width="1120" height="550" fill="none" stroke="url(#jadeGradient)" stroke-width="2" opacity="0.3" rx="10"/>
+  <rect x="50" y="50" width="1100" height="530" fill="none" stroke="url(#goldGradient)" stroke-width="1" opacity="0.2" rx="8"/>
+
+  <!-- Top symbols -->
+  <text x="100" y="130" style="font-size: 60px;">🗡️</text>
+  <text x="1040" y="130" style="font-size: 60px;">🐉</text>
+
+  <!-- Chinese title -->
+  <text x="600" y="160" class="chinese" text-anchor="middle">武侠动画终端</text>
+
+  <!-- Main title -->
+  <text x="600" y="270" class="title" text-anchor="middle">Donghua CLI</text>
+
+  <!-- Subtitle -->
+  <text x="600" y="330" class="subtitle" text-anchor="middle">Imperial Terminal for Chinese Animation</text>
+
+  <!-- Description -->
+  <text x="600" y="390" class="description" text-anchor="middle">Stream and download Chinese animation with a Wuxia-forged engine</text>
+
+  <!-- Terminal preview -->
+  <rect x="320" y="420" width="560" height="60" fill="#0e1c18" stroke="url(#jadeGradient)" stroke-width="1" rx="5" opacity="0.8"/>
+  <text x="340" y="455" class="code" style="font-size: 18px;">$ python dhua.py "Battle Through the Heavens"</text>
+
+  <!-- Features badges -->
+  <g transform="translate(250, 510)">
+    <!-- Badge 1 -->
+    <rect width="140" height="35" fill="none" stroke="#00A86B" stroke-width="1" rx="17.5"/>
+    <text x="70" y="23" class="badge" fill="#00A86B" text-anchor="middle">Lightning Fast</text>
+
+    <!-- Badge 2 -->
+    <g transform="translate(160, 0)">
+      <rect width="140" height="35" fill="none" stroke="#d4af37" stroke-width="1" rx="17.5"/>
+      <text x="70" y="23" class="badge" fill="#d4af37" text-anchor="middle">Multi-Source</text>
+    </g>
+
+    <!-- Badge 3 -->
+    <g transform="translate(320, 0)">
+      <rect width="150" height="35" fill="none" stroke="#00A86B" stroke-width="1" rx="17.5"/>
+      <text x="75" y="23" class="badge" fill="#00A86B" text-anchor="middle">Cross-Platform</text>
+    </g>
+
+    <!-- Badge 4 -->
+    <g transform="translate(490, 0)">
+      <rect width="120" height="35" fill="none" stroke="#d4af37" stroke-width="1" rx="17.5"/>
+      <text x="60" y="23" class="badge" fill="#d4af37" text-anchor="middle">Open Source</text>
+    </g>
+  </g>
+
+  <!-- Bottom text -->
+  <text x="600" y="580" style="font-family: 'Inter', sans-serif; font-size: 16px; fill: #7a8a6e;" text-anchor="middle">github.com/Thanukamax/donghua-cli</text>
+</svg>

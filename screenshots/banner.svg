@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" style="background: #0a1512; font-family: 'Fira Code', monospace;">
+  <defs>
+    <style>
+      .jade { fill: #00A86B; }
+      .gold { fill: #d4af37; }
+      .light-gold { fill: #f0d060; }
+      .white { fill: #f5f0e1; }
+      .gray { fill: #7a8a6e; }
+      .dark-jade { fill: #004d33; }
+      .red { fill: #c41e3a; }
+      .silver { fill: #b8c5a6; }
+      .terminal-text { font-size: 14px; font-family: 'Fira Code', 'Courier New', monospace; }
+    </style>
+  </defs>
+
+  <!-- Terminal window -->
+  <rect width="800" height="300" fill="#0a1512"/>
+
+  <!-- Banner border top -->
+  <text x="50" y="40" class="terminal-text jade">┌────────────────────────────────────────────────────────────────────┐</text>
+
+  <!-- Title -->
+  <text x="50" y="60" class="terminal-text jade">│</text>
+  <text x="80" y="60" class="terminal-text">🗡️  </text>
+  <text x="110" y="60" class="terminal-text gold">武 侠 动 画 终 端</text>
+  <text x="280" y="60" class="terminal-text"> 🐉  </text>
+  <text x="310" y="60" class="terminal-text light-gold">Donghua CLI</text>
+  <text x="450" y="60" class="terminal-text">  🗡️</text>
+  <text x="750" y="60" class="terminal-text jade">│</text>
+
+  <!-- Subtitle -->
+  <text x="50" y="80" class="terminal-text jade">│</text>
+  <text x="90" y="80" class="terminal-text gray">Imperial Terminal for Chinese Animation</text>
+  <text x="750" y="80" class="terminal-text jade">│</text>
+
+  <!-- Separator -->
+  <text x="50" y="100" class="terminal-text jade">├────────────────────────────────────────────────────────────────────┤</text>
+
+  <!-- Technique -->
+  <text x="50" y="120" class="terminal-text jade">│</text>
+  <text x="80" y="120" class="terminal-text">☁️</text>
+  <text x="350" y="120" class="terminal-text gray">Dragon Tail Sweep</text>
+  <text x="720" y="120" class="terminal-text">☁️</text>
+  <text x="750" y="120" class="terminal-text jade">│</text>
+
+  <!-- Separator -->
+  <text x="50" y="140" class="terminal-text jade">├────────────────────────────────────────────────────────────────────┤</text>
+
+  <!-- Badges -->
+  <text x="50" y="160" class="terminal-text jade">│</text>
+  <text x="80" y="160" class="terminal-text red">[</text>
+  <text x="90" y="160" class="terminal-text white"> v2.0 OPTIMIZED </text>
+  <text x="210" y="160" class="terminal-text red">]</text>
+  <text x="230" y="160" class="terminal-text gold">[</text>
+  <text x="240" y="160" class="terminal-text white"> Python 3.8+ </text>
+  <text x="340" y="160" class="terminal-text gold">]</text>
+  <text x="360" y="160" class="terminal-text jade">[</text>
+  <text x="370" y="160" class="terminal-text white"> Linux </text>
+  <text x="430" y="160" class="terminal-text jade">]</text>
+  <text x="450" y="160" class="terminal-text silver">[</text>
+  <text x="460" y="160" class="terminal-text white"> MIT License </text>
+  <text x="570" y="160" class="terminal-text silver">]</text>
+  <text x="750" y="160" class="terminal-text jade">│</text>
+
+  <!-- Empty line -->
+  <text x="50" y="180" class="terminal-text jade">│</text>
+  <text x="750" y="180" class="terminal-text jade">│</text>
+
+  <!-- Message -->
+  <text x="50" y="200" class="terminal-text jade">│</text>
+  <text x="80" y="200" class="terminal-text">🐉</text>
+  <text x="110" y="200" class="terminal-text dark-jade">  Enter the realm of immortal cultivation</text>
+  <text x="750" y="200" class="terminal-text jade">│</text>
+
+  <!-- Bottom border -->
+  <text x="50" y="220" class="terminal-text jade">└────────────────────────────────────────────────────────────────────┘</text>
+</svg>
