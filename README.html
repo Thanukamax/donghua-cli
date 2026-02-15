@@ -1,0 +1,4101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Donghua CLI | Imperial Documentation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Cinzel:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        /* ══════════════════════════════════════════════════════════════
+           IMPERIAL PALACE DESIGN SYSTEM
+           Jade & Gold | Premium Donghua CLI Documentation
+           ══════════════════════════════════════════════════════════════ */
+
+        :root {
+            --bg-deep: #060d0b;
+            --bg: #0a1512;
+            --bg-elevated: #0e1c18;
+            --surface: #132822;
+            --surface-hover: #1a3530;
+            --jade: #00A86B;
+            --jade-light: #2ed89a;
+            --jade-dark: #004d33;
+            --jade-glow: rgba(0, 168, 107, 0.25);
+            --jade-subtle: rgba(0, 168, 107, 0.08);
+            --gold: #d4af37;
+            --gold-light: #f0d060;
+            --gold-dark: #a88a2a;
+            --gold-glow: rgba(212, 175, 55, 0.25);
+            --gold-subtle: rgba(212, 175, 55, 0.08);
+            --imperial-red: #c41e3a;
+            --imperial-red-glow: rgba(196, 30, 58, 0.2);
+            --text-primary: #f5f0e1;
+            --text-secondary: #b8c5a6;
+            --text-muted: #7a8a6e;
+            --glass: rgba(19, 40, 34, 0.85);
+            --glass-light: rgba(26, 53, 48, 0.7);
+            --border-gold: rgba(212, 175, 55, 0.2);
+            --border-jade: rgba(0, 168, 107, 0.15);
+            --border-strong: rgba(212, 175, 55, 0.4);
+            --shadow-gold: 0 4px 30px rgba(212, 175, 55, 0.1);
+            --shadow-jade: 0 4px 30px rgba(0, 168, 107, 0.1);
+            --shadow-deep: 0 8px 40px rgba(0, 0, 0, 0.4);
+            --bg-color: #0a0a0a;
+            --card-bg: rgba(0, 20, 10, 0.8);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.7;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        @keyframes leafSway {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            50% {
+                transform: rotate(3deg);
+            }
+
+            100% {
+                transform: rotate(0deg);
+            }
+        }
+
+        /* ── IMPERIAL BACKGROUND PATTERN ── */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(ellipse 800px 600px at 20% 10%, rgba(0, 168, 107, 0.04) 0%, transparent 70%),
+                radial-gradient(ellipse 600px 800px at 80% 50%, rgba(212, 175, 55, 0.03) 0%, transparent 70%),
+                radial-gradient(ellipse 900px 400px at 50% 90%, rgba(0, 168, 107, 0.03) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── ORNAMENTAL BORDERS (Left & Right Palace Pillars) ── */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                linear-gradient(to right, rgba(212, 175, 55, 0.06) 0px, transparent 2px, transparent calc(100% - 2px), rgba(212, 175, 55, 0.06) 100%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        ::selection {
+            background: rgba(212, 175, 55, 0.3);
+            color: var(--text-primary);
+        }
+
+        h1,
+        h2,
+        h3,
+        h4 {
+            font-family: 'Cinzel', 'Georgia', serif;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        a {
+            color: var(--jade-light);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        a:hover {
+            color: var(--gold-light);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           IMPERIAL HEADER
+           ══════════════════════════════════════════════════════════════ */
+        header {
+            width: 100%;
+            margin-bottom: 0;
+            position: relative;
+        }
+
+        .hero-img-wrapper {
+            position: relative;
+            overflow: hidden;
+            mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+        }
+
+        .hero-img-wrapper::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 200px;
+            background: linear-gradient(to bottom, transparent, var(--bg));
+            pointer-events: none;
+        }
+
+        .hero-img {
+            width: 100%;
+            display: block;
+        }
+
+        .hero-content {
+            text-align: center;
+            padding: 3rem 1rem 5rem;
+            position: relative;
+        }
+
+        /* Imperial Seal Ring */
+        .imperial-seal {
+            width: 90px;
+            height: 90px;
+            margin: 0 auto 2rem;
+            border: 2px solid var(--gold);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            background: radial-gradient(circle, rgba(212, 175, 55, 0.1) 0%, transparent 70%);
+            box-shadow: 0 0 40px rgba(212, 175, 55, 0.15), inset 0 0 20px rgba(212, 175, 55, 0.05);
+            animation: sealPulse 4s ease-in-out infinite;
+        }
+
+        @keyframes sealPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 40px rgba(212, 175, 55, 0.15), inset 0 0 20px rgba(212, 175, 55, 0.05);
+            }
+
+            50% {
+                box-shadow: 0 0 60px rgba(212, 175, 55, 0.25), inset 0 0 30px rgba(212, 175, 55, 0.1);
+            }
+        }
+
+        .hero-content h1 {
+            font-family: 'Ma Shan Zheng', serif;
+            font-size: clamp(3.5rem, 8vw, 6rem);
+            background: linear-gradient(135deg, var(--gold-light) 0%, var(--gold) 30%, var(--jade) 70%, var(--jade-light) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.08em;
+            font-weight: 400;
+            line-height: 1.2;
+            filter: drop-shadow(0 0 25px rgba(212,175,55,0.2));
+        }
+
+        .hero-subtitle {
+            font-family: 'Cinzel', serif;
+            font-size: clamp(0.85rem, 2vw, 1.1rem);
+            color: var(--gold);
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            opacity: 0.8;
+        }
+
+        .hero-desc {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 550px;
+            margin: 0 auto 1.5rem;
+            font-weight: 300;
+        }
+
+        .hero-author {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+        }
+
+        .hero-author strong {
+            color: var(--gold);
+            font-weight: 600;
+        }
+
+        /* Badges */
+        .badges {
+            display: flex;
+            justify-content: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            padding: 0.4rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            border: 1px solid transparent;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .badge:hover {
+            transform: translateY(-2px);
+        }
+
+        .badge-gold {
+            background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+            color: var(--bg-deep);
+            box-shadow: 0 2px 15px rgba(212, 175, 55, 0.3);
+        }
+
+        .badge-jade {
+            background: linear-gradient(135deg, var(--jade-dark), var(--jade));
+            color: white;
+            box-shadow: 0 2px 15px rgba(0, 168, 107, 0.3);
+        }
+
+        .badge-red {
+            background: linear-gradient(135deg, #8b1528, var(--imperial-red));
+            color: white;
+            box-shadow: 0 2px 15px var(--imperial-red-glow);
+        }
+
+        .badge-outline {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-gold);
+        }
+
+        /* ── ORNAMENTAL DIVIDER ── */
+        .imperial-divider {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            padding: 2rem 0;
+            opacity: 0.5;
+        }
+
+        .imperial-divider .line {
+            flex: 1;
+            max-width: 120px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gold), transparent);
+        }
+
+        .imperial-divider .ornament {
+            color: var(--gold);
+            font-size: 0.9rem;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           NAVIGATION
+           ══════════════════════════════════════════════════════════════ */
+        .nav-bar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(6, 13, 11, 0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-gold);
+            padding: 0;
+        }
+
+        .nav-inner {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .nav-inner::-webkit-scrollbar {
+            display: none;
+        }
+
+        .nav-link {
+            padding: 1rem 1.25rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            white-space: nowrap;
+            transition: color 0.3s ease;
+            position: relative;
+            font-family: 'Cinzel', serif;
+        }
+
+        .nav-link:hover {
+            color: var(--gold);
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 2px;
+            background: var(--gold);
+            transition: width 0.3s ease;
+        }
+
+        .nav-link:hover::after {
+            width: 60%;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           SECTIONS
+           ══════════════════════════════════════════════════════════════ */
+        section {
+            padding: 5rem 0;
+            position: relative;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3.5rem;
+        }
+
+        .section-label {
+            font-family: 'Cinzel', serif;
+            font-size: 0.75rem;
+            letter-spacing: 0.35em;
+            text-transform: uppercase;
+            color: var(--gold);
+            margin-bottom: 0.75rem;
+            display: block;
+        }
+
+        .section-title {
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--gold) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.75rem;
+        }
+
+        .section-subtitle {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+            font-weight: 300;
+        }
+
+        /* Ornamental underline for section titles */
+        .section-header::after {
+            content: '';
+            display: block;
+            width: 80px;
+            height: 2px;
+            margin: 1.5rem auto 0;
+            background: linear-gradient(90deg, var(--gold), var(--jade), var(--gold));
+            border-radius: 1px;
+            box-shadow: 0 0 10px var(--gold-glow);
+        }
+
+        /* ── CARDS ── */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: linear-gradient(160deg, var(--surface) 0%, rgba(0, 168, 107, 0.05) 100%);
+            padding: 2rem;
+            border-radius: 1rem;
+            border: 1px solid var(--border-gold);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--gold), var(--jade), var(--gold), transparent);
+        }
+
+        .card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(ellipse at top right, rgba(212, 175, 55, 0.03) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(212, 175, 55, 0.4);
+            box-shadow: var(--shadow-gold);
+        }
+
+        .card-icon {
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .card h3 {
+            font-size: 1.15rem;
+            color: var(--text-primary);
+            margin-bottom: 0.75rem;
+        }
+
+        .card p {
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+            line-height: 1.6;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           IMPERIAL DECREE (Alert Callout)
+           ══════════════════════════════════════════════════════════════ */
+        .decree {
+            background: linear-gradient(135deg, rgba(196, 30, 58, 0.08) 0%, rgba(212, 175, 55, 0.05) 100%);
+            border: 1px solid rgba(196, 30, 58, 0.25);
+            border-left: 4px solid var(--imperial-red);
+            border-radius: 0.75rem;
+            padding: 1.75rem 2rem;
+            margin: 2rem 0 3rem;
+            position: relative;
+        }
+
+        .decree-title {
+            font-family: 'Cinzel', serif;
+            color: var(--imperial-red);
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .decree p {
+            color: var(--text-secondary);
+            font-size: 0.93rem;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           PREREQUISITES
+           ══════════════════════════════════════════════════════════════ */
+        .prereq-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .prereq-item {
+            background: var(--surface);
+            border: 1px solid var(--border-jade);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            text-align: center;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .prereq-item:hover {
+            border-color: var(--jade);
+            box-shadow: var(--shadow-jade);
+        }
+
+        .prereq-icon {
+            font-size: 2rem;
+            margin-bottom: 0.75rem;
+            display: block;
+        }
+
+        .prereq-name {
+            font-family: 'Cinzel', serif;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .prereq-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           INSTALLATION TABS
+           ══════════════════════════════════════════════════════════════ */
+        .os-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .os-tab {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            background: var(--surface);
+            border: 1px solid var(--border-gold);
+            color: var(--text-secondary);
+            font-family: 'Cinzel', serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            letter-spacing: 0.03em;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .os-tab::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(0, 168, 107, 0.1));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .os-tab:hover::before,
+        .os-tab.active::before {
+            opacity: 1;
+        }
+
+        .os-tab.active {
+            border-color: var(--gold);
+            color: var(--gold);
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.15);
+        }
+
+        .os-tab .tab-icon {
+            margin-right: 0.5rem;
+        }
+
+        .os-panel {
+            display: none;
+            animation: panelFade 0.5s ease;
+        }
+
+        .os-panel.active {
+            display: block;
+        }
+
+        @keyframes panelFade {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ── OS PANEL LAYOUT ── */
+        .install-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        .install-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .install-header .os-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            border: 1px solid var(--border-gold);
+            background: var(--surface);
+        }
+
+        .install-header h3 {
+            font-size: 1.5rem;
+            color: var(--text-primary);
+        }
+
+        .install-header .os-version {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-family: 'Inter', sans-serif;
+            font-weight: 400;
+        }
+
+        /* ── STEPS ── */
+        .step {
+            position: relative;
+            padding-left: 3.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .step::before {
+            content: '';
+            position: absolute;
+            left: 17px;
+            top: 40px;
+            bottom: -2.5rem;
+            width: 1px;
+            background: linear-gradient(to bottom, var(--gold), transparent);
+        }
+
+        .step:last-child::before {
+            display: none;
+        }
+
+        .step-number {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+            color: var(--bg-deep);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Cinzel', serif;
+            font-weight: 700;
+            font-size: 0.85rem;
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+        }
+
+        .step-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .step-desc {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+
+        /* ── CODE BLOCKS ── */
+        .code-block {
+            background: linear-gradient(160deg, #050a08 0%, #0e1c18 50%, #0a1410 100%);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            position: relative;
+            overflow-x: auto;
+            border: 1px solid var(--border-gold);
+            box-shadow: inset 0 2px 15px rgba(0, 0, 0, 0.4), var(--shadow-gold);
+        }
+
+        .code-block::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gold), var(--jade), var(--gold), transparent);
+        }
+
+        .code-label {
+            position: absolute;
+            top: 0.6rem;
+            right: 0.75rem;
+            font-family: 'Cinzel', serif;
+            font-size: 0.65rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--gold);
+            opacity: 0.4;
+            padding: 0.15rem 0.5rem;
+            border: 1px solid rgba(212, 175, 55, 0.15);
+            border-radius: 0.25rem;
+        }
+
+        .code-block pre {
+            font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            line-height: 1.8;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .code-block .comment {
+            color: var(--text-muted);
+        }
+
+        .code-block .cmd {
+            color: var(--jade-light);
+        }
+
+        .code-block .flag {
+            color: var(--gold);
+        }
+
+        /* Copy button */
+        .copy-btn {
+            position: absolute;
+            bottom: 0.6rem;
+            right: 0.75rem;
+            background: rgba(212, 175, 55, 0.1);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            color: var(--gold);
+            padding: 0.3rem 0.7rem;
+            border-radius: 0.4rem;
+            font-size: 0.7rem;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: rgba(212, 175, 55, 0.2);
+            border-color: var(--gold);
+        }
+
+        /* ── INFO/TIP CALLOUTS ── */
+        .tip {
+            background: linear-gradient(135deg, var(--gold-subtle) 0%, var(--jade-subtle) 100%);
+            border: 1px solid var(--border-gold);
+            border-left: 3px solid var(--gold);
+            border-radius: 0.75rem;
+            padding: 1.5rem 1.75rem;
+            margin: 1.5rem 0;
+            position: relative;
+        }
+
+        .tip-title {
+            font-family: 'Cinzel', serif;
+            color: var(--gold);
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.03em;
+        }
+
+        .tip p,
+        .tip li {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .tip.tip-jade {
+            border-left-color: var(--jade);
+        }
+
+        .tip.tip-jade .tip-title {
+            color: var(--jade-light);
+        }
+
+        /* ── VERIFICATION BOX ── */
+        .verify-box {
+            background: linear-gradient(135deg, rgba(0, 168, 107, 0.08), rgba(0, 168, 107, 0.03));
+            border: 1px solid rgba(0, 168, 107, 0.2);
+            border-radius: 0.75rem;
+            padding: 1.25rem 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .verify-title {
+            font-family: 'Cinzel', serif;
+            color: var(--jade-light);
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .verify-box code {
+            display: block;
+            margin-top: 0.5rem;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           USAGE TABLE
+           ══════════════════════════════════════════════════════════════ */
+        .commands-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 2rem 0;
+            border-radius: 1rem;
+            overflow: hidden;
+            border: 1px solid var(--border-gold);
+            box-shadow: var(--shadow-deep);
+        }
+
+        .commands-table thead {
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(0, 168, 107, 0.05));
+        }
+
+        .commands-table th {
+            text-align: left;
+            padding: 1.1rem 1.5rem;
+            font-family: 'Cinzel', serif;
+            color: var(--gold);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border-strong);
+        }
+
+        .commands-table td {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-gold);
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            background: rgba(19, 40, 34, 0.5);
+            transition: background 0.3s ease;
+        }
+
+        .commands-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .commands-table tr:hover td {
+            background: rgba(212, 175, 55, 0.04);
+        }
+
+        code {
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.12) 0%, rgba(0, 168, 107, 0.12) 100%);
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.3rem;
+            font-family: 'Fira Code', monospace;
+            color: var(--gold);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           TROUBLESHOOTING
+           ══════════════════════════════════════════════════════════════ */
+        .trouble-card {
+            background: var(--surface);
+            border: 1px solid var(--border-gold);
+            border-radius: 1rem;
+            overflow: hidden;
+            margin-bottom: 1.25rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .trouble-card:hover {
+            border-color: rgba(212, 175, 55, 0.4);
+        }
+
+        .trouble-header {
+            padding: 1.25rem 1.75rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .trouble-header:hover {
+            background: rgba(212, 175, 55, 0.04);
+        }
+
+        .trouble-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 0.5rem;
+            background: linear-gradient(135deg, rgba(196, 30, 58, 0.15), rgba(212, 175, 55, 0.1));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .trouble-question {
+            font-family: 'Cinzel', serif;
+            font-size: 1rem;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .trouble-answer {
+            padding: 0 1.75rem 1.5rem;
+            padding-left: calc(1.75rem + 36px + 1rem);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           FOOTER
+           ══════════════════════════════════════════════════════════════ */
+        footer {
+            margin-top: 0;
+            position: relative;
+        }
+
+        .footer-img-wrapper {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .footer-img-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 200px;
+            background: linear-gradient(to top, transparent, var(--bg));
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .footer-img {
+            width: 100%;
+            display: block;
+        }
+
+        .footer-content {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: linear-gradient(to bottom, var(--bg-elevated), var(--bg-deep));
+            border-top: 1px solid var(--border-gold);
+        }
+
+        .footer-brand {
+            font-family: 'Cinzel', serif;
+            font-size: 1.3rem;
+            color: var(--gold);
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-text {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .footer-copy {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            opacity: 0.5;
+            margin-top: 1.5rem;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           ANIMATIONS
+           ══════════════════════════════════════════════════════════════ */
+        .reveal {
+            opacity: 0;
+            transform: translateY(25px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ── CULTIVATION SEAL SPLASH ── */
+        body.seal-locked { overflow: hidden; height: 100vh; }
+        #cultivation-seal-splash {
+            position: fixed; inset: 0; z-index: 200;
+        }
+
+        /* ── RESPONSIVE ── */
+
+        /* Tablet */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1.25rem;
+            }
+
+            section {
+                padding: 3.5rem 0;
+            }
+
+            .section-header {
+                margin-bottom: 2.5rem;
+            }
+
+            .step {
+                padding-left: 3rem;
+            }
+
+            .step-number {
+                width: 32px;
+                height: 32px;
+                font-size: 0.8rem;
+            }
+
+            .step::before {
+                left: 15px;
+            }
+
+            .install-header h3 {
+                font-size: 1.2rem;
+            }
+
+            .install-header .os-icon {
+                width: 42px;
+                height: 42px;
+                font-size: 1.3rem;
+            }
+
+            .commands-table th,
+            .commands-table td {
+                padding: 0.75rem 1rem;
+                font-size: 0.82rem;
+            }
+
+            .os-tabs {
+                gap: 0.35rem;
+            }
+
+            .os-tab {
+                padding: 0.6rem 1rem;
+                font-size: 0.78rem;
+            }
+
+            .trouble-answer {
+                padding-left: 1.75rem;
+            }
+
+            .trouble-header {
+                padding: 1rem 1.25rem;
+                gap: 0.75rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .prereq-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .card {
+                padding: 1.5rem;
+            }
+
+            .decree {
+                padding: 1.25rem 1.5rem;
+            }
+
+            .tip {
+                padding: 1.25rem 1.5rem;
+            }
+
+            .footer-content {
+                padding: 3rem 1.5rem;
+            }
+
+            /* Nav: switch from centered to start-aligned so scrolling works */
+            .nav-inner {
+                justify-content: flex-start;
+                padding: 0 1rem;
+                gap: 0;
+            }
+
+            .nav-link {
+                padding: 0.85rem 0.75rem;
+                font-size: 0.7rem;
+                letter-spacing: 0.05em;
+            }
+        }
+
+        /* Mobile */
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 1rem;
+            }
+
+            section {
+                padding: 2.5rem 0;
+            }
+
+            .section-header {
+                margin-bottom: 2rem;
+            }
+
+            .section-title {
+                margin-bottom: 0.5rem;
+            }
+
+            .section-subtitle {
+                font-size: 0.95rem;
+            }
+
+            .hero-content {
+                padding: 2rem 0.5rem 3rem;
+            }
+
+            .imperial-seal {
+                width: 70px;
+                height: 70px;
+                font-size: 1.8rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .hero-subtitle {
+                letter-spacing: 0.15em;
+                font-size: clamp(0.7rem, 1.8vw, 0.85rem);
+            }
+
+            .hero-desc {
+                font-size: 0.95rem;
+                margin-bottom: 1rem;
+            }
+
+            .hero-author {
+                font-size: 0.82rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .badges {
+                gap: 0.5rem;
+            }
+
+            .badge {
+                padding: 0.35rem 0.75rem;
+                font-size: 0.72rem;
+            }
+
+            .code-block {
+                padding: 1.25rem 1rem;
+            }
+
+            .code-block pre {
+                font-size: 0.75rem;
+                line-height: 1.7;
+                word-break: break-all;
+                white-space: pre-wrap;
+            }
+
+            .code-label {
+                font-size: 0.6rem;
+                top: 0.4rem;
+                right: 0.5rem;
+            }
+
+            .copy-btn {
+                font-size: 0.65rem;
+                padding: 0.25rem 0.5rem;
+            }
+
+            .step {
+                padding-left: 2.5rem;
+                margin-bottom: 2rem;
+            }
+
+            .step-number {
+                width: 28px;
+                height: 28px;
+                font-size: 0.75rem;
+            }
+
+            .step::before {
+                left: 13px;
+                top: 34px;
+            }
+
+            .step-title {
+                font-size: 0.95rem;
+            }
+
+            .step-desc {
+                font-size: 0.85rem;
+            }
+
+            .os-tabs {
+                gap: 0.25rem;
+            }
+
+            .os-tab {
+                padding: 0.5rem 0.7rem;
+                font-size: 0.72rem;
+            }
+
+            .os-tab .tab-icon {
+                margin-right: 0.3rem;
+            }
+
+            .install-header {
+                gap: 0.75rem;
+                margin-bottom: 1rem;
+            }
+
+            .install-header .os-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 1.2rem;
+            }
+
+            .install-header h3 {
+                font-size: 1.1rem;
+            }
+
+            .prereq-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+            }
+
+            .prereq-item {
+                padding: 1rem;
+            }
+
+            .prereq-icon {
+                font-size: 1.6rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .prereq-name {
+                font-size: 0.85rem;
+            }
+
+            .prereq-desc {
+                font-size: 0.72rem;
+            }
+
+            .card {
+                padding: 1.25rem;
+                border-radius: 0.75rem;
+            }
+
+            .card-icon {
+                font-size: 1.5rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .card h3 {
+                font-size: 1.05rem;
+            }
+
+            .card p {
+                font-size: 0.85rem;
+            }
+
+            /* Commands table: stack on mobile */
+            .commands-table {
+                font-size: 0.8rem;
+            }
+
+            .commands-table th,
+            .commands-table td {
+                padding: 0.6rem 0.75rem;
+                font-size: 0.78rem;
+            }
+
+            .commands-table code {
+                font-size: 0.72em;
+                padding: 0.15rem 0.35rem;
+            }
+
+            .trouble-header {
+                padding: 1rem 1rem;
+                gap: 0.6rem;
+            }
+
+            .trouble-icon {
+                width: 30px;
+                height: 30px;
+                font-size: 0.85rem;
+                border-radius: 0.4rem;
+            }
+
+            .trouble-question {
+                font-size: 0.88rem;
+            }
+
+            .trouble-answer {
+                padding: 0 1rem 1.25rem;
+                padding-left: calc(1rem + 30px + 0.6rem);
+                font-size: 0.85rem;
+            }
+
+            .decree {
+                padding: 1.25rem 1.25rem;
+                margin: 1.5rem 0 2rem;
+            }
+
+            .decree-title {
+                font-size: 0.88rem;
+            }
+
+            .decree p {
+                font-size: 0.85rem;
+            }
+
+            .tip {
+                padding: 1.1rem 1.25rem;
+                margin: 1rem 0;
+            }
+
+            .tip-title {
+                font-size: 0.82rem;
+            }
+
+            .tip p,
+            .tip li {
+                font-size: 0.85rem;
+            }
+
+            .verify-box {
+                padding: 1rem 1.25rem;
+            }
+
+            .verify-title {
+                font-size: 0.8rem;
+            }
+
+            .imperial-divider {
+                padding: 1.5rem 0;
+                gap: 0.75rem;
+            }
+
+            .footer-content {
+                padding: 2.5rem 1rem;
+            }
+
+            .footer-brand {
+                font-size: 1.1rem;
+            }
+
+            .footer-text {
+                font-size: 0.82rem;
+            }
+
+            .footer-copy {
+                font-size: 0.72rem;
+            }
+
+            .nav-inner {
+                justify-content: flex-start;
+                padding: 0 0.5rem;
+            }
+
+            .nav-link {
+                padding: 0.75rem 0.6rem;
+                font-size: 0.65rem;
+                letter-spacing: 0.03em;
+            }
+
+            /* Override inline 2-column grid on mobile */
+            .grid[style*="grid-template-columns: 1fr 1fr"] {
+                grid-template-columns: 1fr !important;
+            }
+        }
+
+        /* Small phones */
+        @media (max-width: 360px) {
+            .container {
+                padding: 0 0.75rem;
+            }
+
+            .hero-content h1 {
+                font-size: 2rem;
+            }
+
+            .hero-subtitle {
+                letter-spacing: 0.1em;
+            }
+
+            .nav-inner {
+                justify-content: flex-start;
+            }
+
+            .nav-link {
+                padding: 0.7rem 0.5rem;
+                font-size: 0.6rem;
+            }
+
+            .os-tabs {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .os-tab {
+                text-align: center;
+            }
+
+            .prereq-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .step {
+                padding-left: 2.25rem;
+            }
+
+            .commands-table th,
+            .commands-table td {
+                padding: 0.5rem 0.6rem;
+                font-size: 0.72rem;
+            }
+
+            .trouble-answer {
+                padding-left: 1rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ═══ HEADER ═══ -->
+
+    <body>
+        <div id="cultivation-seal-splash"></div>
+        <div id="bamboo-sides"></div>
+        <div id="bamboo-leaf-bed"></div>
+        <div id="cultivation-overlay"></div>
+        <header>
+            <div class="hero-img-wrapper">
+
+            </div>
+            <div class="hero-content">
+
+                <h1>动画 CLI</h1>
+                <div class="hero-subtitle">Imperial Terminal for Chinese Animation</div>
+                <p class="hero-desc">Stream and download Donghua from your terminal with a Wuxia-forged engine.
+                    Multi-source, multi-platform, multi-quality.</p>
+                <p class="hero-author">Forged by <strong>Thanukamax</strong></p>
+                <div class="badges">
+                    <span class="badge badge-gold">Python 3.8+</span>
+                    <span class="badge badge-jade">MIT License</span>
+                    <span class="badge badge-red">v2.0</span>
+                    <span class="badge badge-outline">Linux &bull; Windows &bull; Android &bull; iOS</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ═══ NAVIGATION ═══ -->
+        <nav class="nav-bar">
+            <div class="nav-inner">
+                <a href="#features" class="nav-link">Features</a>
+                <a href="#prerequisites" class="nav-link">Prerequisites</a>
+                <a href="#installation" class="nav-link">Installation</a>
+                <a href="#usage" class="nav-link">Usage</a>
+                <a href="#troubleshooting" class="nav-link">Troubleshooting</a>
+            </div>
+        </nav>
+
+        <main class="container">
+
+            <!-- ═══ IMPERIAL DECREE ═══ -->
+            <div class="decree reveal">
+                <div class="decree-title">Imperial Decree: Series Availability</div>
+                <p>Ancient tomes and first seasons may be lost to the realms, as source domains preserve only recent
+                    chronicles. The imperial scribes are working on realm aggregation techniques to restore these lost
+                    cultivation manuals in future updates.</p>
+            </div>
+
+            <!-- ═══════════ FEATURES ═══════════ -->
+            <section id="features">
+                <div class="section-header reveal">
+                    <span class="section-label">Core Abilities</span>
+                    <h2 class="section-title">Features</h2>
+                    <p class="section-subtitle">Everything you need to stream and download Donghua from the terminal</p>
+                </div>
+                <div class="grid reveal">
+                    <div class="card">
+                        <span class="card-icon">&#127760;</span>
+                        <h3>Multi-Source Scraping</h3>
+                        <p>Searches LuciferDonghua and AnimeXin simultaneously, giving you the widest library of Chinese
+                            animation available.</p>
+                    </div>
+                    <div class="card">
+                        <span class="card-icon">&#9889;</span>
+                        <h3>Instant Streaming</h3>
+                        <p>MPV-powered playback with yt-dlp backend. LRU caching and episode preloading for zero-wait
+                            binge sessions.</p>
+                    </div>
+                    <div class="card">
+                        <span class="card-icon">&#11015;</span>
+                        <h3>Fast Downloads</h3>
+                        <p>Save episodes locally to ~/Videos/Donghua for offline cultivation. Select quality from 360p
+                            to 1080p.</p>
+                    </div>
+                    <div class="card">
+                        <span class="card-icon">&#128241;</span>
+                        <h3>Cross-Platform</h3>
+                        <p>Runs on Linux, Windows, Android (Termux), and iOS (iSH). Optimized scripts for each platform.
+                        </p>
+                    </div>
+                    <div class="card">
+                        <span class="card-icon">&#128270;</span>
+                        <h3>Deep Iframe Scanning</h3>
+                        <p>Advanced stream extraction that digs through nested iframes, base64 obfuscation, and
+                            Dailymotion embeds.</p>
+                    </div>
+                    <div class="card">
+                        <span class="card-icon">&#127912;</span>
+                        <h3>Quality Control</h3>
+                        <p>Choose 360p for mobile data, 720p for balanced, or 1080p for the full cultivation experience.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="imperial-divider"><span class="line"></span><span class="ornament">&#9830;</span><span
+                    class="line"></span></div>
+
+            <!-- ═══════════ PREREQUISITES ═══════════ -->
+            <section id="prerequisites">
+                <div class="section-header reveal">
+                    <span class="section-label">Before You Begin</span>
+                    <h2 class="section-title">Prerequisites</h2>
+                    <p class="section-subtitle">Gather these tools before entering the cultivation grounds</p>
+                </div>
+                <div class="prereq-grid reveal">
+                    <div class="prereq-item">
+                        <span class="prereq-icon">&#128013;</span>
+                        <div class="prereq-name">Python 3.8+</div>
+                        <div class="prereq-desc">Core runtime</div>
+                    </div>
+                    <div class="prereq-item">
+                        <span class="prereq-icon">&#128230;</span>
+                        <div class="prereq-name">pip</div>
+                        <div class="prereq-desc">Package installer</div>
+                    </div>
+                    <div class="prereq-item">
+                        <span class="prereq-icon">&#127916;</span>
+                        <div class="prereq-name">mpv / VLC</div>
+                        <div class="prereq-desc">Video player</div>
+                    </div>
+                    <div class="prereq-item">
+                        <span class="prereq-icon">&#128249;</span>
+                        <div class="prereq-name">ffmpeg</div>
+                        <div class="prereq-desc">Media processing (Linux)</div>
+                    </div>
+                </div>
+                <div class="tip tip-jade reveal" style="margin-top: 2rem;">
+                    <div class="tip-title">Python Packages (Installed Automatically)</div>
+                    <p><code>requests</code> &mdash; HTTP requests &bull; <code>beautifulsoup4</code> &mdash; HTML
+                        parsing &bull; <code>yt-dlp</code> &mdash; Video extraction</p>
+                </div>
+            </section>
+
+            <div class="imperial-divider"><span class="line"></span><span class="ornament">&#9830;</span><span
+                    class="line"></span></div>
+
+            <!-- ═══════════ INSTALLATION ═══════════ -->
+            <section id="installation">
+                <div class="section-header reveal">
+                    <span class="section-label">Enter the Realm</span>
+                    <h2 class="section-title">Installation</h2>
+                    <p class="section-subtitle">Select your platform and follow the sacred scrolls</p>
+                </div>
+
+                <!-- OS TABS -->
+                <div class="os-tabs reveal">
+                    <button class="os-tab active" onclick="showPanel('linux')"><span class="tab-icon">&#128039;</span>
+                        Linux</button>
+                    <button class="os-tab" onclick="showPanel('windows')"><span class="tab-icon">&#128187;</span>
+                        Windows</button>
+                    <button class="os-tab" onclick="showPanel('android')"><span class="tab-icon">&#128241;</span>
+                        Android</button>
+                    <button class="os-tab" onclick="showPanel('ios')"><span class="tab-icon">&#127822;</span>
+                        iOS</button>
+                </div>
+
+                <!-- ─── LINUX PANEL ─── -->
+                <div id="panel-linux" class="os-panel active">
+                    <div class="install-header">
+                        <div class="os-icon">&#128039;</div>
+                        <div>
+                            <h3>Linux</h3>
+                            <span class="os-version">Ubuntu / Debian / Linux Mint / Fedora / Arch</span>
+                        </div>
+                    </div>
+                    <div class="install-layout">
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <div class="step-title">Install System Dependencies</div>
+                            <div class="step-desc">Install Python, the MPV video player, and ffmpeg for media
+                                processing. Open your terminal with <code>Ctrl+Alt+T</code>.</div>
+                            <div class="code-block">
+                                <span class="code-label">Terminal</span>
+                                <pre><span class="comment"># Debian / Ubuntu / Mint</span>
+<span class="cmd">sudo apt update</span> <span class="flag">&&</span> <span class="cmd">sudo apt install</span> <span class="flag">python3 python3-pip mpv ffmpeg -y</span>
+
+<span class="comment"># Fedora</span>
+<span class="cmd">sudo dnf install</span> <span class="flag">python3 python3-pip mpv ffmpeg -y</span>
+
+<span class="comment"># Arch Linux</span>
+<span class="cmd">sudo pacman -S</span> <span class="flag">python python-pip mpv ffmpeg</span></pre>
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <div class="step-title">Install Python Dependencies</div>
+                            <div class="step-desc">Install the required Python packages that power the stream extraction
+                                engine.</div>
+                            <div class="code-block">
+                                <span class="code-label">Terminal</span>
+                                <pre><span class="cmd">pip3 install</span> <span class="flag">requests beautifulsoup4 yt-dlp</span></pre>
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <div class="step-title">Run the Installer</div>
+                            <div class="step-desc">The installer detects your shell (bash/zsh), backs up your config,
+                                and adds the <code>dhua</code> command aliases.</div>
+                            <div class="code-block">
+                                <span class="code-label">Terminal</span>
+                                <pre><span class="cmd">chmod +x</span> <span class="flag">install.sh</span> <span class="flag">&&</span> <span class="cmd">./install.sh</span></pre>
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="step">
+                            <div class="step-number">4</div>
+                            <div class="step-title">Reload &amp; Verify</div>
+                            <div class="step-desc">Reload your shell configuration, then verify the installation.</div>
+                            <div class="code-block">
+                                <span class="code-label">Terminal</span>
+                                <pre><span class="cmd">source</span> <span class="flag">~/.bashrc</span>   <span class="comment"># or ~/.zshrc if you use Zsh</span></pre>
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                            <div class="verify-box">
+                                <div class="verify-title">Verify Installation</div>
+                                <p style="color: var(--text-secondary); font-size: 0.88rem;">Run
+                                    <code>dhua "test"</code> &mdash; if the Wuxia-themed interface appears, the
+                                    installation succeeded.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tip reveal">
+                        <div class="tip-title">Manual Run (Without Installer)</div>
+                        <p>You can always run directly: <code>python3 dhua.py "Series Name"</code></p>
+                    </div>
+                </div>
+
+                <!-- ─── WINDOWS PANEL ─── -->
+                <div id="panel-windows" class="os-panel">
+                    <div class="install-header">
+                        <div class="os-icon">&#128187;</div>
+                        <div>
+                            <h3>Windows</h3>
+                            <span class="os-version">Windows 10 / 11 &bull; PowerShell</span>
+                        </div>
+                    </div>
+                    <div class="install-layout">
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <div class="step-title">Install Python</div>
+                            <div class="step-desc">Download and install Python from <a href="https://python.org"
+                                    target="_blank">python.org</a>. During installation, check the box that says
+                                <strong>"Add Python to PATH"</strong> &mdash; this is essential.
+                            </div>
+                        </div>
+
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <div class="step-title">Install MPV Player</div>
+                            <div class="step-desc">MPV is the recommended video player. Install it via winget or
+                                download from <a href="https://mpv.io" target="_blank">mpv.io</a>.</div>
+                            <div class="code-block">
+                                <span class="code-label">PowerShell</span>
+                                <pre><span class="cmd">winget install</span> <span class="flag">mpv</span></pre>
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <div class="step-title">Allow Script Execution</div>
+                            <div class="step-desc">Right-click the Start button, select <strong>PowerShell</strong> (or
+                                Terminal), and allow local script execution.</div>
+                            <div class="code-block">
+                                <span class="code-label">PowerShell</span>
+                                <pre><span class="cmd">Set-ExecutionPolicy</span> <span class="flag">Bypass -Scope CurrentUser</span></pre>
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="step">
+                            <div class="step-number">4</div>
+                            <div class="step-title">Run the Installer</div>
+                            <div class="step-desc">Navigate to the Donghua CLI folder and run the PowerShell installer.
+                                It will install Python dependencies, detect MPV, and set up the <code>dhua</code>
+                                commands in your PowerShell profile.</div>
+                            <div class="code-block">
+                                <span class="code-label">PowerShell</span>
+                                <pre><span class="cmd">.\install.ps1</span></pre>
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="step">
+                            <div class="step-number">5</div>
+                            <div class="step-title">Restart &amp; Verify</div>
+                            <div class="step-desc">Close and reopen PowerShell to load the new profile, then verify.
+                            </div>
+                            <div class="verify-box">
+                                <div class="verify-title">Verify Installation</div>
+                                <p style="color: var(--text-secondary); font-size: 0.88rem;">Run
+                                    <code>dhua "test"</code> in a new PowerShell window &mdash; you should see the
+                                    Donghua CLI interface.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tip reveal">
+                        <div class="tip-title">What the Installer Does</div>
+                        <p>The PowerShell installer: (1) auto-detects your Python command (<code>python</code>,
+                            <code>python3</code>, or <code>py</code>), (2) installs requests, beautifulsoup4 &amp;
+                            yt-dlp via pip, (3) checks for MPV, and (4) adds function aliases to your PowerShell
+                            profile.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- ─── ANDROID PANEL ─── -->
+                <div id="panel-android" class="os-panel">
+                    <div class="install-header">
+                        <div class="os-icon">&#128241;</div>
+                        <div>
+                            <h3>Android</h3>
+                            <span class="os-version">Termux &bull; Android 7+</span>
+                        </div>
+                    </div>
+                    <div class="install-layout">
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <div class="step-title">Install Termux</div>
+                            <div class="step-desc">Download <strong>Termux</strong> from <a href="https://f-droid.org"
+                                    target="_blank">F-Droid</a> (not the Play Store &mdash; that version is outdated and
+                                broken).</div>
+                        </div>
+
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <div class="step-title">Update &amp; Install Packages</div>
+                            <div class="step-desc">Open Termux and update all packages, then install Python and the
+                                required libraries.</div>
+                            <div class="code-block">
+                                <span class="code-label">Termux</span>
+                                <pre><span class="comment"># Update Termux packages</span>
+<span class="cmd">pkg update</span> <span class="flag">&&</span> <span class="cmd">pkg upgrade</span> <span class="flag">-y</span>
+
+<span class="comment"># Install Python and libraries</span>
+<span class="cmd">pkg install</span> <span class="flag">python python-pip requests beautifulsoup4 -y</span></pre>
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <div class="step-title">Install yt-dlp</div>
+                            <div class="step-desc">Install the video extraction backend.</div>
+                            <div class="code-block">
+                                <span class="code-label">Termux</span>
+                                <pre><span class="cmd">pip install</span> <span class="flag">yt-dlp</span></pre>
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="step">
+                            <div class="step-number">4</div>
+                            <div class="step-title">Get the Android Script</div>
+                            <div class="step-desc">Download the Android-optimized <code>donghua.py</code> script to your
+                                Termux environment.</div>
+                            <div class="code-block">
+                                <span class="code-label">Termux</span>
+                                <pre><span class="comment"># Copy donghua.py into Termux, then:</span>
+<span class="cmd">chmod +x</span> <span class="flag">donghua.py</span></pre>
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="step">
+                            <div class="step-number">5</div>
+                            <div class="step-title">Run &amp; Enjoy</div>
+                            <div class="step-desc">Launch the script. It auto-detects your installed video player (MPV,
+                                VLC, or MX Player).</div>
+                            <div class="code-block">
+                                <span class="code-label">Termux</span>
+                                <pre><span class="cmd">python</span> <span class="flag">donghua.py</span></pre>
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                            <div class="verify-box">
+                                <div class="verify-title">Verify Installation</div>
+                                <p style="color: var(--text-secondary); font-size: 0.88rem;">The Donghua CLI menu should
+                                    appear. Search for any series to confirm streams are working.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tip tip-jade reveal">
+                        <div class="tip-title">Android-Specific Features</div>
+                        <p>
+                            &bull; Defaults to 360p to save mobile data<br>
+                            &bull; Deep iframe scanning finds hidden streams<br>
+                            &bull; Dailymotion embed auto-detection<br>
+                            &bull; Auto-launches MPV, VLC, MX Player, or any installed video app
+                        </p>
+                    </div>
+                </div>
+
+                <!-- ─── iOS PANEL ─── -->
+                <div id="panel-ios" class="os-panel">
+                    <div class="install-header">
+                        <div class="os-icon">&#127822;</div>
+                        <div>
+                            <h3>iOS</h3>
+                            <span class="os-version">iSH Shell &bull; iPhone / iPad</span>
+                        </div>
+                    </div>
+                    <div class="install-layout">
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <div class="step-title">Install iSH Shell</div>
+                            <div class="step-desc">Download <strong>iSH Shell</strong> from the <a
+                                    href="https://apps.apple.com/app/ish-shell/id1436902243" target="_blank">App
+                                    Store</a>. This gives you a Linux-like terminal on iOS.</div>
+                        </div>
+
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <div class="step-title">Install VLC</div>
+                            <div class="step-desc">Install <strong>VLC for Mobile</strong> from the App Store. This is
+                                the video player that will handle stream playback.</div>
+                        </div>
+
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <div class="step-title">Update &amp; Install Python</div>
+                            <div class="step-desc">Open iSH and install Python with the Alpine package manager.</div>
+                            <div class="code-block">
+                                <span class="code-label">iSH</span>
+                                <pre><span class="cmd">apk update</span> <span class="flag">&&</span> <span class="cmd">apk upgrade</span>
+<span class="cmd">apk add</span> <span class="flag">python3 py3-pip</span></pre>
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="step">
+                            <div class="step-number">4</div>
+                            <div class="step-title">Install Dependencies</div>
+                            <div class="step-desc">Install the Python packages required by Donghua CLI.</div>
+                            <div class="code-block">
+                                <span class="code-label">iSH</span>
+                                <pre><span class="cmd">pip3 install</span> <span class="flag">requests beautifulsoup4 yt-dlp</span></pre>
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="step">
+                            <div class="step-number">5</div>
+                            <div class="step-title">Get the Script &amp; Run</div>
+                            <div class="step-desc">Copy <code>donghua.py</code> into iSH and launch it. Streams will
+                                open as clickable links that launch VLC.</div>
+                            <div class="code-block">
+                                <span class="code-label">iSH</span>
+                                <pre><span class="cmd">python3</span> <span class="flag">donghua.py</span></pre>
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                            <div class="verify-box">
+                                <div class="verify-title">Verify Installation</div>
+                                <p style="color: var(--text-secondary); font-size: 0.88rem;">Search for any series. Tap
+                                    a stream link to open it in VLC.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tip reveal">
+                        <div class="tip-title">iOS Notes</div>
+                        <p>
+                            &bull; VLC is required for video playback on iOS<br>
+                            &bull; Stream URLs appear as clickable links in the terminal<br>
+                            &bull; iSH uses Alpine Linux under the hood, so <code>apk</code> is the package manager
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Update Notes -->
+                <div class="tip reveal" style="margin-top: 3rem;">
+                    <div class="tip-title">v2.0 &mdash; Recent Updates</div>
+                    <p>
+                        &bull; <strong>Python 3.14 compatibility</strong> &mdash; Fixed subprocess handling<br>
+                        &bull; <strong>Deep iframe scanning</strong> &mdash; Extracts streams from hidden/nested
+                        players<br>
+                        &bull; <strong>Dailymotion detection</strong> &mdash; Automatically finds Dailymotion embeds<br>
+                        &bull; <strong>Android optimization</strong> &mdash; Mobile-friendly with 360p default<br>
+                        &bull; <strong>Multi-player support</strong> &mdash; Auto-launches MPV, VLC, or MX Player on
+                        Android
+                    </p>
+                </div>
+            </section>
+
+            <div class="imperial-divider"><span class="line"></span><span class="ornament">&#9830;</span><span
+                    class="line"></span></div>
+
+            <!-- ═══════════ USAGE ═══════════ -->
+            <section id="usage">
+                <div class="section-header reveal">
+                    <span class="section-label">Command Scrolls</span>
+                    <h2 class="section-title">Usage</h2>
+                    <p class="section-subtitle">Master these commands to navigate the cultivation grounds</p>
+                </div>
+
+                <!-- Desktop Commands -->
+                <h3 style="font-size: 1.3rem; margin-bottom: 1.5rem; color: var(--text-primary);" class="reveal">Desktop
+                    Commands (Linux &amp; Windows)</h3>
+
+                <table class="commands-table reveal">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                            <th>Example</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>dhua</code></td>
+                            <td>Interactive search &amp; stream (default quality)</td>
+                            <td><code>dhua "Soul Land"</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>dhua360</code></td>
+                            <td>Stream in 360p (low bandwidth)</td>
+                            <td><code>dhua360 "Perfect World"</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>dhua480</code></td>
+                            <td>Stream in 480p (balanced)</td>
+                            <td><code>dhua480 "Martial Peak"</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>dhua720</code></td>
+                            <td>Stream in 720p HD</td>
+                            <td><code>dhua720 "Btth"</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>dhua1080</code></td>
+                            <td>Stream in 1080p Full HD</td>
+                            <td><code>dhua1080 "Swallowed Star"</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>dhuadl</code></td>
+                            <td>Download episodes to ~/Videos/Donghua</td>
+                            <td><code>dhuadl "Martial Peak"</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Mobile Commands -->
+                <h3 style="font-size: 1.3rem; margin-top: 3rem; margin-bottom: 1.5rem; color: var(--text-primary);"
+                    class="reveal">Mobile Commands (Android &amp; iOS)</h3>
+
+                <div class="grid reveal" style="grid-template-columns: 1fr 1fr;">
+                    <div class="card" style="border-color: rgba(16, 185, 129, 0.3);">
+                        <h3 style="font-size: 1.05rem;">Android / Termux</h3>
+                        <p><code>python donghua.py</code></p>
+                        <p style="margin-top: 0.75rem; font-size: 0.85rem;">Interactive menu with 360p default.
+                            Auto-detects installed video players.</p>
+                    </div>
+                    <div class="card" style="border-color: rgba(79, 70, 229, 0.3);">
+                        <h3 style="font-size: 1.05rem;">iOS / iSH</h3>
+                        <p><code>python3 donghua.py</code></p>
+                        <p style="margin-top: 0.75rem; font-size: 0.85rem;">Interactive menu with VLC integration.
+                            Clickable stream links.</p>
+                    </div>
+                </div>
+
+                <!-- Pro Tips -->
+                <h3 style="font-size: 1.3rem; margin-top: 3rem; margin-bottom: 1.5rem; color: var(--text-primary);"
+                    class="reveal">Cultivation Tips</h3>
+
+                <div class="grid reveal">
+                    <div class="card">
+                        <span class="card-icon">&#128161;</span>
+                        <h3>Series Selection</h3>
+                        <p>When multiple results appear, type the number and press Enter to select.</p>
+                    </div>
+                    <div class="card">
+                        <span class="card-icon">&#128250;</span>
+                        <h3>Episode Ranges</h3>
+                        <p>Play multiple episodes: type <code>1-5</code> for a range or <code>1,3,7</code> for specific
+                            episodes.</p>
+                    </div>
+                    <div class="card">
+                        <span class="card-icon">&#9889;</span>
+                        <h3>Stream Caching</h3>
+                        <p>Previously played streams are cached. Replay any episode instantly without re-extracting.</p>
+                    </div>
+                    <div class="card">
+                        <span class="card-icon">&#128260;</span>
+                        <h3>Episode Preloading</h3>
+                        <p>The next episode's stream is preloaded in the background while you watch. Zero wait between
+                            episodes.</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="imperial-divider"><span class="line"></span><span class="ornament">&#9830;</span><span
+                    class="line"></span></div>
+
+            <!-- ═══════════ TROUBLESHOOTING ═══════════ -->
+            <section id="troubleshooting">
+                <div class="section-header reveal">
+                    <span class="section-label">Scroll of Remedies</span>
+                    <h2 class="section-title">Troubleshooting</h2>
+                    <p class="section-subtitle">Common issues and their solutions</p>
+                </div>
+
+                <div class="reveal">
+                    <div class="trouble-card">
+                        <div class="trouble-header">
+                            <div class="trouble-icon">&#10060;</div>
+                            <div class="trouble-question">"dhua: command not found"</div>
+                        </div>
+                        <div class="trouble-answer">
+                            Your shell hasn't loaded the new aliases yet. Close your terminal completely and reopen it,
+                            or run <code>source ~/.bashrc</code> (or <code>source ~/.zshrc</code>). On Windows, restart
+                            PowerShell. You can also run directly with <code>python3 dhua.py "query"</code>.
+                        </div>
+                    </div>
+
+                    <div class="trouble-card">
+                        <div class="trouble-header">
+                            <div class="trouble-icon">&#128683;</div>
+                            <div class="trouble-question">"Video won't play" or "No stream found"</div>
+                        </div>
+                        <div class="trouble-answer">
+                            The source site may be down or blocking your region. Try a different series or wait a few
+                            minutes. Make sure <code>mpv</code> is installed and in your PATH. On Android, ensure you
+                            have a video player app installed (MPV, VLC, or MX Player).
+                        </div>
+                    </div>
+
+                    <div class="trouble-card">
+                        <div class="trouble-header">
+                            <div class="trouble-icon">&#128013;</div>
+                            <div class="trouble-question">"ModuleNotFoundError" for requests or bs4</div>
+                        </div>
+                        <div class="trouble-answer">
+                            The Python dependencies aren't installed. Run
+                            <code>pip3 install requests beautifulsoup4 yt-dlp</code>. If you have multiple Python
+                            versions, make sure you're using the right pip (try <code>python3 -m pip install</code>
+                            instead).
+                        </div>
+                    </div>
+
+                    <div class="trouble-card">
+                        <div class="trouble-header">
+                            <div class="trouble-icon">&#128274;</div>
+                            <div class="trouble-question">PowerShell: "execution of scripts is disabled"</div>
+                        </div>
+                        <div class="trouble-answer">
+                            Run <code>Set-ExecutionPolicy Bypass -Scope CurrentUser</code> in PowerShell before running
+                            the installer. This allows local scripts to execute on your machine.
+                        </div>
+                    </div>
+
+                    <div class="trouble-card">
+                        <div class="trouble-header">
+                            <div class="trouble-icon">&#128241;</div>
+                            <div class="trouble-question">Android: video player doesn't launch</div>
+                        </div>
+                        <div class="trouble-answer">
+                            Make sure you have a video player installed (MPV for Android, VLC, or MX Player). The script
+                            auto-detects installed players. If no player is found, it will print the stream URL so you
+                            can copy and paste it into any browser or player.
+                        </div>
+                    </div>
+
+                    <div class="trouble-card">
+                        <div class="trouble-header">
+                            <div class="trouble-icon">&#127822;</div>
+                            <div class="trouble-question">iOS: streams not opening in VLC</div>
+                        </div>
+                        <div class="trouble-answer">
+                            Ensure VLC for Mobile is installed from the App Store. In iSH, stream URLs appear as
+                            clickable links in the terminal. Tap the link to open it in VLC. If links aren't clickable,
+                            long-press to copy the URL and paste it into VLC's "Open Network Stream" option.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- ═══ FOOTER ═══ -->
+        <!-- ═══ FOOTER ═══ -->
+        <div id="footer-mount"></div>
+
+        <script>
+            // ══ TAB SWITCHING ══
+            function showPanel(os) {
+                document.querySelectorAll('.os-panel').forEach(p => p.classList.remove('active'));
+                document.querySelectorAll('.os-tab').forEach(t => t.classList.remove('active'));
+                document.getElementById('panel-' + os).classList.add('active');
+                event.currentTarget.classList.add('active');
+            }
+
+            // ══ COPY TO CLIPBOARD ══
+            async function copyCode(btn) {
+                const pre = btn.parentElement.querySelector('pre');
+                let text = pre.innerText;
+
+                // Remove prompt characters if present ($ or > at start of line)
+                text = text.replace(/^[\$>] /gm, '');
+
+                const successFeedback = () => {
+                    const originalText = btn.textContent;
+                    btn.textContent = 'Copied!';
+                    btn.style.borderColor = 'var(--jade-light)';
+                    btn.style.color = 'var(--jade-light)';
+
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.borderColor = '';
+                        btn.style.color = '';
+                    }, 2000);
+                };
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        successFeedback();
+                    } catch (err) {
+                        console.error('Clipboard API failed:', err);
+                        fallbackCopy(text);
+                    }
+                } else {
+                    fallbackCopy(text);
+                }
+
+                function fallbackCopy(text) {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    textArea.style.position = "fixed";
+                    textArea.style.left = "-9999px";
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    try {
+                        document.execCommand('copy');
+                        successFeedback();
+                    } catch (err) {
+                        console.error('Fallback copy failed', err);
+                        btn.textContent = 'Error';
+                    }
+                    document.body.removeChild(textArea);
+                }
+            }
+
+            // ══ SCROLL REVEAL ANIMATION ══
+            const revealObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+            document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+            // ══ ACTIVE NAV HIGHLIGHT ══
+            const sections = document.querySelectorAll('section[id]');
+            const navLinks = document.querySelectorAll('.nav-link');
+
+            window.addEventListener('scroll', () => {
+                let current = '';
+                sections.forEach(section => {
+                    const top = section.offsetTop - 120;
+                    if (window.scrollY >= top) {
+                        current = section.getAttribute('id');
+                    }
+                });
+                navLinks.forEach(link => {
+                    link.style.color = '';
+                    if (link.getAttribute('href') === '#' + current) {
+                        link.style.color = 'var(--gold)';
+                    }
+                });
+            });
+        </script>
+
+        <script type="text/babel">
+            const { useState, useEffect, useRef, useMemo } = React;
+
+            /* ── Detect mobile for perf scaling ── */
+            const isMobile = window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+            /* ══════════════════════════════════════════════════════════════
+               CULTIVATION SEAL — Xianxia Magic Array Splash Screen
+               ══════════════════════════════════════════════════════════════ */
+            const CultivationSeal = ({ onComplete }) => {
+                const canvasRef = useRef(null);
+                const stateRef = useRef('idle');
+                const clickedRef = useRef(false);
+
+                useEffect(() => {
+                    const canvas = canvasRef.current;
+                    const ctx = canvas.getContext('2d');
+                    const dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2);
+                    let W = window.innerWidth;
+                    let H = window.innerHeight;
+                    canvas.width = W * dpr;
+                    canvas.height = H * dpr;
+                    canvas.style.width = W + 'px';
+                    canvas.style.height = H + 'px';
+                    ctx.scale(dpr, dpr);
+                    const cx = W / 2, cy = H / 2;
+
+                    /* ── Colors ── */
+                    const JADE = '#00A86B';
+                    const JADE_LIGHT = '#2ed89a';
+                    const GOLD = '#d4af37';
+                    const GOLD_LIGHT = '#f0d060';
+                    const BG = '#060d0b';
+                    const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+                    const scale = Math.min(1, Math.min(W, H) / 700);
+                    const useGlow = !isMobile;
+
+                    /* ── Radii ── */
+                    const R_TAIJI = 28 * scale;
+                    const R_OCTA = 42 * scale;
+                    const R1 = 68 * scale;
+                    const R1_TEXT = 85 * scale;
+                    const R2 = 115 * scale;
+                    const R2_TEXT = 133 * scale;
+                    const R3 = 160 * scale;
+                    const R3B = 180 * scale;
+                    const R4 = 215 * scale;
+                    const R4_TEXT = 240 * scale;
+                    const R_BORDER1 = 260 * scale;
+                    const R_BORDER2 = 268 * scale;
+
+                    /* ── Pre-render border art to offscreen canvas (single blit per frame) ── */
+                    const borderCanvas = document.createElement('canvas');
+                    borderCanvas.width = W * dpr;
+                    borderCanvas.height = H * dpr;
+                    const bCtx = borderCanvas.getContext('2d');
+                    bCtx.scale(dpr, dpr);
+
+                    const MARGIN = 24;
+                    const CL = isMobile ? 40 : 65; // corner bracket arm length
+                    const cornerGlyphs = ['封', '印', '陣', '符'];
+                    const edgeGlyphs = [
+                        { ch: '天', x: W / 2, y: MARGIN - 1 },
+                        { ch: '地', x: W / 2, y: H - MARGIN + 1 },
+                        { ch: '玄', x: MARGIN - 1, y: H / 2 },
+                        { ch: '黃', x: W - MARGIN + 1, y: H / 2 },
+                    ];
+                    const corners = [
+                        [MARGIN, MARGIN, 1, 1],
+                        [W - MARGIN, MARGIN, -1, 1],
+                        [W - MARGIN, H - MARGIN, -1, -1],
+                        [MARGIN, H - MARGIN, 1, -1],
+                    ];
+
+                    // ── Corner brackets ──
+                    corners.forEach(([x, y, dx, dy], ci) => {
+                        // Outer L
+                        bCtx.strokeStyle = GOLD;
+                        bCtx.lineWidth = 1.5;
+                        bCtx.globalAlpha = 0.35;
+                        bCtx.beginPath();
+                        bCtx.moveTo(x, y + dy * CL);
+                        bCtx.lineTo(x, y);
+                        bCtx.lineTo(x + dx * CL, y);
+                        bCtx.stroke();
+                        // Inner L (inset)
+                        bCtx.lineWidth = 0.8;
+                        bCtx.globalAlpha = 0.18;
+                        bCtx.beginPath();
+                        bCtx.moveTo(x + dx * 5, y + dy * (CL * 0.7 + 5));
+                        bCtx.lineTo(x + dx * 5, y + dy * 5);
+                        bCtx.lineTo(x + dx * (CL * 0.7 + 5), y + dy * 5);
+                        bCtx.stroke();
+                        // Diamond at vertex
+                        bCtx.fillStyle = GOLD;
+                        bCtx.globalAlpha = 0.4;
+                        bCtx.save();
+                        bCtx.translate(x + dx * 2, y + dy * 2);
+                        bCtx.rotate(Math.PI / 4);
+                        bCtx.fillRect(-3, -3, 6, 6);
+                        bCtx.restore();
+                        // Corner glyph
+                        bCtx.globalAlpha = 0.22;
+                        bCtx.fillStyle = GOLD;
+                        bCtx.font = `${Math.round(14 * scale)}px "Ma Shan Zheng", serif`;
+                        bCtx.textAlign = 'center';
+                        bCtx.textBaseline = 'middle';
+                        bCtx.fillText(cornerGlyphs[ci], x + dx * 28, y + dy * 28);
+                        // Cloud scroll curls
+                        bCtx.strokeStyle = JADE;
+                        bCtx.lineWidth = 0.8;
+                        bCtx.globalAlpha = 0.2;
+                        const csx = x + dx * (CL * 0.4);
+                        const csy = y + dy * (CL * 0.4);
+                        const csr = 6 * scale;
+                        bCtx.beginPath();
+                        bCtx.arc(csx, csy, csr, 0, Math.PI * 1.3);
+                        bCtx.stroke();
+                        bCtx.beginPath();
+                        bCtx.arc(csx + dx * csr * 0.5, csy + dy * csr * 0.5, csr * 0.5, Math.PI, Math.PI * 2.3);
+                        bCtx.stroke();
+                    });
+
+                    // ── Edge lines ──
+                    bCtx.strokeStyle = GOLD;
+                    bCtx.lineWidth = 0.6;
+                    bCtx.globalAlpha = 0.12;
+                    const eGap = CL + 12;
+                    bCtx.beginPath();
+                    bCtx.moveTo(MARGIN + eGap, MARGIN); bCtx.lineTo(W - MARGIN - eGap, MARGIN);          // top
+                    bCtx.moveTo(MARGIN + eGap, H - MARGIN); bCtx.lineTo(W - MARGIN - eGap, H - MARGIN);  // bottom
+                    bCtx.moveTo(MARGIN, MARGIN + eGap); bCtx.lineTo(MARGIN, H - MARGIN - eGap);           // left
+                    bCtx.moveTo(W - MARGIN, MARGIN + eGap); bCtx.lineTo(W - MARGIN, H - MARGIN - eGap);  // right
+                    bCtx.stroke();
+
+                    // ── Edge tick marks (batched) ──
+                    const eTicks = isMobile ? 6 : 14;
+                    bCtx.globalAlpha = 0.2;
+                    bCtx.lineWidth = 0.5;
+                    bCtx.beginPath();
+                    for (let i = 1; i < eTicks; i++) {
+                        const f = i / eTicks;
+                        const hx = MARGIN + eGap + (W - 2 * MARGIN - 2 * eGap) * f;
+                        const vy = MARGIN + eGap + (H - 2 * MARGIN - 2 * eGap) * f;
+                        bCtx.moveTo(hx, MARGIN); bCtx.lineTo(hx, MARGIN + 4);
+                        bCtx.moveTo(hx, H - MARGIN); bCtx.lineTo(hx, H - MARGIN - 4);
+                        bCtx.moveTo(MARGIN, vy); bCtx.lineTo(MARGIN + 4, vy);
+                        bCtx.moveTo(W - MARGIN, vy); bCtx.lineTo(W - MARGIN - 4, vy);
+                    }
+                    bCtx.stroke();
+
+                    // ── Cardinal direction characters ──
+                    bCtx.fillStyle = JADE;
+                    bCtx.globalAlpha = 0.18;
+                    bCtx.font = `${Math.round(11 * scale)}px "Ma Shan Zheng", serif`;
+                    bCtx.textAlign = 'center';
+                    bCtx.textBaseline = 'middle';
+                    edgeGlyphs.forEach(g => bCtx.fillText(g.ch, g.x, g.y));
+
+                    // ── Diamond accents at edge midpoints ──
+                    bCtx.fillStyle = JADE;
+                    bCtx.globalAlpha = 0.25;
+                    [[W / 2, MARGIN + 9], [W / 2, H - MARGIN - 9], [MARGIN + 9, H / 2], [W - MARGIN - 9, H / 2]].forEach(([px, py]) => {
+                        bCtx.save();
+                        bCtx.translate(px, py);
+                        bCtx.rotate(Math.PI / 4);
+                        bCtx.fillRect(-2, -2, 4, 4);
+                        bCtx.restore();
+                    });
+
+                    /* ── Symbols ── */
+                    const BAGUA = '☰☱☲☳☴☵☶☷';
+                    const FIVE_E = '金木水火土';
+                    const BRANCHES = '子丑寅卯辰巳午未申酉戌亥';
+                    const STEMS = '甲乙丙丁戊己庚辛壬癸';
+                    const BEASTS = ['龍', '鳳', '龜', '虎'];
+                    const SEAL1 = '道法自然天地玄黃宇宙洪荒日月盈昃辰宿列張';
+                    const SEAL2 = '混沌初開乾坤始奠氣之輕清上浮者為天氣之重濁下凝者為地';
+                    const CULT = '吞噬蒼穹仙逆完美世界凡人修仙斗羅大陸武動乾坤遮天';
+
+                    /* ── Layers (4 rings, mobile drops ring 2) ── */
+                    const allLayers = [
+                        { id: 0, speed: 0.12, dir: 1 },
+                        { id: 1, speed: 0.08, dir: -1 },
+                        { id: 2, speed: 0.06, dir: 1 },
+                        { id: 3, speed: 0.04, dir: -1 },
+                    ];
+                    const layers = isMobile ? allLayers.filter(l => l.id !== 2) : allLayers;
+                    layers.forEach((l, i) => {
+                        l.angle = Math.random() * Math.PI * 2;
+                        l.opacity = 1;
+                        l.scaleVal = 1;
+                        l.offsetX = 0;
+                        l.offsetY = 0;
+                        l.unlockDelay = i * 0.12;
+                        l.unlockDir = Math.random() * Math.PI * 2;
+                    });
+
+                    let spokeOpacity = 1;
+                    let centerPulse = 0;
+                    let centerOpacity = 1;
+
+                    /* ── Particles ── */
+                    const IDLE_P = isMobile ? 15 : 40;
+                    const BURST_P = isMobile ? 30 : 80;
+                    const particles = [];
+                    const mkP = (burst) => {
+                        const a = Math.random() * Math.PI * 2;
+                        const d = burst ? (10 + Math.random() * 30) : (Math.random() * R_BORDER2 * 1.2);
+                        const sp = burst ? (3 + Math.random() * 6) : (0.1 + Math.random() * 0.3);
+                        return {
+                            x: Math.cos(a) * d, y: Math.sin(a) * d,
+                            vx: Math.cos(a) * sp * (burst ? 1 : 0.3),
+                            vy: Math.sin(a) * sp * (burst ? 1 : 0.3),
+                            size: burst ? (1.5 + Math.random() * 3) : (0.5 + Math.random() * 1.5),
+                            life: burst ? (0.5 + Math.random() * 0.8) : 99,
+                            maxLife: burst ? (0.5 + Math.random() * 0.8) : 99,
+                            color: Math.random() > 0.5 ? GOLD_LIGHT : JADE_LIGHT,
+                            burst,
+                        };
+                    };
+                    for (let i = 0; i < IDLE_P; i++) particles.push(mkP(false));
+
+                    /* ── Qi Cloud Wisps — ethereal starry cloud outlines ── */
+                    const MAX_WISPS = isMobile ? 3 : 6;
+                    const WISP_SPAWN = isMobile ? 3.5 : 2.0;
+                    let wispTimer = 0.5; // start near first spawn
+                    const wisps = [];
+                    const mkWisp = () => {
+                        // Spawn OUTSIDE the circle — in the margins between seal and screen edges
+                        const ang = Math.random() * Math.PI * 2;
+                        const minDist = R_BORDER2 * 1.25; // clear of the outer border
+                        const maxEdge = Math.max(W, H) * 0.55;
+                        const dist = minDist + Math.random() * (maxEdge - minDist);
+                        // Also allow corner/edge spawns
+                        let sx, sy;
+                        if (Math.random() < 0.35) {
+                            // Pure edge spawn — near screen border
+                            const edge = Math.random() * 4 | 0;
+                            const pad = 40 + Math.random() * 60;
+                            if (edge === 0) { sx = pad; sy = Math.random() * H; }
+                            else if (edge === 1) { sx = W - pad; sy = Math.random() * H; }
+                            else if (edge === 2) { sx = Math.random() * W; sy = pad; }
+                            else { sx = Math.random() * W; sy = H - pad; }
+                        } else {
+                            sx = cx + Math.cos(ang) * dist;
+                            sy = cy + Math.sin(ang) * dist;
+                        }
+                        // Clamp inside viewport with some margin
+                        sx = Math.max(30, Math.min(W - 30, sx));
+                        sy = Math.max(30, Math.min(H - 30, sy));
+
+                        const ws = (0.5 + Math.random() * 0.7) * scale;
+                        // Bezier control points for organic cloud outline
+                        const nPts = 5 + (Math.random() * 3 | 0);
+                        const pts = [];
+                        for (let i = 0; i < nPts; i++) {
+                            const pa = (i / nPts) * Math.PI * 2;
+                            const pr = 30 + Math.random() * 40;
+                            pts.push({
+                                x: Math.cos(pa) * pr * ws,
+                                y: Math.sin(pa) * pr * ws * (0.35 + Math.random() * 0.3),
+                                cx: (Math.random() - 0.5) * 30 * ws,
+                                cy: (Math.random() - 0.5) * 20 * ws,
+                            });
+                        }
+                        // Sparkle stars along the cloud
+                        const nSp = isMobile ? 2 : (3 + (Math.random() * 4 | 0));
+                        const sparkles = [];
+                        for (let i = 0; i < nSp; i++) {
+                            const pi = Math.random() * nPts | 0;
+                            sparkles.push({
+                                px: pts[pi].x + (Math.random() - 0.5) * 15 * ws,
+                                py: pts[pi].y + (Math.random() - 0.5) * 10 * ws,
+                                phase: Math.random() * Math.PI * 2,
+                                size: (0.8 + Math.random() * 1.5) * scale,
+                            });
+                        }
+                        const fadeIn = 1.5 + Math.random();
+                        const hold = 4 + Math.random() * 5;
+                        const fadeOut = 1.5 + Math.random();
+                        // Gradient direction: random angle across the cloud shape
+                        const gAng = Math.random() * Math.PI * 2;
+                        const gR = 35 * ws; // gradient radius across cloud
+                        return {
+                            x: sx, y: sy,
+                            rot: Math.random() * Math.PI * 2,
+                            vx: (Math.random() - 0.5) * 3,
+                            vy: (Math.random() - 0.5) * 2,
+                            vr: (Math.random() - 0.5) * 0.04,
+                            pts, sparkles,
+                            age: 0,
+                            fadeIn, hold, fadeOut,
+                            total: fadeIn + hold + fadeOut,
+                            gAng, gR, // for gold→jade gradient
+                            lw: (0.5 + Math.random() * 0.8) * scale,
+                        };
+                    };
+
+                    const UNLOCK_DUR = isMobile ? 1.2 : 1.5;
+                    const REVEAL_DUR = 0.8;
+                    let unlockStart = 0, revealStart = 0;
+                    let shockR = 0, overlayAlpha = 1;
+
+                    /* ── Glow helper ── */
+                    const setGlow = (color, blur) => {
+                        if (useGlow) { ctx.shadowColor = color; ctx.shadowBlur = blur; }
+                    };
+                    const clearGlow = () => { ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; };
+
+                    /* ── Primitive helpers (draw in local coords, 0,0 = center) ── */
+                    const drawCircle = (r, color, lw, alpha) => {
+                        ctx.save();
+                        ctx.globalAlpha = ctx.globalAlpha * alpha;
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = lw;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, r, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.restore();
+                    };
+
+                    const drawPolygon = (r, sides, angleOff, color, lw) => {
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = lw;
+                        ctx.beginPath();
+                        for (let i = 0; i <= sides; i++) {
+                            const a = angleOff + (i / sides) * Math.PI * 2;
+                            const x = Math.cos(a) * r, y = Math.sin(a) * r;
+                            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                        }
+                        ctx.closePath();
+                        ctx.stroke();
+                    };
+
+                    const drawPentagramShape = (r, angleOff, color, lw) => {
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = lw;
+                        ctx.beginPath();
+                        const order = [0, 2, 4, 1, 3, 0];
+                        order.forEach((idx, i) => {
+                            const a = angleOff + (idx / 5) * Math.PI * 2 - Math.PI / 2;
+                            const x = Math.cos(a) * r, y = Math.sin(a) * r;
+                            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                        });
+                        ctx.stroke();
+                    };
+
+                    const drawTextOnArc = (text, r, startAngle, color, fontSize) => {
+                        ctx.font = `${fontSize}px "Ma Shan Zheng", serif`;
+                        ctx.fillStyle = color;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        const chars = text.split('');
+                        const arcPer = (Math.PI * 2) / chars.length;
+                        chars.forEach((ch, i) => {
+                            const a = startAngle + i * arcPer;
+                            ctx.save();
+                            ctx.translate(Math.cos(a) * r, Math.sin(a) * r);
+                            ctx.rotate(a + Math.PI / 2);
+                            ctx.fillText(ch, 0, 0);
+                            ctx.restore();
+                        });
+                    };
+
+                    const drawSymbols = (text, r, startAngle, color, fontSize) => {
+                        ctx.font = `${fontSize}px "Ma Shan Zheng", serif`;
+                        ctx.fillStyle = color;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        const chars = text.split('');
+                        const arcPer = (Math.PI * 2) / chars.length;
+                        chars.forEach((ch, i) => {
+                            const a = startAngle + i * arcPer;
+                            ctx.save();
+                            ctx.translate(Math.cos(a) * r, Math.sin(a) * r);
+                            ctx.fillText(ch, 0, 0);
+                            ctx.restore();
+                        });
+                    };
+
+                    const drawTicks = (r, count, len, color, lw) => {
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = lw;
+                        const n = isMobile ? Math.ceil(count / 2) : count;
+                        ctx.beginPath();
+                        for (let i = 0; i < n; i++) {
+                            const a = (i / n) * Math.PI * 2;
+                            ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+                            ctx.lineTo(Math.cos(a) * (r + len), Math.sin(a) * (r + len));
+                        }
+                        ctx.stroke();
+                    };
+
+                    const drawDiamonds = (r, count, startAngle, sz, color) => {
+                        ctx.fillStyle = color;
+                        for (let i = 0; i < count; i++) {
+                            const a = startAngle + (i / count) * Math.PI * 2;
+                            ctx.save();
+                            ctx.translate(Math.cos(a) * r, Math.sin(a) * r);
+                            ctx.rotate(Math.PI / 4);
+                            ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
+                            ctx.restore();
+                        }
+                    };
+
+                    /* ── Taiji (yin-yang) ── */
+                    const drawTaiji = (angle) => {
+                        const r = R_TAIJI;
+                        const hr = r / 2;
+                        const dotR = r / 5;
+                        ctx.save();
+                        ctx.rotate(angle);
+                        // Dark base
+                        ctx.beginPath();
+                        ctx.arc(0, 0, r, 0, Math.PI * 2);
+                        ctx.fillStyle = '#0a1a14';
+                        ctx.fill();
+                        // Yang (jade) half
+                        ctx.beginPath();
+                        ctx.arc(0, 0, r, -Math.PI / 2, Math.PI / 2, false);
+                        ctx.arc(0, hr, hr, Math.PI / 2, -Math.PI / 2, true);
+                        ctx.arc(0, -hr, hr, Math.PI / 2, -Math.PI / 2, false);
+                        ctx.closePath();
+                        ctx.fillStyle = JADE;
+                        ctx.fill();
+                        // Yang dot (dark in jade)
+                        ctx.beginPath();
+                        ctx.arc(0, -hr, dotR, 0, Math.PI * 2);
+                        ctx.fillStyle = '#0a1a14';
+                        ctx.fill();
+                        // Yin dot (jade in dark)
+                        ctx.beginPath();
+                        ctx.arc(0, hr, dotR, 0, Math.PI * 2);
+                        ctx.fillStyle = JADE;
+                        ctx.fill();
+                        // Outline
+                        ctx.beginPath();
+                        ctx.arc(0, 0, r, 0, Math.PI * 2);
+                        ctx.strokeStyle = GOLD;
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+                        ctx.restore();
+                    };
+
+                    /* ── Octagram (two overlapping rotated squares) ── */
+                    const drawOctagram = (angle) => {
+                        setGlow(JADE, 8);
+                        drawPolygon(R_OCTA, 4, angle, JADE, 1.2);
+                        drawPolygon(R_OCTA, 4, angle + Math.PI / 4, JADE, 1.2);
+                        clearGlow();
+                        // Lines from vertices to bagua radius
+                        ctx.strokeStyle = JADE;
+                        ctx.lineWidth = 0.4;
+                        ctx.globalAlpha = ctx.globalAlpha * 0.4;
+                        for (let i = 0; i < 8; i++) {
+                            const a = angle + (i / 8) * Math.PI * 2;
+                            ctx.beginPath();
+                            ctx.moveTo(Math.cos(a) * R_OCTA, Math.sin(a) * R_OCTA);
+                            ctx.lineTo(Math.cos(a) * R1, Math.sin(a) * R1);
+                            ctx.stroke();
+                        }
+                    };
+
+                    /* ── Layer 0: Center — Taiji + Octagram + Bagua + inner text ── */
+                    const drawLayer0 = (angle) => {
+                        drawTaiji(angle * 0.5);
+                        drawCircle(R_OCTA - 2 * scale, JADE, 0.6, 0.4);
+                        drawOctagram(angle);
+                        setGlow(GOLD, 6);
+                        drawSymbols(BAGUA, R1, angle, GOLD_LIGHT, Math.round(15 * scale));
+                        clearGlow();
+                        drawCircle(R1 - 8 * scale, GOLD, 0.5, 0.25);
+                        drawCircle(R1 + 8 * scale, GOLD, 0.5, 0.25);
+                        drawTextOnArc(SEAL1, R1_TEXT, angle * 0.7, JADE, Math.round(9 * scale));
+                        drawCircle(R1_TEXT - 6 * scale, JADE, 0.3, 0.15);
+                        drawCircle(R1_TEXT + 6 * scale, JADE, 0.3, 0.15);
+                    };
+
+                    /* ── Layer 1: Five Elements pentagram + cultivation text ── */
+                    const drawLayer1 = (angle) => {
+                        setGlow(GOLD, 10);
+                        drawPentagramShape(R2, angle, GOLD, 1);
+                        clearGlow();
+                        drawPolygon(R2, 5, angle - Math.PI / 2, GOLD, 0.5);
+                        setGlow(JADE_LIGHT, 6);
+                        drawSymbols(FIVE_E, R2, angle - Math.PI / 2, JADE_LIGHT, Math.round(16 * scale));
+                        clearGlow();
+                        drawCircle(R2 - 12 * scale, GOLD, 0.4, 0.2);
+                        drawCircle(R2 + 10 * scale, GOLD, 0.6, 0.25);
+                        drawTextOnArc(CULT, R2_TEXT, angle * 0.6, GOLD, Math.round(8 * scale));
+                        drawCircle(R2_TEXT + 5 * scale, JADE, 0.3, 0.12);
+                        drawTicks(R2 + 10 * scale, 20, 4 * scale, GOLD, 0.3);
+                    };
+
+                    /* ── Layer 2: Earthly Branches + Heavenly Stems ── */
+                    const drawLayer2 = (angle) => {
+                        setGlow(JADE, 5);
+                        drawSymbols(BRANCHES, R3, angle, JADE_LIGHT, Math.round(13 * scale));
+                        clearGlow();
+                        drawCircle(R3, JADE, 0.5, 0.2);
+                        // Two overlapping hexagons = 12-pointed star
+                        setGlow(JADE, 4);
+                        drawPolygon(R3, 6, angle, JADE, 0.5);
+                        drawPolygon(R3, 6, angle + Math.PI / 6, JADE, 0.5);
+                        clearGlow();
+                        drawSymbols(STEMS, R3B, angle * 1.2, GOLD, Math.round(11 * scale));
+                        drawCircle(R3B, GOLD, 0.4, 0.18);
+                        drawCircle(R3B + 8 * scale, GOLD, 0.3, 0.12);
+                        drawDiamonds(R3 - 10 * scale, 12, angle, 3 * scale, JADE);
+                        drawTicks(R3B + 8 * scale, 30, 3 * scale, GOLD, 0.25);
+                    };
+
+                    /* ── Layer 3: Outer — Four Beasts + text + double border ── */
+                    const drawLayer3 = (angle) => {
+                        // Celestial Beasts at cardinal dirs
+                        ctx.font = `${Math.round(20 * scale)}px "Ma Shan Zheng", serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        setGlow(GOLD_LIGHT, 10);
+                        BEASTS.forEach((b, i) => {
+                            const a = angle + (i / 4) * Math.PI * 2;
+                            ctx.save();
+                            ctx.translate(Math.cos(a) * R4, Math.sin(a) * R4);
+                            ctx.fillStyle = GOLD_LIGHT;
+                            ctx.fillText(b, 0, 0);
+                            ctx.restore();
+                        });
+                        clearGlow();
+                        drawCircle(R4, GOLD, 0.7, 0.25);
+                        drawTextOnArc(SEAL2, R4_TEXT, angle * 0.4, JADE, Math.round(8 * scale));
+                        drawCircle(R4_TEXT - 5 * scale, JADE, 0.3, 0.12);
+                        drawCircle(R4_TEXT + 5 * scale, JADE, 0.3, 0.12);
+                        drawDiamonds(R4, 8, angle + Math.PI / 8, 4 * scale, GOLD);
+                        setGlow(JADE, 5);
+                        drawCircle(R_BORDER1, JADE, 1, 0.35);
+                        drawCircle(R_BORDER2, JADE, 1.5, 0.45);
+                        clearGlow();
+                        drawTicks(R_BORDER1, 60, 4 * scale, GOLD, 0.3);
+                        drawTicks(R_BORDER2, 8, 8 * scale, GOLD, 0.7);
+                    };
+
+                    const layerFns = [drawLayer0, drawLayer1, drawLayer2, drawLayer3];
+
+                    /* ── Spokes (8 main + 8 secondary) ── */
+                    const drawSpokes = () => {
+                        if (spokeOpacity <= 0) return;
+                        ctx.save();
+                        ctx.translate(cx, cy);
+                        ctx.globalAlpha = spokeOpacity * 0.2;
+                        ctx.strokeStyle = JADE;
+                        ctx.lineWidth = 0.7;
+                        for (let i = 0; i < 8; i++) {
+                            const a = (i / 8) * Math.PI * 2;
+                            ctx.beginPath();
+                            ctx.moveTo(Math.cos(a) * R_OCTA, Math.sin(a) * R_OCTA);
+                            ctx.lineTo(Math.cos(a) * R_BORDER2, Math.sin(a) * R_BORDER2);
+                            ctx.stroke();
+                        }
+                        if (!isMobile) {
+                            ctx.globalAlpha = spokeOpacity * 0.1;
+                            ctx.lineWidth = 0.35;
+                            for (let i = 0; i < 8; i++) {
+                                const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+                                ctx.beginPath();
+                                ctx.moveTo(Math.cos(a) * R1, Math.sin(a) * R1);
+                                ctx.lineTo(Math.cos(a) * R_BORDER1, Math.sin(a) * R_BORDER1);
+                                ctx.stroke();
+                            }
+                        }
+                        ctx.restore();
+                    };
+
+                    /* ── Background glow ── */
+                    const drawBgGlow = () => {
+                        const maxR = R_BORDER2 * 1.5;
+                        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+                        grad.addColorStop(0, 'rgba(0,168,107,0.15)');
+                        grad.addColorStop(0.3, 'rgba(0,168,107,0.07)');
+                        grad.addColorStop(0.6, 'rgba(212,175,55,0.03)');
+                        grad.addColorStop(1, 'rgba(0,0,0,0)');
+                        ctx.fillStyle = grad;
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, maxR, 0, Math.PI * 2);
+                        ctx.fill();
+                    };
+
+                    /* ── Border (single blit from offscreen canvas) ── */
+                    const drawBorder = () => {
+                        ctx.save();
+                        ctx.globalAlpha = overlayAlpha;
+                        ctx.drawImage(borderCanvas, 0, 0, W, H);
+                        ctx.restore();
+                    };
+
+                    /* ── Qi Cloud Wisps draw ── */
+                    const drawWisps = (dt) => {
+                        // Spawn
+                        if (stateRef.current === 'idle') {
+                            wispTimer += dt;
+                            while (wispTimer >= WISP_SPAWN && wisps.length < MAX_WISPS) {
+                                wisps.push(mkWisp());
+                                wispTimer -= WISP_SPAWN;
+                            }
+                            if (wispTimer >= WISP_SPAWN) wispTimer = 0;
+                        }
+                        for (let i = wisps.length - 1; i >= 0; i--) {
+                            const w = wisps[i];
+                            w.age += dt;
+                            if (w.age >= w.total) { wisps.splice(i, 1); continue; }
+                            w.x += w.vx * dt;
+                            w.y += w.vy * dt;
+                            w.rot += w.vr * dt;
+                            // Fade envelope: in → hold → out
+                            let alpha;
+                            if (w.age < w.fadeIn) alpha = w.age / w.fadeIn;
+                            else if (w.age < w.fadeIn + w.hold) alpha = 1;
+                            else alpha = 1 - (w.age - w.fadeIn - w.hold) / w.fadeOut;
+                            alpha = Math.max(0, Math.min(1, alpha)) * 0.28;
+
+                            ctx.save();
+                            ctx.translate(w.x, w.y);
+                            ctx.rotate(w.rot);
+
+                            // Gold → Jade gradient across the cloud shape
+                            const grad = ctx.createLinearGradient(
+                                Math.cos(w.gAng) * -w.gR, Math.sin(w.gAng) * -w.gR,
+                                Math.cos(w.gAng) * w.gR, Math.sin(w.gAng) * w.gR
+                            );
+                            grad.addColorStop(0, GOLD_LIGHT);
+                            grad.addColorStop(0.45, GOLD);
+                            grad.addColorStop(0.55, JADE);
+                            grad.addColorStop(1, JADE_LIGHT);
+
+                            const p = w.pts;
+                            ctx.lineCap = 'round';
+                            ctx.lineJoin = 'round';
+
+                            // Outer glow pass (wider, dimmer)
+                            ctx.globalAlpha = alpha * 0.35;
+                            ctx.strokeStyle = grad;
+                            ctx.lineWidth = w.lw * 3;
+                            ctx.beginPath();
+                            ctx.moveTo(p[0].x, p[0].y);
+                            for (let j = 0; j < p.length; j++) {
+                                const c = p[j], n = p[(j + 1) % p.length];
+                                ctx.quadraticCurveTo((c.x + n.x) / 2 + c.cx, (c.y + n.y) / 2 + c.cy, n.x, n.y);
+                            }
+                            ctx.stroke();
+
+                            // Core outline pass
+                            ctx.globalAlpha = alpha;
+                            ctx.strokeStyle = grad;
+                            ctx.lineWidth = w.lw;
+                            ctx.beginPath();
+                            ctx.moveTo(p[0].x, p[0].y);
+                            for (let j = 0; j < p.length; j++) {
+                                const c = p[j], n = p[(j + 1) % p.length];
+                                ctx.quadraticCurveTo((c.x + n.x) / 2 + c.cx, (c.y + n.y) / 2 + c.cy, n.x, n.y);
+                            }
+                            ctx.stroke();
+
+                            // Second wisp echo (offset, fainter)
+                            ctx.globalAlpha = alpha * 0.3;
+                            ctx.lineWidth = w.lw * 0.6;
+                            ctx.beginPath();
+                            ctx.moveTo(p[0].x + 3, p[0].y + 2);
+                            for (let j = 0; j < p.length; j++) {
+                                const c = p[j], n = p[(j + 1) % p.length];
+                                ctx.quadraticCurveTo((c.x + n.x) / 2 + c.cx + 4, (c.y + n.y) / 2 + c.cy + 3, n.x + 3, n.y + 2);
+                            }
+                            ctx.stroke();
+
+                            // Sparkle stars that twinkle (use gradient midpoint color)
+                            w.sparkles.forEach(sp => {
+                                const twinkle = Math.sin(w.age * 2.5 + sp.phase) * 0.5 + 0.5;
+                                // Each sparkle picks gold or jade based on position
+                                const spFrac = (sp.px / (w.gR * 2) + 0.5);
+                                ctx.fillStyle = spFrac < 0.5 ? GOLD_LIGHT : JADE_LIGHT;
+                                ctx.globalAlpha = alpha * twinkle * 3;
+                                ctx.beginPath();
+                                ctx.arc(sp.px, sp.py, sp.size * (0.5 + twinkle * 0.5), 0, Math.PI * 2);
+                                ctx.fill();
+                                // Tiny cross flare on brightest sparkles
+                                if (twinkle > 0.7) {
+                                    ctx.globalAlpha = alpha * (twinkle - 0.7) * 6;
+                                    ctx.strokeStyle = ctx.fillStyle;
+                                    ctx.lineWidth = 0.5;
+                                    const fl = sp.size * 2.5;
+                                    ctx.beginPath();
+                                    ctx.moveTo(sp.px - fl, sp.py); ctx.lineTo(sp.px + fl, sp.py);
+                                    ctx.moveTo(sp.px, sp.py - fl); ctx.lineTo(sp.px, sp.py + fl);
+                                    ctx.stroke();
+                                }
+                            });
+
+                            ctx.restore();
+                        }
+                    };
+
+                    /* ── Particles ── */
+                    const drawParticles = (dt) => {
+                        for (let i = particles.length - 1; i >= 0; i--) {
+                            const p = particles[i];
+                            p.x += p.vx * dt * 60;
+                            p.y += p.vy * dt * 60;
+                            if (p.burst) {
+                                p.life -= dt;
+                                p.vx *= 0.97; p.vy *= 0.97;
+                                if (p.life <= 0) { particles.splice(i, 1); continue; }
+                                ctx.globalAlpha = (p.life / p.maxLife) * 0.8;
+                            } else {
+                                const dist = Math.sqrt(p.x * p.x + p.y * p.y);
+                                if (dist > R_BORDER2 * 1.3) {
+                                    const a = Math.random() * Math.PI * 2;
+                                    p.x = Math.cos(a) * Math.random() * R1;
+                                    p.y = Math.sin(a) * Math.random() * R1;
+                                }
+                                p.vx += (Math.random() - 0.5) * 0.02;
+                                p.vy += (Math.random() - 0.5) * 0.02;
+                                ctx.globalAlpha = 0.3 + Math.sin(Date.now() * 0.003 + i) * 0.2;
+                            }
+                            ctx.fillStyle = p.color;
+                            ctx.beginPath();
+                            ctx.arc(cx + p.x, cy + p.y, p.size, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        ctx.globalAlpha = 1;
+                    };
+
+                    /* ── Prompt ── */
+                    const drawPrompt = (t) => {
+                        if (stateRef.current !== 'idle') return;
+                        const pulse = Math.sin(t * 3) * 0.3 + 0.7;
+                        ctx.save();
+                        ctx.globalAlpha = pulse;
+                        ctx.fillStyle = GOLD_LIGHT;
+                        ctx.font = `${Math.round(14 * scale)}px "Ma Shan Zheng", serif`;
+                        ctx.textAlign = 'center';
+                        ctx.fillText('⟐  Click to Open the Seal  ⟐', cx, cy + R_BORDER2 + 40 * scale);
+                        ctx.restore();
+                    };
+
+                    /* ── Shockwave ── */
+                    const drawShockwave = () => {
+                        if (shockR <= 0) return;
+                        const maxR = Math.max(W, H);
+                        ctx.save();
+                        ctx.globalAlpha = (1 - shockR / maxR) * 0.5;
+                        ctx.strokeStyle = GOLD_LIGHT;
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, shockR, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.globalAlpha = (1 - shockR / maxR) * 0.3;
+                        ctx.strokeStyle = JADE_LIGHT;
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, shockR * 0.85, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.restore();
+                    };
+
+                    /* ── Main loop ── */
+                    let animId;
+                    let lastTime = 0;
+                    let frameN = 0;
+                    const loop = (ts) => {
+                        animId = requestAnimationFrame(loop);
+                        frameN++;
+                        // 30fps throttle on mobile during idle (full 60fps during animations)
+                        if (isMobile && stateRef.current === 'idle' && (frameN & 1)) return;
+                        const t = ts / 1000;
+                        const dt = Math.min(t - (lastTime || t), 0.05);
+                        lastTime = t;
+
+                        ctx.clearRect(0, 0, W, H);
+                        ctx.fillStyle = BG;
+                        ctx.globalAlpha = overlayAlpha;
+                        ctx.fillRect(0, 0, W, H);
+                        ctx.globalAlpha = 1;
+
+                        const state = stateRef.current;
+
+                        if (state === 'idle') {
+                            centerPulse += dt * 2;
+                            layers.forEach(l => { l.angle += l.speed * l.dir * dt; });
+                        }
+
+                        if (state === 'unlocking') {
+                            const elapsed = t - unlockStart;
+                            const progress = Math.min(elapsed / UNLOCK_DUR, 1);
+                            spokeOpacity = Math.max(0, 1 - progress * 4);
+                            centerOpacity = Math.max(0, 1 - progress * 2);
+                            layers.forEach(l => {
+                                const rp = Math.max(0, Math.min(1, (elapsed - l.unlockDelay) / (UNLOCK_DUR - l.unlockDelay - 0.1)));
+                                const e = easeOutCubic(rp);
+                                l.angle += l.speed * l.dir * dt * (1 + rp * 5);
+                                l.scaleVal = 1 + e * 1.5;
+                                l.offsetX = Math.cos(l.unlockDir) * e * 400 * scale;
+                                l.offsetY = Math.sin(l.unlockDir) * e * 400 * scale;
+                                l.opacity = 1 - e;
+                            });
+                            centerPulse += dt * 6;
+                            if (progress >= 1) {
+                                stateRef.current = 'revealing';
+                                revealStart = t;
+                            }
+                        }
+
+                        if (state === 'revealing') {
+                            const elapsed = t - revealStart;
+                            const progress = Math.min(elapsed / REVEAL_DUR, 1);
+                            const e = easeOutCubic(progress);
+                            overlayAlpha = 1 - e;
+                            shockR = e * Math.max(W, H);
+                            if (progress >= 1) {
+                                stateRef.current = 'done';
+                                cancelAnimationFrame(animId);
+                                if (onComplete) onComplete();
+                                return;
+                            }
+                        }
+
+                        /* ── Draw ── */
+                        drawBgGlow();
+                        drawBorder();
+                        drawWisps(dt);
+                        drawParticles(dt);
+                        if (state !== 'revealing') {
+                            drawSpokes();
+                            layers.forEach(l => {
+                                const fn = layerFns[l.id];
+                                if (!fn) return;
+                                ctx.save();
+                                ctx.globalAlpha = l.opacity;
+                                ctx.translate(cx + l.offsetX, cy + l.offsetY);
+                                ctx.scale(l.scaleVal, l.scaleVal);
+                                fn(l.angle);
+                                ctx.restore();
+                            });
+                            // Center text lingers separately
+                            if (centerOpacity > 0) {
+                                ctx.save();
+                                ctx.globalAlpha = centerOpacity;
+                                ctx.translate(cx, cy);
+                                const pulse = Math.sin(centerPulse) * 0.1 + 1;
+                                ctx.scale(pulse, pulse);
+                                setGlow(GOLD_LIGHT, 15);
+                                ctx.fillStyle = GOLD_LIGHT;
+                                ctx.font = `${Math.round(18 * scale)}px "Ma Shan Zheng", serif`;
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillText('动画', 0, 0);
+                                clearGlow();
+                                ctx.restore();
+                            }
+                            drawPrompt(t);
+                        }
+                        drawShockwave();
+                    };
+
+                    animId = requestAnimationFrame(loop);
+
+                    /* ── Click handler ── */
+                    const handleClick = () => {
+                        if (clickedRef.current) return;
+                        clickedRef.current = true;
+                        stateRef.current = 'unlocking';
+                        unlockStart = performance.now() / 1000;
+                        for (let i = 0; i < BURST_P; i++) particles.push(mkP(true));
+                    };
+                    canvas.addEventListener('click', handleClick);
+                    canvas.addEventListener('touchend', handleClick);
+
+                    const preventScroll = (e) => e.preventDefault();
+                    canvas.addEventListener('touchmove', preventScroll, { passive: false });
+
+                    return () => {
+                        cancelAnimationFrame(animId);
+                        canvas.removeEventListener('click', handleClick);
+                        canvas.removeEventListener('touchend', handleClick);
+                        canvas.removeEventListener('touchmove', preventScroll);
+                    };
+                }, []);
+
+                return React.createElement('canvas', {
+                    ref: canvasRef,
+                    style: { display: 'block', width: '100%', height: '100%', cursor: 'pointer' },
+                });
+            };
+
+            /* ── SPIRIT LEAVES COMPONENT (Restored for Vibe) ── */
+            const SpiritLeaves = () => {
+                const canvasRef = useRef(null);
+
+                useEffect(() => {
+                    const canvas = canvasRef.current;
+                    const ctx = canvas.getContext('2d');
+                    const dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2);
+                    let width = window.innerWidth;
+                    let height = window.innerHeight;
+                    canvas.width = width * dpr;
+                    canvas.height = height * dpr;
+                    canvas.style.width = width + 'px';
+                    canvas.style.height = height + 'px';
+                    ctx.scale(dpr, dpr);
+
+                    const leaves = [];
+                    const leafCount = isMobile ? 15 : 30;
+
+                    class Leaf {
+                        constructor() {
+                            this.x = Math.random() * width;
+                            this.y = Math.random() * height;
+                            this.size = Math.random() * 5 + 2;
+                            this.speedX = Math.random() * 0.5 + 0.1;
+                            this.speedY = Math.random() * 0.5 + 0.2;
+                            this.angle = Math.random() * 360;
+                            this.spin = Math.random() * 2 - 1;
+                            this.opacity = Math.random() * 0.5 + 0.1;
+                        }
+
+                        update() {
+                            this.x += this.speedX;
+                            this.y += this.speedY;
+                            this.angle += this.spin;
+
+                            if (this.y > height) {
+                                this.y = -10;
+                                this.x = Math.random() * width;
+                            }
+                            if (this.x > width) {
+                                this.x = -10;
+                            }
+                        }
+
+                        draw() {
+                            ctx.save();
+                            ctx.translate(this.x, this.y);
+                            ctx.rotate(this.angle * Math.PI / 180);
+                            ctx.globalAlpha = this.opacity;
+                            ctx.fillStyle = '#5c8a3c'; // Matching bamboo green
+                            ctx.beginPath();
+                            ctx.ellipse(0, 0, this.size, this.size / 2, 0, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.restore();
+                        }
+                    }
+
+                    for (let i = 0; i < leafCount; i++) {
+                        leaves.push(new Leaf());
+                    }
+
+                    const animate = () => {
+                        ctx.clearRect(0, 0, width, height);
+                        leaves.forEach(leaf => {
+                            leaf.update();
+                            leaf.draw();
+                        });
+                        requestAnimationFrame(animate);
+                    };
+
+                    animate();
+
+                    let resizeTimer;
+                    const handleResize = () => {
+                        clearTimeout(resizeTimer);
+                        resizeTimer = setTimeout(() => {
+                            width = window.innerWidth;
+                            height = window.innerHeight;
+                            canvas.width = width * dpr;
+                            canvas.height = height * dpr;
+                            canvas.style.width = width + 'px';
+                            canvas.style.height = height + 'px';
+                            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                        }, 150);
+                    };
+
+                    window.addEventListener('resize', handleResize);
+                    return () => window.removeEventListener('resize', handleResize);
+                }, []);
+
+                return <canvas ref={canvasRef} style={{ position: 'fixed', top: 0, left: 0, pointerEvents: 'none', zIndex: 0 }} />;
+            };
+
+            /* ── IMPERIAL FOOTER COMPONENT ── */
+            const imperialStyles = {
+                footer: {
+                    position: "relative",
+                    width: "100%",
+                    minHeight: "450px",
+                    padding: "0",
+                    background: "linear-gradient(180deg, #060d0b 0%, #0a1a14 30%, #0d1f18 60%, #060d0b 100%)",
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    marginTop: "4rem",
+                },
+                topBorder: {
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: "3px",
+                    background: "linear-gradient(90deg, transparent 0%, #a88a2a 20%, #d4af37 35%, #f0d060 50%, #d4af37 65%, #a88a2a 80%, transparent 100%)",
+                },
+                topBorderGlow: {
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: "40px",
+                    background: "linear-gradient(180deg, rgba(212,175,55,0.15) 0%, transparent 100%)",
+                    pointerEvents: "none",
+                },
+                cloudContainer: {
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    pointerEvents: "none",
+                    overflow: "hidden",
+                },
+                content: {
+                    textAlign: "center",
+                    zIndex: 2,
+                    padding: "80px 40px 60px",
+                    position: "relative",
+                },
+                sealContainer: {
+                    marginBottom: "2rem",
+                    display: "flex",
+                    justifyContent: "center",
+                },
+                dividerLine: {
+                    width: "280px",
+                    height: "1px",
+                    background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.4), transparent)",
+                    margin: "0 auto 1.5rem",
+                },
+                title: {
+                    fontSize: "2.4rem",
+                    marginBottom: "0.5rem",
+                    letterSpacing: "6px",
+                    fontFamily: "'Cinzel', serif",
+                    fontWeight: 700,
+                    background: "linear-gradient(135deg, #d4af37 0%, #f0d060 40%, #d4af37 60%, #a88a2a 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    textTransform: "uppercase",
+                    textShadow: "none",
+                    filter: "drop-shadow(0 0 20px rgba(212,175,55,0.3))",
+                },
+                subtitle: {
+                    fontSize: "0.85rem",
+                    letterSpacing: "8px",
+                    color: "#00A86B",
+                    fontFamily: "'Cinzel', serif",
+                    fontWeight: 400,
+                    textTransform: "uppercase",
+                    marginBottom: "2rem",
+                    opacity: 0.8,
+                },
+                text: {
+                    fontSize: "1rem",
+                    marginBottom: "0.5rem",
+                    color: "#b8c5a6",
+                    fontFamily: "'Inter', sans-serif",
+                    fontWeight: 300,
+                    letterSpacing: "1px",
+                },
+                small: {
+                    fontSize: "0.8rem",
+                    color: "#7a8a6e",
+                    fontFamily: "'Inter', sans-serif",
+                    marginTop: "2rem",
+                    letterSpacing: "2px",
+                },
+                cornerOrnament: {
+                    position: "absolute",
+                    width: "80px",
+                    height: "80px",
+                    pointerEvents: "none",
+                    opacity: 0.3,
+                },
+            };
+
+            /* Imperial cloud SVG for atmospheric background */
+            const ImperialCloud = ({ x, y, scale = 1, opacity = 0.04, delay = 0 }) => {
+                return (
+                    <g transform={`translate(${x}, ${y}) scale(${scale})`} opacity={opacity}
+                       style={{ animation: `leafSway ${8 + delay}s ease-in-out infinite` }}>
+                        <ellipse cx="0" cy="0" rx="80" ry="30" fill="#d4af37" />
+                        <ellipse cx="-50" cy="-10" rx="50" ry="25" fill="#d4af37" />
+                        <ellipse cx="50" cy="-10" rx="50" ry="25" fill="#d4af37" />
+                        <ellipse cx="-25" cy="-25" rx="40" ry="22" fill="#d4af37" />
+                        <ellipse cx="25" cy="-25" rx="40" ry="22" fill="#d4af37" />
+                    </g>
+                );
+            };
+
+            /* Imperial seal / emblem */
+            const ImperialSeal = () => {
+                return (
+                    <svg width="100" height="100" viewBox="0 0 200 200" style={{ filter: "drop-shadow(0 0 30px rgba(212,175,55,0.25))" }}>
+                        <defs>
+                            <linearGradient id="sealGoldGrad" x1="0" x2="1" y1="0" y2="1">
+                                <stop offset="0%" stopColor="#a88a2a" />
+                                <stop offset="50%" stopColor="#f0d060" />
+                                <stop offset="100%" stopColor="#a88a2a" />
+                            </linearGradient>
+                            <linearGradient id="sealJadeGrad" x1="0" x2="0" y1="0" y2="1">
+                                <stop offset="0%" stopColor="#2ed89a" />
+                                <stop offset="50%" stopColor="#00A86B" />
+                                <stop offset="100%" stopColor="#004d33" />
+                            </linearGradient>
+                        </defs>
+                        {/* Outer ring */}
+                        <circle cx="100" cy="100" r="90" fill="none" stroke="url(#sealGoldGrad)" strokeWidth="2" />
+                        <circle cx="100" cy="100" r="82" fill="none" stroke="url(#sealGoldGrad)" strokeWidth="1" opacity="0.5" />
+                        {/* Octagonal inner frame */}
+                        <polygon
+                            points="100,18 148,38 172,80 172,120 148,162 100,182 52,162 28,120 28,80 52,38"
+                            fill="none" stroke="url(#sealGoldGrad)" strokeWidth="1.5" opacity="0.6"
+                        />
+                        {/* Inner jade circle */}
+                        <circle cx="100" cy="100" r="45" fill="rgba(0,168,107,0.08)" stroke="url(#sealJadeGrad)" strokeWidth="1.5" />
+                        {/* Center character-like emblem (stylized D for Donghua) */}
+                        <text x="100" y="115" textAnchor="middle" fontFamily="'Cinzel', serif" fontSize="48" fontWeight="700" fill="url(#sealGoldGrad)">D</text>
+                        {/* Cardinal ornaments */}
+                        {[0, 90, 180, 270].map((angle) => (
+                            <g key={angle} transform={`rotate(${angle} 100 100)`}>
+                                <circle cx="100" cy="14" r="3" fill="#d4af37" opacity="0.6" />
+                            </g>
+                        ))}
+                        {/* Diagonal ornaments */}
+                        {[45, 135, 225, 315].map((angle) => (
+                            <g key={angle} transform={`rotate(${angle} 100 100)`}>
+                                <diamond cx="100" cy="14" r="2" fill="#00A86B" opacity="0.4" />
+                                <circle cx="100" cy="16" r="2" fill="#00A86B" opacity="0.4" />
+                            </g>
+                        ))}
+                    </svg>
+                );
+            };
+
+            /* Corner ornament SVG */
+            const CornerOrnament = ({ rotation = 0 }) => {
+                return (
+                    <svg width="80" height="80" viewBox="0 0 100 100" style={{ transform: `rotate(${rotation}deg)` }}>
+                        <path d="M0,0 Q50,0 50,50 Q50,0 100,0" fill="none" stroke="#d4af37" strokeWidth="1" opacity="0.4" />
+                        <path d="M0,0 Q0,50 50,50 Q0,50 0,100" fill="none" stroke="#d4af37" strokeWidth="1" opacity="0.4" />
+                        <circle cx="12" cy="12" r="3" fill="#d4af37" opacity="0.3" />
+                    </svg>
+                );
+            };
+
+            const ImperialFooter = () => {
+                return (
+                    <footer style={imperialStyles.footer}>
+                        {/* Gold top border */}
+                        <div style={imperialStyles.topBorder} />
+                        <div style={imperialStyles.topBorderGlow} />
+
+                        {/* Background clouds */}
+                        <div style={imperialStyles.cloudContainer}>
+                            <svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 1200 450">
+                                <ImperialCloud x={100} y={380} scale={1.2} opacity={0.03} delay={0} />
+                                <ImperialCloud x={400} y={400} scale={0.8} opacity={0.02} delay={2} />
+                                <ImperialCloud x={800} y={370} scale={1} opacity={0.03} delay={4} />
+                                <ImperialCloud x={1100} y={390} scale={0.9} opacity={0.02} delay={1} />
+                                <ImperialCloud x={250} y={60} scale={0.6} opacity={0.02} delay={3} />
+                                <ImperialCloud x={950} y={80} scale={0.7} opacity={0.02} delay={5} />
+                            </svg>
+                        </div>
+
+                        {/* Corner ornaments */}
+                        <div style={{ ...imperialStyles.cornerOrnament, top: "15px", left: "15px" }}>
+                            <CornerOrnament rotation={0} />
+                        </div>
+                        <div style={{ ...imperialStyles.cornerOrnament, top: "15px", right: "15px" }}>
+                            <CornerOrnament rotation={90} />
+                        </div>
+                        <div style={{ ...imperialStyles.cornerOrnament, bottom: "15px", left: "15px" }}>
+                            <CornerOrnament rotation={270} />
+                        </div>
+                        <div style={{ ...imperialStyles.cornerOrnament, bottom: "15px", right: "15px" }}>
+                            <CornerOrnament rotation={180} />
+                        </div>
+
+                        {/* Main content */}
+                        <div style={imperialStyles.content}>
+                            <div style={imperialStyles.sealContainer}>
+                                <ImperialSeal />
+                            </div>
+                            <h2 style={imperialStyles.title}>Donghua CLI</h2>
+                            <p style={imperialStyles.subtitle}>Imperial Cultivation Engine</p>
+                            <div style={imperialStyles.dividerLine} />
+                            <p style={imperialStyles.text}>
+                                Forged in jade, crowned in gold
+                            </p>
+                            <p style={imperialStyles.small}>
+                                &copy; {new Date().getFullYear()} Thanukamax
+                            </p>
+                        </div>
+                    </footer>
+                );
+            };
+
+            /* ── BAMBOO SIDE PLANTS ── */
+            const BambooSidePlants = () => {
+                const stalksRef = useRef([]);
+                const timeRef = useRef(0);
+
+                useEffect(() => {
+                    let animId;
+                    const animate = (timestamp) => {
+                        timeRef.current = timestamp * 0.001;
+                        stalksRef.current.forEach((el, i) => {
+                            if (!el) return;
+                            const speed = 0.4 + (i % 3) * 0.15;
+                            const amplitude = 1.2 + (i % 2) * 0.6;
+                            const phase = i * 1.3;
+                            const sway = Math.sin(timeRef.current * speed + phase) * amplitude;
+                            const sway2 = Math.sin(timeRef.current * speed * 0.7 + phase + 2) * (amplitude * 0.4);
+                            el.style.transform = `translate3d(0,0,0) rotate(${sway + sway2}deg)`;
+                        });
+                        animId = requestAnimationFrame(animate);
+                    };
+                    animId = requestAnimationFrame(animate);
+                    return () => cancelAnimationFrame(animId);
+                }, []);
+
+                const setRef = (i) => (el) => { stalksRef.current[i] = el; };
+
+                /* Each stalk: curved path, nodes, leaves */
+                const BambooStalkSVG = ({ height = 600, bend = 40, facingRight = true, seed = 0 }) => {
+                    const w = 120;
+                    const h = height;
+                    const stalkWidth = 10 + (seed % 3) * 2;
+                    const nodeCount = Math.floor(h / 90);
+                    const dir = facingRight ? 1 : -1;
+                    const baseX = facingRight ? 10 : w - 10;
+                    const tipX = baseX + bend * dir;
+
+                    /* Main stalk control points for a natural curve */
+                    const cp1x = baseX + bend * 0.2 * dir;
+                    const cp1y = h * 0.6;
+                    const cp2x = tipX - bend * 0.1 * dir;
+                    const cp2y = h * 0.2;
+
+                    /* Get point on cubic bezier */
+                    const getPoint = (t) => {
+                        const mt = 1 - t;
+                        const x = mt*mt*mt*baseX + 3*mt*mt*t*cp1x + 3*mt*t*t*cp2x + t*t*t*tipX;
+                        const y = mt*mt*mt*h + 3*mt*mt*t*cp1y + 3*mt*t*t*cp2y + t*t*t*20;
+                        return { x, y };
+                    };
+
+                    const nodes = [];
+                    for (let i = 1; i <= nodeCount; i++) {
+                        const t = i / (nodeCount + 1);
+                        nodes.push({ ...getPoint(t), t });
+                    }
+
+                    const leafPositions = nodes.filter((_, i) => (i + seed) % 2 === 0);
+
+                    const svgFilter = isMobile
+                        ? "drop-shadow(3px 5px 4px rgba(0,0,0,0.3))"
+                        : "drop-shadow(5px 8px 6px rgba(0,0,0,0.35))";
+
+                    return (
+                        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: "visible", filter: svgFilter }}>
+                            <defs>
+                                {/* Stalk gradient with gold highlight on lit side */}
+                                <linearGradient id={`stalkGrad${seed}`} x1={facingRight ? "0" : "1"} x2={facingRight ? "1" : "0"} y1="0" y2="0">
+                                    <stop offset="0%" stopColor="#1e4a12" />
+                                    <stop offset="25%" stopColor="#2d5a1e" />
+                                    <stop offset="45%" stopColor="#4a8a35" />
+                                    <stop offset="65%" stopColor="#6aaa48" />
+                                    <stop offset="80%" stopColor="#8aba55" />
+                                    <stop offset="100%" stopColor="#7a9a3a" />
+                                </linearGradient>
+                                {/* Gold light hitting the stalk from above */}
+                                <linearGradient id={`goldLight${seed}`} x1="0" x2="0" y1="0" y2="1">
+                                    <stop offset="0%" stopColor="rgba(240,208,96,0.4)" />
+                                    <stop offset="30%" stopColor="rgba(212,175,55,0.15)" />
+                                    <stop offset="60%" stopColor="rgba(212,175,55,0.05)" />
+                                    <stop offset="100%" stopColor="rgba(0,0,0,0)" />
+                                </linearGradient>
+                                {/* Specular gold highlight on stalk edge */}
+                                <linearGradient id={`goldSpec${seed}`} x1={facingRight ? "0" : "1"} x2={facingRight ? "1" : "0"} y1="0" y2="0">
+                                    <stop offset="0%" stopColor="rgba(0,0,0,0)" />
+                                    <stop offset="60%" stopColor="rgba(0,0,0,0)" />
+                                    <stop offset="85%" stopColor="rgba(240,208,96,0.2)" />
+                                    <stop offset="100%" stopColor="rgba(212,175,55,0.08)" />
+                                </linearGradient>
+                                <linearGradient id={`leafGrad${seed}`} x1="0" x2="1" y1="0" y2="0.5">
+                                    <stop offset="0%" stopColor="#2d6a1a" />
+                                    <stop offset="30%" stopColor="#4a9a30" />
+                                    <stop offset="60%" stopColor="#5aad3a" />
+                                    <stop offset="100%" stopColor="#3d7a22" />
+                                </linearGradient>
+                                {/* Gold-tinted leaf highlight */}
+                                <linearGradient id={`leafGold${seed}`} x1="0" x2="0" y1="0" y2="1">
+                                    <stop offset="0%" stopColor="rgba(240,208,96,0.25)" />
+                                    <stop offset="100%" stopColor="rgba(0,0,0,0)" />
+                                </linearGradient>
+                                <linearGradient id={`nodeGrad${seed}`} x1="0" x2="0" y1="0" y2="1">
+                                    <stop offset="0%" stopColor="#3a6e25" />
+                                    <stop offset="50%" stopColor="#2d5a1e" />
+                                    <stop offset="100%" stopColor="#3a6e25" />
+                                </linearGradient>
+                                {/* Filters replaced with CSS drop-shadow for GPU perf */}
+                            </defs>
+
+                            {/* Main stalk - thick curved path with shadow */}
+                            <path
+                                d={`M ${baseX} ${h} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tipX} 20`}
+                                fill="none"
+                                stroke={`url(#stalkGrad${seed})`}
+                                strokeWidth={stalkWidth}
+                                strokeLinecap="round"
+                            />
+                            {/* Gold light overlays (skip on mobile for perf) */}
+                            {!isMobile && <>
+                                <path
+                                    d={`M ${baseX} ${h} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tipX} 20`}
+                                    fill="none"
+                                    stroke={`url(#goldLight${seed})`}
+                                    strokeWidth={stalkWidth * 0.9}
+                                    strokeLinecap="round"
+                                />
+                                <path
+                                    d={`M ${baseX} ${h} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tipX} 20`}
+                                    fill="none"
+                                    stroke={`url(#goldSpec${seed})`}
+                                    strokeWidth={stalkWidth * 1.1}
+                                    strokeLinecap="round"
+                                />
+                                <path
+                                    d={`M ${baseX} ${h} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tipX} 20`}
+                                    fill="none"
+                                    stroke="rgba(140,220,90,0.1)"
+                                    strokeWidth={stalkWidth * 0.3}
+                                    strokeLinecap="round"
+                                />
+                            </>}
+
+                            {/* Nodes / segments */}
+                            {nodes.map((n, i) => (
+                                <g key={i}>
+                                    <ellipse
+                                        cx={n.x} cy={n.y}
+                                        rx={stalkWidth * 0.75} ry={4}
+                                        fill={`url(#nodeGrad${seed})`}
+                                        stroke="#1e4a12"
+                                        strokeWidth="0.5"
+                                    />
+                                </g>
+                            ))}
+
+                            {/* Leaves */}
+                            {leafPositions.map((n, i) => {
+                                const leafDir = (i + seed) % 2 === 0 ? 1 : -1;
+                                const leafLen = 35 + ((i * 7 + seed * 13) % 20);
+                                const leafAngle = leafDir * (25 + ((i * 11 + seed * 7) % 15));
+                                const droop = 8 + (i % 3) * 4;
+                                const leafTipX = n.x + leafLen * dir * leafDir;
+                                const leafTipY = n.y - droop;
+                                const cpLx = n.x + leafLen * 0.5 * dir * leafDir;
+                                const cpLy = n.y - droop * 1.8;
+
+                                return (
+                                    <g key={`leaf${i}`} style={{
+                                        animation: `leafSway ${5 + i * 0.7}s ease-in-out ${i * 0.3}s infinite`,
+                                        transformOrigin: `${n.x}px ${n.y}px`
+                                    }}>
+                                        {/* Leaf body */}
+                                        <path
+                                            d={`M ${n.x} ${n.y} Q ${cpLx} ${cpLy} ${leafTipX} ${leafTipY} Q ${cpLx} ${n.y + 2} ${n.x} ${n.y}`}
+                                            fill={`url(#leafGrad${seed})`}
+                                            opacity={0.9}
+                                            transform={`rotate(${leafAngle} ${n.x} ${n.y})`}
+                                        />
+                                        {/* Gold light on leaf top (desktop only) */}
+                                        {!isMobile && <path
+                                            d={`M ${n.x} ${n.y} Q ${cpLx} ${cpLy} ${leafTipX} ${leafTipY} Q ${cpLx} ${n.y + 2} ${n.x} ${n.y}`}
+                                            fill={`url(#leafGold${seed})`}
+                                            opacity={0.5}
+                                            transform={`rotate(${leafAngle} ${n.x} ${n.y})`}
+                                        />}
+                                        {/* Leaf vein */}
+                                        <path
+                                            d={`M ${n.x} ${n.y} Q ${cpLx} ${cpLy - 2} ${leafTipX} ${leafTipY}`}
+                                            fill="none"
+                                            stroke="rgba(30,80,15,0.5)"
+                                            strokeWidth="0.6"
+                                            transform={`rotate(${leafAngle} ${n.x} ${n.y})`}
+                                        />
+                                    </g>
+                                );
+                            })}
+                            {/* Bamboo shoots at the base */}
+                            {(() => {
+                                const shoots = [];
+                                const shootCount = 2 + (seed % 2);
+                                for (let s = 0; s < shootCount; s++) {
+                                    const offsetX = (s - (shootCount - 1) / 2) * 18 * dir;
+                                    const shootH = 40 + (s * 17 + seed * 11) % 35;
+                                    const shootW = 4 + (s % 2) * 2;
+                                    const shootBaseX = baseX + offsetX;
+                                    const shootTipX = shootBaseX + (3 + s * 2) * dir;
+                                    const shootColor1 = "#8fbf5a";
+                                    const shootColor2 = "#b5d97a";
+                                    const shootColor3 = "#6a9a3a";
+
+                                    shoots.push(
+                                        <g key={`shoot${s}`}>
+                                            {/* Shoot stalk */}
+                                            <path
+                                                d={`M ${shootBaseX} ${h + 5} Q ${shootBaseX} ${h - shootH * 0.5} ${shootTipX} ${h - shootH}`}
+                                                fill="none"
+                                                stroke={shootColor1}
+                                                strokeWidth={shootW}
+                                                strokeLinecap="round"
+                                            />
+                                            {/* Shoot tip - curled new growth */}
+                                            <path
+                                                d={`M ${shootTipX} ${h - shootH} Q ${shootTipX + 5 * dir} ${h - shootH - 8} ${shootTipX + 2 * dir} ${h - shootH - 14}`}
+                                                fill="none"
+                                                stroke={shootColor2}
+                                                strokeWidth={shootW * 0.7}
+                                                strokeLinecap="round"
+                                            />
+                                            {/* Shoot sheath leaves */}
+                                            <path
+                                                d={`M ${shootBaseX} ${h - shootH * 0.3}
+                                                    Q ${shootBaseX + 12 * dir} ${h - shootH * 0.5}
+                                                      ${shootBaseX + 18 * dir} ${h - shootH * 0.55}
+                                                    Q ${shootBaseX + 10 * dir} ${h - shootH * 0.35}
+                                                      ${shootBaseX} ${h - shootH * 0.3}`}
+                                                fill={shootColor3}
+                                                opacity="0.7"
+                                            />
+                                            <path
+                                                d={`M ${shootBaseX} ${h - shootH * 0.55}
+                                                    Q ${shootBaseX - 8 * dir} ${h - shootH * 0.7}
+                                                      ${shootBaseX - 14 * dir} ${h - shootH * 0.78}
+                                                    Q ${shootBaseX - 6 * dir} ${h - shootH * 0.62}
+                                                      ${shootBaseX} ${h - shootH * 0.55}`}
+                                                fill={shootColor1}
+                                                opacity="0.6"
+                                            />
+                                            {/* Gold light on shoot tip */}
+                                            <circle
+                                                cx={shootTipX + 1 * dir}
+                                                cy={h - shootH - 5}
+                                                r={shootW * 0.8}
+                                                fill="rgba(240,208,96,0.2)"
+                                            />
+                                        </g>
+                                    );
+                                }
+                                return shoots;
+                            })()}
+                        </svg>
+                    );
+                };
+
+                /* Stalk configs: 3 left, 2 right (reduced on mobile) */
+                const allStalks = [
+                    /* Left side stalks */
+                    { side: "left", bottom: "0%",  height: 950, bend: 55,  facingRight: true,  seed: 0, zIndex: 3 },
+                    { side: "left", bottom: "5%",  height: 780, bend: 40,  facingRight: true,  seed: 1, zIndex: 2 },
+                    { side: "left", bottom: "0%",  height: 620, bend: 65,  facingRight: true,  seed: 2, zIndex: 1 },
+                    /* Right side stalks */
+                    { side: "right", bottom: "0%",  height: 880, bend: 50, facingRight: false, seed: 3, zIndex: 3 },
+                    { side: "right", bottom: "3%",  height: 700, bend: 60, facingRight: false, seed: 4, zIndex: 2 },
+                ];
+                /* On mobile: 2 left, 1 right to reduce SVG complexity */
+                const stalks = isMobile ? [allStalks[0], allStalks[2], allStalks[3]] : allStalks;
+
+                return (
+                    <div style={{
+                        position: "fixed",
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        pointerEvents: "none",
+                        zIndex: 150,
+                        overflow: "hidden",
+                    }}>
+                        {stalks.map((s, i) => (
+                            <div
+                                key={i}
+                                ref={setRef(i)}
+                                style={{
+                                    position: "absolute",
+                                    [s.side]: "-15px",
+                                    bottom: s.bottom,
+                                    zIndex: s.zIndex,
+                                    transformOrigin: `${s.side === "left" ? "0%" : "100%"} 100%`,
+                                    opacity: 0.7 + s.zIndex * 0.08,
+                                    willChange: "transform",
+                                    contain: "layout style",
+                                }}
+                            >
+                                <BambooStalkSVG
+                                    height={s.height}
+                                    bend={s.bend}
+                                    facingRight={s.facingRight}
+                                    seed={s.seed}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                );
+            };
+
+            /* ── INTERACTIVE BAMBOO LEAF BED (Canvas-based 2D Physics) ── */
+            const BambooLeafBed = () => {
+                const canvasRef = useRef(null);
+
+                useEffect(() => {
+                    const canvas = canvasRef.current;
+                    const ctx = canvas.getContext('2d');
+                    const dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2);
+                    let W = window.innerWidth;
+                    let H = window.innerHeight;
+                    canvas.width = W * dpr;
+                    canvas.height = H * dpr;
+                    canvas.style.width = W + 'px';
+                    canvas.style.height = H + 'px';
+                    ctx.scale(dpr, dpr);
+
+                    const leafCount = isMobile ? 22 : 35;
+
+                    /* Pre-generate leaf data */
+                    const leaves = [];
+                    for (let i = 0; i < leafCount; i++) {
+                        const homeX = (i / leafCount) * W + Math.sin(i * 7.3) * 25;
+                        const homeY = H - (12 + Math.sin(i * 2.1) * 8 + (i % 3) * 5);
+                        const size = 24 + (i * 13 % 20);
+                        const baseRot = (-30 + (i * 17 % 60)) * Math.PI / 180;
+                        const flipX = i % 3 === 0 ? -1 : 1;
+                        const mass = 0.5 + Math.random() * 0.5;
+                        const hue = 90 + (i * 7 % 30);
+                        const lightness = 28 + (i * 11 % 15);
+                        const windPhase = Math.random() * Math.PI * 2;
+                        const windSpeed = 0.6 + Math.random() * 0.6;
+                        const opacity = 0.6 + mass * 0.35;
+                        /* Pre-compute colors as rgb strings */
+                        const cH = hue, cS = 55, cL = lightness;
+                        const bodyColor = `hsl(${cH},${cS}%,${cL}%)`;
+                        const veinColor = `hsl(${cH},40%,${cL - 8}%)`;
+
+                        leaves.push({
+                            homeX, homeY, size, baseRot, flipX, mass,
+                            windPhase, windSpeed, opacity, bodyColor, veinColor,
+                            /* physics state */
+                            x: 0, y: 0, vx: 0, vy: 0, rot: 0, vr: 0, airborne: false,
+                        });
+                    }
+
+                    /* Scroll tracking */
+                    let scrollVel = 0;
+                    let lastScroll = window.scrollY;
+                    const onScroll = () => {
+                        const now = window.scrollY;
+                        scrollVel = now - lastScroll;
+                        lastScroll = now;
+                    };
+                    window.addEventListener('scroll', onScroll, { passive: true });
+
+                    /* Physics constants */
+                    const SPRING_Y = 0.8;
+                    const SPRING_X = 0.9;
+                    const DRAG = 1.2;
+                    const ANGULAR_DRAG = 4.0;
+                    const WALL_BOUNCE = 0.35;
+                    const SCROLL_PUSH = 22;
+                    const TURBULENCE = 90;
+
+                    let lastTime = 0;
+                    let animId;
+
+                    /* Draw a single leaf shape on the canvas */
+                    const drawLeaf = (cx, cy, sz, rot, flip, opacity, bodyColor, veinColor) => {
+                        ctx.save();
+                        ctx.translate(cx, cy);
+                        ctx.rotate(rot);
+                        ctx.scale(flip, 1);
+                        ctx.globalAlpha = opacity;
+
+                        const hw = sz * 0.5;
+                        const hh = sz * 0.2;
+
+                        /* Shadow */
+                        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+                        ctx.beginPath();
+                        ctx.moveTo(-hw + 1, 3);
+                        ctx.quadraticCurveTo(0, -hh + 3, hw + 1, 1);
+                        ctx.quadraticCurveTo(0, hh + 3, -hw + 1, 3);
+                        ctx.fill();
+
+                        /* Body */
+                        ctx.fillStyle = bodyColor;
+                        ctx.beginPath();
+                        ctx.moveTo(-hw, 0);
+                        ctx.quadraticCurveTo(0, -hh * 1.5, hw, -hh * 0.3);
+                        ctx.quadraticCurveTo(0, hh * 1.2, -hw, 0);
+                        ctx.fill();
+
+                        /* Gold light catch */
+                        ctx.fillStyle = 'rgba(240,208,96,0.13)';
+                        ctx.beginPath();
+                        ctx.moveTo(-hw * 0.7, -hh * 0.1);
+                        ctx.quadraticCurveTo(0, -hh * 1.1, hw * 0.7, -hh * 0.2);
+                        ctx.quadraticCurveTo(0, hh * 0.3, -hw * 0.7, -hh * 0.1);
+                        ctx.fill();
+
+                        /* Vein */
+                        ctx.strokeStyle = veinColor;
+                        ctx.lineWidth = 0.5;
+                        ctx.globalAlpha = opacity * 0.6;
+                        ctx.beginPath();
+                        ctx.moveTo(-hw * 0.85, 0);
+                        ctx.quadraticCurveTo(0, -hh * 0.8, hw * 0.85, -hh * 0.2);
+                        ctx.stroke();
+
+                        ctx.restore();
+                    };
+
+                    const animate = (timestamp) => {
+                        const t = timestamp * 0.001;
+                        const dt = Math.min(t - (lastTime || t), 0.05);
+                        lastTime = t;
+
+                        const sVel = scrollVel;
+                        scrollVel *= 0.85;
+
+                        const absSVel = Math.abs(sVel);
+                        const isHardScroll = absSVel > 15;
+                        const scrollDir = sVel > 0 ? -1 : 1;
+
+                        /* Clear only the needed area — full canvas */
+                        ctx.clearRect(0, 0, W, H);
+
+                        /* Ground shadow gradient */
+                        const grad = ctx.createLinearGradient(0, H - 25, 0, H);
+                        grad.addColorStop(0, 'rgba(0,0,0,0)');
+                        grad.addColorStop(1, 'rgba(0,0,0,0.35)');
+                        ctx.fillStyle = grad;
+                        ctx.fillRect(0, H - 25, W, 25);
+
+                        for (let i = 0; i < leafCount; i++) {
+                            const p = leaves[i];
+                            const floorY = H - p.homeY;
+
+                            /* ── Scroll forces ── */
+                            if (absSVel > 2) {
+                                const randAngle = (p.windPhase + i * 1.7 + t * 3) % (Math.PI * 2);
+                                const lateralRand = Math.sin(randAngle) * TURBULENCE * (absSVel / 30);
+
+                                p.vy += scrollDir * SCROLL_PUSH * absSVel * p.mass * dt;
+                                p.vx += lateralRand * dt * p.mass;
+                                p.vr += (sVel * 1.5 + lateralRand * 0.2) * dt;
+
+                                if (isHardScroll) {
+                                    p.airborne = true;
+                                    const burstY = (12 + Math.random() * 25) * p.mass;
+                                    const burstX = (Math.random() - 0.5) * (15 + Math.random() * 20) * p.mass;
+                                    p.vy += scrollDir * burstY;
+                                    p.vx += burstX;
+                                    p.vr += (Math.random() - 0.5) * 120 * dt;
+                                }
+                            }
+
+                            /* ── Wind ── */
+                            const windX = Math.sin(t * p.windSpeed + p.windPhase) * 8 +
+                                          Math.sin(t * p.windSpeed * 1.7 + p.windPhase + 2) * 4;
+                            const windRot = Math.sin(t * p.windSpeed * 0.8 + p.windPhase) * 3 * (Math.PI / 180);
+
+                            /* ── Spring to home ── */
+                            p.vy += (-p.y * SPRING_Y) * dt;
+                            p.vx += (-p.x * SPRING_X) * dt;
+
+                            /* ── Drag ── */
+                            p.vx -= p.vx * DRAG * dt;
+                            p.vy -= p.vy * DRAG * dt;
+                            p.vr -= p.vr * ANGULAR_DRAG * dt;
+
+                            /* Clamp angular velocity */
+                            const MAX_VR = 4;
+                            if (p.vr > MAX_VR) p.vr = MAX_VR;
+                            if (p.vr < -MAX_VR) p.vr = -MAX_VR;
+
+                            /* ── Integrate ── */
+                            p.x += p.vx * dt;
+                            p.y += p.vy * dt;
+                            p.rot += p.vr * dt;
+
+                            /* ── Floor wall ── */
+                            if (p.y > floorY) {
+                                p.y = floorY;
+                                if (p.vy > 15) {
+                                    p.vy = -p.vy * WALL_BOUNCE;
+                                    p.vr += (Math.random() - 0.5) * 20;
+                                    p.vx += (Math.random() - 0.5) * 40;
+                                } else {
+                                    p.vy = 0;
+                                }
+                            }
+
+                            /* ── Ceiling ── */
+                            const ceilingY = -H * 0.85;
+                            if (p.y < ceilingY) {
+                                p.y = ceilingY;
+                                p.vy = -p.vy * 0.2;
+                            }
+
+                            /* ── Settle ── */
+                            const speed = Math.abs(p.vx) + Math.abs(p.vy);
+                            if (speed < 8 && Math.abs(p.y) < 3) {
+                                p.airborne = false;
+                                p.rot *= 0.95;
+                                p.vr *= 0.9;
+                            }
+
+                            /* ── Draw ── */
+                            const drawX = p.homeX + p.x + windX;
+                            const drawY = p.homeY + p.y;
+                            const drawRot = p.baseRot + p.rot + windRot;
+
+                            drawLeaf(drawX, drawY, p.size, drawRot, p.flipX, p.opacity, p.bodyColor, p.veinColor);
+                        }
+
+                        animId = requestAnimationFrame(animate);
+                    };
+                    animId = requestAnimationFrame(animate);
+
+                    /* Debounced resize */
+                    let resizeTimer;
+                    const handleResize = () => {
+                        clearTimeout(resizeTimer);
+                        resizeTimer = setTimeout(() => {
+                            W = window.innerWidth;
+                            H = window.innerHeight;
+                            canvas.width = W * dpr;
+                            canvas.height = H * dpr;
+                            canvas.style.width = W + 'px';
+                            canvas.style.height = H + 'px';
+                            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                            /* Recompute home positions */
+                            for (let i = 0; i < leafCount; i++) {
+                                leaves[i].homeX = (i / leafCount) * W + Math.sin(i * 7.3) * 25;
+                                leaves[i].homeY = H - (12 + Math.sin(i * 2.1) * 8 + (i % 3) * 5);
+                            }
+                        }, 150);
+                    };
+                    window.addEventListener('resize', handleResize);
+
+                    return () => {
+                        window.removeEventListener('scroll', onScroll);
+                        window.removeEventListener('resize', handleResize);
+                        cancelAnimationFrame(animId);
+                    };
+                }, []);
+
+                return (
+                    <canvas
+                        ref={canvasRef}
+                        style={{
+                            position: "fixed",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
+                            height: "100%",
+                            pointerEvents: "none",
+                            zIndex: 149,
+                        }}
+                    />
+                );
+            };
+
+            /* ── Mount Cultivation Seal splash ── */
+            document.body.classList.add('seal-locked');
+            const sealEl = document.getElementById('cultivation-seal-splash');
+            const sealRoot = ReactDOM.createRoot(sealEl);
+            sealRoot.render(<CultivationSeal onComplete={() => {
+                document.body.classList.remove('seal-locked');
+                sealRoot.unmount();
+                sealEl.remove();
+            }} />);
+
+            const bambooRoot = ReactDOM.createRoot(document.getElementById('bamboo-sides'));
+            bambooRoot.render(<BambooSidePlants />);
+
+            const leafBedRoot = ReactDOM.createRoot(document.getElementById('bamboo-leaf-bed'));
+            leafBedRoot.render(<BambooLeafBed />);
+
+            const overlayRoot = ReactDOM.createRoot(document.getElementById('cultivation-overlay'));
+            overlayRoot.render(<SpiritLeaves />);
+
+            const footerRoot = ReactDOM.createRoot(document.getElementById('footer-mount'));
+            footerRoot.render(<ImperialFooter />);
+        </script>
+    </body>
+
+</html>
