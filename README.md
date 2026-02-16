@@ -77,6 +77,8 @@ pip install requests beautifulsoup4 yt-dlp
 
 ## Usage Examples
 
+### Desktop (Linux/Windows)
+
 ```bash
 # Interactive mode
 python dhua.py
@@ -98,6 +100,18 @@ python dhua.py --features
 
 # Clear cache
 python dhua.py --clear-cache
+```
+
+### Android (Termux)
+
+The Android version (`donghua.py`) is optimized for Termux with mobile-friendly defaults (360p quality, Android intent-based player launching).
+
+```bash
+# Interactive mode - searches, picks a series, and plays
+python donghua.py
+
+# Launches video via Android intents (MPV, VLC, MX Player)
+# Falls back to termux-open-url if no player is found
 ```
 
 ## Playback Controls
