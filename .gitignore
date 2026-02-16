@@ -30,6 +30,11 @@ episode_cache.json
 
 # Logs
 *.log
+debug_log.txt
+
+# Debug / dev scripts
+debug.py
+logs.py
 
 # Distribution / packaging
 dist/

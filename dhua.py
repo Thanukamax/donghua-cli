@@ -661,24 +661,40 @@ class Scraper:
         
         soup = Utils.get_soup_fast(series_url, timeout=12)
         episodes = []
-        seen = set()
-        
+        seen_urls = set()
+
         # Try all selectors
         for selector in self.source["episode_selectors"]:
             for a in soup.select(selector):
-                if (href := a.get("href")) and href not in seen:
-                    seen.add(href)
-                    title = a.get_text(strip=True)
-                    
-                    # Fast episode detection
-                    title_lower = title.lower()
-                    href_lower = href.lower()
-                    if any(indicator in title_lower or indicator in href_lower 
-                          for indicator in ["episode", "ep-", "第", "集", "ep"]):
-                        episodes.append((title, href))
-        
+                href = a.get("href")
+                if not href:
+                    continue
+                # Normalize URL: strip trailing slash and query params
+                normalized = href.rstrip("/").split("?")[0].split("#")[0]
+                if normalized in seen_urls:
+                    continue
+                seen_urls.add(normalized)
+                title = a.get_text(strip=True)
+
+                # Fast episode detection
+                title_lower = title.lower()
+                href_lower = href.lower()
+                if any(indicator in title_lower or indicator in href_lower
+                      for indicator in ["episode", "ep-", "第", "集", "ep"]):
+                    episodes.append((title, href))
+
         # Sort by episode number
         episodes.sort(key=lambda x: Utils.extract_episode_number(x[0], x[1]))
+
+        # Remove duplicates with the same episode number (keep first occurrence)
+        seen_nums = set()
+        unique_episodes = []
+        for ep in episodes:
+            ep_num = Utils.extract_episode_number(ep[0], ep[1])
+            if ep_num not in seen_nums:
+                seen_nums.add(ep_num)
+                unique_episodes.append(ep)
+        episodes = unique_episodes
         
         # Cache in memory
         self.episode_cache[series_url] = episodes
@@ -951,16 +967,10 @@ class UserInterface:
                 print(f"  {WuxiaTheme.JADE}{WuxiaTheme.BORDER_L}{WuxiaTheme.BORDER_HORIZ*64}{WuxiaTheme.BORDER_R}{WuxiaTheme.RESET}")
 
             episode_sym = WuxiaTheme.SYMBOL_SCROLL
-            title = episodes[i][0]
+            ep_num = Utils.extract_episode_number(episodes[i][0], episodes[i][1])
+            ep_label = f"Episode {ep_num}" if ep_num < 999999 else f"Episode {i + 1}"
 
-            # Strict truncation to prevent overflow (max 50 chars for title)
-            max_title_len = 50
-            if len(title) > max_title_len:
-                truncated_title = title[:max_title_len-3] + "..."
-            else:
-                truncated_title = title
-
-            print(f"  {WuxiaTheme.JADE}{WuxiaTheme.BORDER_VERT}{WuxiaTheme.RESET} {WuxiaTheme.SILVER}{i + 1:3d}.{WuxiaTheme.RESET} {episode_sym} {WuxiaTheme.WHITE}{truncated_title:<50}{WuxiaTheme.RESET} {WuxiaTheme.JADE}{WuxiaTheme.BORDER_VERT}{WuxiaTheme.RESET}")
+            print(f"  {WuxiaTheme.JADE}{WuxiaTheme.BORDER_VERT}{WuxiaTheme.RESET} {WuxiaTheme.SILVER}{i + 1:3d}.{WuxiaTheme.RESET} {episode_sym} {WuxiaTheme.WHITE}{ep_label:<50}{WuxiaTheme.RESET} {WuxiaTheme.JADE}{WuxiaTheme.BORDER_VERT}{WuxiaTheme.RESET}")
 
         # Show pagination info
         if total_pages > 1:
