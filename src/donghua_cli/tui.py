@@ -6,22 +6,18 @@ toast notifications, and premium Wuxia-themed design.
 
 from __future__ import annotations
 
-import math
 import random
-from typing import TYPE_CHECKING, List, Sequence
+from typing import TYPE_CHECKING
 
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Container
 from textual.css.query import NoMatches
 from textual.reactive import reactive
 from textual.screen import Screen
-from textual.widget import Widget
 from textual.widgets import (
-    Footer,
     Input,
-    Label,
     OptionList,
     ProgressBar,
     Rule,
@@ -97,7 +93,8 @@ class ParticleBanner(Static):
         self._timer = self.set_interval(1.0 / 4, self._step)
 
     def _load_frames(self) -> None:
-        import gzip, json
+        import gzip
+        import json
         from pathlib import Path
         from rich.text import Text
 
@@ -656,7 +653,7 @@ class PlaybackScreen(Screen):
         total = len(self._episodes)
 
         self._safe_update("#np-header",
-            f"[bold #f43f5e]\u25b6[/]  [bold #fbbf24]NOW PLAYING[/]  [bold #f43f5e]\u25b6[/]"
+            "[bold #f43f5e]\u25b6[/]  [bold #fbbf24]NOW PLAYING[/]  [bold #f43f5e]\u25b6[/]"
         )
         self._safe_update("#np-body-text",
             f"[#7c3aed]\u2726[/] [italic #a78bfa]{level}[/] [#7c3aed]\u2726[/]\n\n"
@@ -678,8 +675,8 @@ class PlaybackScreen(Screen):
 
         can_n = self.current_idx < len(self._episodes) - 1
         can_p = self.current_idx > 0
-        def _k(k: str, l: str, on: bool = True) -> str:
-            return f"[bold #fbbf24]{k}[/] [#e2e8f0]{l}[/]" if on else f"[#1e293b]{k}[/] [#334155]{l}[/]"
+        def _k(key: str, label: str, on: bool = True) -> str:
+            return f"[bold #fbbf24]{key}[/] [#e2e8f0]{label}[/]" if on else f"[#1e293b]{key}[/] [#334155]{label}[/]"
 
         self._safe_update("#controls-panel",
             f"  {_k('N','Next',can_n)}    {_k('P','Prev',can_p)}    "
@@ -726,7 +723,7 @@ class PlaybackScreen(Screen):
                 f"Playing via {self._server_name}", title=f"\u25b6 Episode {ep.number}", timeout=3)
         else:
             self.app.call_from_thread(self._safe_update, "#status-bar",
-                f"  [#f43f5e]\u2717[/] No player found")
+                "  [#f43f5e]\u2717[/] No player found")
             self.app.call_from_thread(self.app.notify,
                 f"Install mpv or vlc.\nURL: {stream_url[:50]}", title="No Player", severity="error")
 

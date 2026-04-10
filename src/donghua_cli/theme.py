@@ -11,9 +11,6 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 from rich.theme import Theme
-from rich.columns import Columns
-from rich.style import Style
-from rich.padding import Padding
 
 # ── Premium color palette ──────────────────────────────────────────────────
 
@@ -99,9 +96,6 @@ def banner() -> Panel:
 
     technique = random_technique()
     os_name = _plat.system()
-
-    # Top decorative bar
-    deco = "[dim]\u2500\u2500\u2500[/] [ghost]\u2726[/] [dim]\u2500\u2500\u2500[/]"
 
     body = Text.assemble(
         ("\n", ""),
