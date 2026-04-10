@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "donghua-cli"
+version = "3.1.0"
+description = "Wuxia-themed terminal client for streaming Chinese animation"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+keywords = ["donghua", "anime", "streaming", "cli", "terminal"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Video",
+]
+dependencies = [
+    "httpx>=0.27.0",
+    "selectolax>=0.3.21",
+    "rich>=13.0.0",
+    "textual>=1.0.0",
+]
+
+[project.optional-dependencies]
+download = ["yt-dlp>=2023.0.0"]
+dev = ["ruff", "pyright", "pytest", "respx"]
+
+[project.scripts]
+donghua = "donghua_cli.cli:main"
+dhua = "donghua_cli.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/donghua_cli"]
+artifacts = ["src/donghua_cli/banner_frames.json.gz"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+src = ["src"]
+target-version = "py39"

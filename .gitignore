@@ -40,3 +40,8 @@ logs.py
 dist/
 build/
 *.egg-info/
+*.egg
+
+# Misc
+embed_images.py
+create_screenshots.sh

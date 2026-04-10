@@ -1,0 +1,29 @@
+# Maintainer: Thanukamax <thanukamax@github>
+pkgname=donghua-cli
+pkgver=3.1.0
+pkgrel=1
+pkgdesc='Wuxia-themed terminal client for streaming Chinese animation'
+arch=('any')
+url='https://github.com/Thanukamax/donghua-cli'
+license=('MIT')
+depends=('python' 'python-httpx' 'python-rich' 'python-textual')
+makedepends=('python-build' 'python-installer' 'python-hatchling')
+optdepends=(
+    'mpv: video playback (recommended)'
+    'vlc: alternative video player'
+    'yt-dlp: download support and fallback extraction'
+    'ffmpeg: required by yt-dlp for merging streams'
+)
+source=("https://files.pythonhosted.org/packages/source/d/${pkgname}/${pkgname//-/_}-${pkgver}.tar.gz")
+sha256sums=('UPDATE_WITH_ACTUAL_SHA256')
+
+build() {
+    cd "${pkgname//-/_}-${pkgver}"
+    python -m build --wheel --no-isolation
+}
+
+package() {
+    cd "${pkgname//-/_}-${pkgver}"
+    python -m installer --destdir="$pkgdir" dist/*.whl
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Donghua CLI
+Comment=Wuxia-themed terminal client for streaming Chinese animation
+Exec=donghua --tui
+Terminal=true
+Type=Application
+Categories=AudioVideo;Video;Network;
+Keywords=donghua;anime;chinese;streaming;
+Icon=utilities-terminal
+StartupNotify=false

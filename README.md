@@ -1,12 +1,12 @@
 # Donghua CLI
 
-A fast, terminal-based interface for streaming Chinese animation with intelligent caching and multi-source support.
+A fast, Wuxia-themed terminal client for streaming Chinese animation with intelligent caching, preloading, and multi-source support.
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![GitHub Pages](https://img.shields.io/badge/docs-GitHub%20Pages-green)](https://thanukamax.github.io/donghua-cli/)
 
-**[📖 Full Documentation](https://thanukamax.github.io/donghua-cli/)** | **[🐛 Report Bug](../../issues)** | **[💡 Request Feature](../../issues)**
+**[Full Documentation](https://thanukamax.github.io/donghua-cli/)** | **[Report Bug](../../issues)** | **[Request Feature](../../issues)**
 
 ---
 
@@ -16,13 +16,13 @@ A fast, terminal-based interface for streaming Chinese animation with intelligen
 <summary>Click to view screenshots</summary>
 
 ### Banner
-![Banner](screenshots/banner.png)
+![Banner](docs/assets/banner.png)
 
 ### Episode Selection
-![Episode Selection](screenshots/episode-selection.png)
+![Episode Selection](docs/assets/episode-selection.png)
 
 ### Playback Controls
-![Playback Controls](screenshots/playback-controls.png)
+![Playback Controls](docs/assets/playback-controls.png)
 
 </details>
 
@@ -31,94 +31,120 @@ A fast, terminal-based interface for streaming Chinese animation with intelligen
 ## Quick Start
 
 ```bash
-# Install dependencies
-pip install requests beautifulsoup4 yt-dlp
+# Install (recommended)
+pipx install donghua-cli
+
+# Or with pip
+pip install donghua-cli
 
 # Run
-python dhua.py "Battle Through the Heavens"
+donghua "Battle Through the Heavens"
 ```
 
 ## Features
 
-- **Lightning fast** - Preloads episodes while you watch, instant replay with LRU caching
-- **Multi-source** - Aggregates from LuciferDonghua and AnimeXin automatically
-- **Smart UI** - Clean terminal interface with proper text handling for long episode names
-- **Cross-platform** - Linux, Windows, Android (Termux), iOS (iSH)
-- **Offline mode** - Download episodes with parallel downloads via yt-dlp
+- **Lightning fast** -- preloads episodes while you watch, LRU cache makes replays instant
+- **Multi-source** -- aggregates from LuciferDonghua and AnimeXin
+- **Rich terminal UI** -- Wuxia-themed interface built on Rich with panels, tables, and styled output
+- **Cross-platform** -- Linux, Windows, macOS, Android (Termux), iOS (iSH)
+- **Downloads** -- parallel episode downloads via yt-dlp
 
 ## Installation
 
-### Linux (Debian/Ubuntu)
+### Prerequisites
+
+- Python 3.9+
+- [mpv](https://mpv.io/) (for playback) or VLC
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) (optional, for downloads and fallback extraction)
+
+### pipx (recommended)
+
 ```bash
-sudo apt update && sudo apt install python3 python3-pip mpv ffmpeg
-pip3 install requests beautifulsoup4 yt-dlp
+pipx install donghua-cli
 ```
 
-### Linux (Fedora)
+### pip
+
 ```bash
-sudo dnf install python3 python3-pip mpv ffmpeg
-pip3 install requests beautifulsoup4 yt-dlp
+pip install donghua-cli
 ```
 
-### Windows
+### From source
+
+```bash
+git clone https://github.com/Thanukamax/donghua-cli.git
+cd donghua-cli
+pip install -e .
+```
+
+### Platform-specific dependencies
+
+<details>
+<summary>Linux (Debian/Ubuntu)</summary>
+
+```bash
+sudo apt install mpv ffmpeg
+```
+</details>
+
+<details>
+<summary>Linux (Fedora)</summary>
+
+```bash
+sudo dnf install mpv ffmpeg
+```
+</details>
+
+<details>
+<summary>Windows</summary>
+
 ```powershell
-# Install MPV
 winget install mpv
-
-# Install Python packages
-pip install requests beautifulsoup4 yt-dlp
 ```
+</details>
 
-### Android (Termux)
+<details>
+<summary>Android (Termux)</summary>
+
 ```bash
 pkg install python mpv ffmpeg
-pip install requests beautifulsoup4 yt-dlp
 ```
+Platform is auto-detected -- quality defaults to 360p and playback uses Android intents (MPV, VLC, MX Player).
+</details>
 
-## Usage Examples
-
-### Desktop (Linux/Windows)
+## Usage
 
 ```bash
-# Interactive mode
-python dhua.py
+# Interactive mode (full TUI)
+donghua
 
-# Direct search and stream
-python dhua.py "Soul Land"
+# Direct search
+donghua "Soul Land"
 
 # Specify source
-python dhua.py "Perfect World" -s ld
+donghua "Perfect World" -s ld
 
 # Set quality
-python dhua.py "Martial Peak" -q 1080
+donghua "Martial Peak" -q 1080
 
 # Download mode
-python dhua.py "Tales of Demons and Gods" -d
+donghua "Tales of Demons and Gods" -d
 
-# Show all features
-python dhua.py --features
+# Show features
+donghua --features
 
 # Clear cache
-python dhua.py --clear-cache
-```
+donghua --clear-cache
 
-### Android (Termux)
-
-The Android version (`donghua.py`) is optimized for Termux with mobile-friendly defaults (360p quality, Android intent-based player launching).
-
-```bash
-# Interactive mode - searches, picks a series, and plays
-python donghua.py
-
-# Launches video via Android intents (MPV, VLC, MX Player)
-# Falls back to termux-open-url if no player is found
+# The 'dhua' alias also works
+dhua "Soul Land"
 ```
 
 ## Playback Controls
 
 | Key | Action |
 |-----|--------|
-| `n` / `enter` | Next episode |
+| `n` / `Enter` | Next episode |
 | `p` | Previous episode |
 | `s` | Skip to specific episode |
 | `r` | Replay current |
@@ -127,28 +153,38 @@ python donghua.py
 
 ## How It Works
 
-1. **Stream Extraction**: Fast regex pattern matching on first 8KB of HTML, BeautifulSoup fallback, yt-dlp for complex cases
-2. **Caching**: LRU cache (100 entries) persists between sessions
-3. **Preloading**: Background thread loads next 2 episodes while you watch
-4. **Episode Detection**: Tries multiple selectors per source, auto-sorts chronologically
+1. **Stream Extraction** -- fast regex on first 8KB of HTML, BeautifulSoup fallback, yt-dlp for complex cases
+2. **LRU Cache** -- 100-entry persistent cache makes repeat plays instant
+3. **Preloading** -- background thread resolves the next 2 episodes while you watch
+4. **Episode Detection** -- multiple CSS selectors per source, auto-sorted chronologically
+
+## Project Structure
+
+```
+donghua-cli/
+  src/donghua_cli/    # Main package
+    cli.py            # Entry point + arg parsing
+    app.py            # Application logic
+    ui.py             # User interaction flows
+    theme.py          # Rich-based Wuxia theme
+    scraper.py        # Source scrapers
+    extractor.py      # Stream URL extraction
+    player.py         # MPV/VLC/Android player
+    cache.py          # LRU cache + preloader
+    config.py         # Platform detection + settings
+    utils.py          # Shared utilities
+  docs/               # GitHub Pages site + assets
+  scripts/            # Install helpers
+  pyproject.toml      # Package config (hatchling)
+```
 
 ## Contributing
 
-Pull requests welcome! Areas where help is appreciated:
-- New source integrations
-- Performance improvements
-- Platform-specific fixes
-- Bug reports
-
-## Known Issues
-
-- Some sources may be slow during peak hours
-- Episode numbering can vary across sources
-- Requires stable internet connection
+Pull requests welcome! See [docs/future_ideas.md](docs/future_ideas.md) for the roadmap.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License -- see [LICENSE](LICENSE) for details.
 
 ## Disclaimer
 
