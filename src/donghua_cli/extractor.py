@@ -26,6 +26,30 @@ if TYPE_CHECKING:
 log = logging.getLogger("donghua")
 
 
+def _canonicalize(url: str) -> str:
+    """Rewrite embed-style player URLs into forms mpv's ytdl_hook can handle.
+
+    mpv only invokes yt-dlp for URLs its built-in matcher recognises, and the
+    matcher uses the canonical ``/video/<id>`` form. The embed pages return
+    HTML (sometimes just a loading SVG) which mpv tries to demux as media and
+    immediately exits.
+    """
+    if not url:
+        return url
+    # Dailymotion: https://www.dailymotion.com/embed/video/<id>[?…] → /video/<id>
+    if "dailymotion.com/embed/video/" in url:
+        url = url.replace("/embed/video/", "/video/")
+        # Drop the embed-only query string so we don't confuse yt-dlp.
+        if "?" in url:
+            url = url.split("?", 1)[0]
+    # ok.ru: //ok.ru/videoembed/<id> → https://ok.ru/video/<id>
+    if "ok.ru/videoembed/" in url:
+        if url.startswith("//"):
+            url = "https:" + url
+        url = url.replace("/videoembed/", "/video/")
+    return url
+
+
 def extract_with_fallback(episode: Episode) -> tuple[str, str]:
     """Try all servers for an episode. Returns (stream_url, source_key).
 
@@ -37,12 +61,13 @@ def extract_with_fallback(episode: Episode) -> tuple[str, str]:
         log.debug("Trying %s: %s", source_key, ep_url[:80])
         stream = extract(ep_url)
         if stream and stream != ep_url:
+            stream = _canonicalize(stream)
             log.info("Extracted via %s: %s", source_key, stream[:80])
             return stream, source_key
         log.debug("Failed on %s, trying next server", source_key)
 
     log.warning("All servers failed for ep %d, returning raw URL", episode.number)
-    return episode.primary_url, episode.sources[0]
+    return _canonicalize(episode.primary_url), episode.sources[0]
 
 
 def extract(episode_url: str) -> str:

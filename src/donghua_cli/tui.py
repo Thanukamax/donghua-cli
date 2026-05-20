@@ -915,10 +915,29 @@ class PlaybackScreen(Screen):
             )
 
             # Auto-advance when the current player finishes, if enabled and
-            # there's a next episode queued up.
+            # there's a next episode queued up. Guard against an immediate
+            # exit (extraction returned a bad URL → mpv dies in <1s) — without
+            # this check the TUI cascades through every episode in seconds.
             if _config.get_auto_next() and self.current_idx < len(self._episodes) - 1:
+                import time as _time
+                started_playback = _time.time()
                 player.wait_for_end()
-                self.app.call_from_thread(self._advance_after_playback)
+                elapsed = _time.time() - started_playback
+                if elapsed < 30:
+                    self.app.call_from_thread(
+                        self._safe_update,
+                        "#status-bar",
+                        f"  [#f43f5e]✗[/] Playback failed in {elapsed:.1f}s — auto-next disabled",
+                    )
+                    self.app.call_from_thread(
+                        self.app.notify,
+                        f"mpv exited after {elapsed:.1f}s. Check the URL or try Replay (R).",
+                        title="Playback failed",
+                        severity="error",
+                        timeout=6,
+                    )
+                else:
+                    self.app.call_from_thread(self._advance_after_playback)
         else:
             self.app.call_from_thread(self._safe_update, "#status-bar",
                 "  [#f43f5e]\u2717[/] No player found")
