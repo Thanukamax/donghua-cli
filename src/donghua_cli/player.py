@@ -1,15 +1,29 @@
 """Video player launching and episode downloading.
 
 Handles MPV on desktop, Android intents on Termux, and VLC links on iOS/iSH.
+
+On desktop, MPV is launched with an IPC socket so we can be notified when the
+episode ends. ``wait_for_end()`` blocks until MPV exits, which the TUI uses to
+auto-advance to the next episode when ``auto_next`` is enabled.
 """
 
 import os
 import subprocess
+import tempfile
 import time
+import uuid
 from typing import Optional
 
 from donghua_cli import config
 from donghua_cli.utils import sanitize_filename
+
+
+def _ipc_socket_path() -> str:
+    """Return a unique, platform-appropriate path for an MPV IPC socket."""
+    tag = uuid.uuid4().hex[:8]
+    if config.PLATFORM == "windows":
+        return rf"\\.\pipe\dhua-{tag}"
+    return os.path.join(tempfile.gettempdir(), f"dhua-mpv-{tag}.sock")
 
 
 class Player:
@@ -18,6 +32,7 @@ class Player:
     def __init__(self, quality: str | None = None):
         self.quality = quality or config.get_quality()
         self._process: Optional[subprocess.Popen] = None
+        self._ipc_path: Optional[str] = None
 
     def play(self, stream_url: str, title: str = "Donghua") -> bool:
         """Launch playback. Returns True if a player started successfully."""
@@ -28,6 +43,24 @@ class Player:
         if platform == "ish":
             return self._play_ish(stream_url)
         return self._play_desktop(stream_url, title)
+
+    def wait_for_end(self, poll_interval: float = 0.5) -> bool:
+        """Block until the player process exits.
+
+        Returns True if the player finished naturally (e.g. end of file or
+        user-quit). Returns False if there was no live player to begin with.
+        Safe to call repeatedly.
+        """
+        if self._process is None:
+            return False
+        while self._process.poll() is None:
+            time.sleep(poll_interval)
+        if self._ipc_path and os.path.exists(self._ipc_path):
+            try:
+                os.unlink(self._ipc_path)
+            except OSError:
+                pass
+        return True
 
     def stop(self) -> None:
         if self._process and self._process.poll() is None:
@@ -47,6 +80,7 @@ class Player:
     # ── platform-specific launchers ──────────────────────────────────────
 
     def _play_desktop(self, url: str, title: str) -> bool:
+        self._ipc_path = _ipc_socket_path()
         cmd = [
             "mpv",
             url,
@@ -55,6 +89,7 @@ class Player:
             "--cache=yes",
             "--cache-secs=60",
             "--no-terminal",
+            f"--input-ipc-server={self._ipc_path}",
         ]
 
         if config.PLATFORM == "windows":

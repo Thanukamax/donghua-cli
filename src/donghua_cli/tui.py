@@ -370,6 +370,8 @@ class SearchScreen(Screen):
     BINDINGS = [
         Binding("escape", "quit", "Quit", show=True),
         Binding("f", "focus_search", "Search", show=True),
+        Binding("c", "resume_recent", "Continue", show=True),
+        Binding("b", "show_bookmarks", "Bookmarks", show=True),
     ]
 
     def __init__(self, app_core) -> None:
@@ -397,15 +399,16 @@ class SearchScreen(Screen):
         with Container(id="search-box"):
             yield Input(placeholder="  Search for donghua...", id="search-input")
 
+        yield Static("", id="continue-strip")
         yield Static("", id="status-bar")
         with Container(id="results-container"):
             yield OptionList(id="results-list")
         yield Static(
             "[bold #fbbf24]Enter[/] [#475569]search[/]  "
             "[#1e293b]│[/]  "
-            "[bold #fbbf24]↑↓[/] [#475569]navigate[/]  "
+            "[bold #fbbf24]C[/] [#475569]continue[/]  "
             "[#1e293b]│[/]  "
-            "[bold #fbbf24]F[/] [#475569]focus input[/]  "
+            "[bold #fbbf24]B[/] [#475569]bookmarks[/]  "
             "[#1e293b]│[/]  "
             "[bold #fbbf24]Q[/] [#475569]quit[/]",
             id="help-text",
@@ -416,6 +419,65 @@ class SearchScreen(Screen):
 
     def on_mount(self) -> None:
         self.query_one("#search-input", Input).focus()
+        self._refresh_continue_strip()
+
+    def _refresh_continue_strip(self) -> None:
+        from donghua_cli import library
+
+        recent = library.recent_history(limit=3)
+        bookmarks = library.list_bookmarks()
+        if not recent and not bookmarks:
+            return
+
+        parts: list[str] = []
+        if recent:
+            top = recent[0]
+            parts.append(
+                f"[#5eead4]↻[/] [#94a3b8]Resume[/] "
+                f"[bold #e2e8f0]{top.title[:32]}[/] "
+                f"[#475569]ep {top.last_episode}[/]"
+            )
+        if bookmarks:
+            parts.append(
+                f"[#fbbf24]★[/] [#94a3b8]Bookmarks[/] "
+                f"[bold #e2e8f0]{len(bookmarks)}[/]"
+            )
+        try:
+            self.query_one("#continue-strip", Static).update(
+                "  " + "   [#1e293b]│[/]   ".join(parts)
+            )
+        except NoMatches:
+            pass
+
+    def _show_library(self, title: str, entries) -> None:
+        if not entries:
+            self.app.notify(f"No {title.lower()} yet", title=title, timeout=2)
+            return
+
+        self._results = [e.to_series() for e in entries]
+        options = []
+        for i, entry in enumerate(entries):
+            label = f"[bold #fbbf24]{i+1:2d}[/]  [#e2e8f0]{entry.title[:60]}[/]"
+            extra = getattr(entry, "last_episode", None)
+            if extra:
+                label += f"  [#475569]ep {extra}[/]"
+            options.append(Option(label, id=str(i)))
+        try:
+            status = self.query_one("#status-bar", Static)
+            status.update(f"  [#5eead4]✓[/] [bold]{title}[/]  [#94a3b8]{len(entries)} entries[/]")
+        except NoMatches:
+            pass
+        self._populate_results(options)
+
+    def action_resume_recent(self) -> None:
+        from donghua_cli import library
+
+        self._show_library("Continue watching", library.recent_history(limit=20))
+
+    def action_show_bookmarks(self) -> None:
+        from donghua_cli import library
+
+        self._show_library("Bookmarks", library.list_bookmarks())
 
     @on(Input.Submitted, "#search-input")
     def on_search(self, event: Input.Submitted) -> None:
@@ -542,6 +604,7 @@ class EpisodeScreen(Screen):
         Binding("escape", "go_back", "Back", show=True),
         Binding("a", "select_all", "Play All", show=True),
         Binding("enter", "confirm", "Play", show=True),
+        Binding("b", "toggle_bookmark", "Bookmark", show=True),
     ]
 
     def __init__(self, app_core, series: Series) -> None:
@@ -640,20 +703,33 @@ class EpisodeScreen(Screen):
         idx = int(event.option_id)
         if 0 <= idx < len(self._episodes):
             self.app.push_screen(
-                PlaybackScreen(self._core, self._episodes[idx:], self._series.title)
+                PlaybackScreen(self._core, self._episodes[idx:], self._series)
             )
 
     def action_select_all(self) -> None:
         if self._episodes:
             self.app.push_screen(
-                PlaybackScreen(self._core, self._episodes, self._series.title)
+                PlaybackScreen(self._core, self._episodes, self._series)
             )
 
     def action_confirm(self) -> None:
         el = self.query_one("#episode-list", OptionList)
         if el.highlighted is not None and self._episodes:
             self.app.push_screen(
-                PlaybackScreen(self._core, self._episodes[el.highlighted:], self._series.title)
+                PlaybackScreen(self._core, self._episodes[el.highlighted:], self._series)
+            )
+
+    def action_toggle_bookmark(self) -> None:
+        from donghua_cli import library
+
+        bookmarked = library.toggle_bookmark(self._series)
+        if bookmarked:
+            self.app.notify(
+                f"Bookmarked: {self._series.title}", title="★ Saved", timeout=3
+            )
+        else:
+            self.app.notify(
+                f"Removed: {self._series.title}", title="Bookmark", timeout=3
             )
 
 
@@ -670,11 +746,21 @@ class PlaybackScreen(Screen):
 
     current_idx = reactive(0)
 
-    def __init__(self, app_core, episodes: list[Episode], series_title: str) -> None:
+    def __init__(
+        self,
+        app_core,
+        episodes: list[Episode],
+        series: "Series | str",
+    ) -> None:
         super().__init__()
         self._core = app_core
         self._episodes = episodes
-        self._series_title = series_title
+        if isinstance(series, str):
+            self._series_title = series
+            self._series_urls: dict[str, str] = {}
+        else:
+            self._series_title = series.title
+            self._series_urls = dict(series.urls)
         self._stream_url = ""
         self._server_name = ""
 
@@ -767,7 +853,10 @@ class PlaybackScreen(Screen):
 
         self.app.call_from_thread(self._update_display)
 
+        from donghua_cli import config as _config, library
         from donghua_cli.player import Player
+        from donghua_cli.sources.base import Series
+
         player = Player(self._core._quality)
         title = f"{self._series_title} - Episode {ep.number}"
 
@@ -776,11 +865,32 @@ class PlaybackScreen(Screen):
                 f"  [#5eead4]\u2713[/] Playing via [bold]{self._server_name}[/]")
             self.app.call_from_thread(self.app.notify,
                 f"Playing via {self._server_name}", title=f"\u25b6 Episode {ep.number}", timeout=3)
+
+            ep_num = ep.number if ep.number < 999999 else self.current_idx + 1
+            library.record_watch(
+                Series(
+                    title=self._series_title,
+                    urls=getattr(self, "_series_urls", {}) or {},
+                ),
+                ep_num,
+            )
+
+            # Auto-advance when the current player finishes, if enabled and
+            # there's a next episode queued up.
+            if _config.get_auto_next() and self.current_idx < len(self._episodes) - 1:
+                player.wait_for_end()
+                self.app.call_from_thread(self._advance_after_playback)
         else:
             self.app.call_from_thread(self._safe_update, "#status-bar",
                 "  [#f43f5e]\u2717[/] No player found")
             self.app.call_from_thread(self.app.notify,
                 f"Install mpv or vlc.\nURL: {stream_url[:50]}", title="No Player", severity="error")
+
+    def _advance_after_playback(self) -> None:
+        """Called on the UI thread after auto-next is triggered."""
+        if self.current_idx < len(self._episodes) - 1:
+            self.current_idx += 1
+            self._play_current()
 
     def action_next_ep(self) -> None:
         if self.current_idx < len(self._episodes) - 1:
