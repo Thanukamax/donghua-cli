@@ -369,6 +369,7 @@ class SearchScreen(Screen):
 
     BINDINGS = [
         Binding("escape", "quit", "Quit", show=True),
+        Binding("f", "focus_search", "Search", show=True),
     ]
 
     def __init__(self, app_core) -> None:
@@ -381,11 +382,11 @@ class SearchScreen(Screen):
         yield Static(
             "[bold #fbbf24]\u6b66\u4fa0\u52a8\u753b\u7ec8\u7aef[/]  "
             "[#334155]\u2502[/]  "
-            "[bold #5eead4]DONGHUA CLI[/] [#475569]v3.1[/]",
+            "[bold #5eead4]DONGHUA CLI[/] [#475569]v3.2[/]",
             id="banner-title",
         )
         yield Static(
-            "[#334155][[/][#f43f5e] v3.1 [/][#334155]][/]  "
+            "[#334155][[/][#f43f5e] v3.2 [/][#334155]][/]  "
             "[#334155][[/][#5eead4] Stream [/][#334155]][/]  "
             "[#334155][[/][#a78bfa] Download [/][#334155]][/]  "
             "[#334155][[/][#fbbf24] Cultivate [/][#334155]][/]",
@@ -399,6 +400,19 @@ class SearchScreen(Screen):
         yield Static("", id="status-bar")
         with Container(id="results-container"):
             yield OptionList(id="results-list")
+        yield Static(
+            "[bold #fbbf24]Enter[/] [#475569]search[/]  "
+            "[#1e293b]│[/]  "
+            "[bold #fbbf24]↑↓[/] [#475569]navigate[/]  "
+            "[#1e293b]│[/]  "
+            "[bold #fbbf24]F[/] [#475569]focus input[/]  "
+            "[#1e293b]│[/]  "
+            "[bold #fbbf24]Q[/] [#475569]quit[/]",
+            id="help-text",
+        )
+
+    def action_focus_search(self) -> None:
+        self.query_one("#search-input", Input).focus()
 
     def on_mount(self) -> None:
         self.query_one("#search-input", Input).focus()
@@ -410,7 +424,7 @@ class SearchScreen(Screen):
             return
         self._do_search(query)
 
-    @work(thread=True)
+    @work(thread=True, exclusive=True)
     def _do_search(self, query: str) -> None:
         status = self.query_one("#status-bar", Static)
         results_list = self.query_one("#results-list", OptionList)
@@ -421,8 +435,40 @@ class SearchScreen(Screen):
         )
         self.app.call_from_thread(results_list.clear_options)
 
-        from donghua_cli.scraper import search_all
-        results = search_all(query)
+        from donghua_cli.scraper import get_search_sources, search_all
+
+        # Per-source progress pills shown above the result list.
+        progress: dict[str, tuple[str, int, float]] = {
+            s.key: ("pending", 0, 0.0) for s in get_search_sources()
+        }
+
+        def render_progress() -> str:
+            parts = []
+            for key, (state, hits, elapsed) in progress.items():
+                if state == "pending":
+                    icon = "[#a78bfa]\u27f3[/]"
+                    detail = "\u2026"
+                elif state == "alive":
+                    icon = "[#5eead4]\u2713[/]"
+                    detail = f"{hits}"
+                elif state == "dead":
+                    icon = "[#f43f5e]\u2717[/]"
+                    detail = "fail"
+                else:  # timeout
+                    icon = "[#fbbf24]\u231b[/]"
+                    detail = "slow"
+                parts.append(f"{icon} [#94a3b8]{key.upper()}[/]\u00b7{detail}")
+            return "   ".join(parts)
+
+        def on_progress(key: str, state: str, hits: int, elapsed: float) -> None:
+            progress[key] = (state, hits, elapsed)
+            self.app.call_from_thread(
+                status.update,
+                f"  [#a78bfa]\u27f3[/] [#94a3b8]Searching[/] [bold #e2e8f0]'{query}'[/]   "
+                f"{render_progress()}",
+            )
+
+        results = search_all(query, on_progress=on_progress)
         self._results = results
 
         if not results:
@@ -525,9 +571,17 @@ class EpisodeScreen(Screen):
         )
 
     def on_mount(self) -> None:
-        self._load_episodes()
+        self._fetch_worker = self._load_episodes()
 
-    @work(thread=True)
+    def action_go_back(self) -> None:
+        # Cancel an in-flight fetch before leaving the screen so the worker
+        # thread doesn't continue talking to dead UI widgets.
+        worker = getattr(self, "_fetch_worker", None)
+        if worker is not None and worker.is_running:
+            worker.cancel()
+        self.app.pop_screen()
+
+    @work(thread=True, exclusive=True)
     def _load_episodes(self) -> None:
         status = self.query_one("#status-bar", Static)
         self.app.call_from_thread(
@@ -601,9 +655,6 @@ class EpisodeScreen(Screen):
             self.app.push_screen(
                 PlaybackScreen(self._core, self._episodes[el.highlighted:], self._series.title)
             )
-
-    def action_go_back(self) -> None:
-        self.app.pop_screen()
 
 
 class PlaybackScreen(Screen):
@@ -747,17 +798,36 @@ class PlaybackScreen(Screen):
     def action_download(self) -> None:
         if not self._stream_url:
             return
-        ep = self._episodes[self.current_idx]
         self._safe_update("#status-bar", "  [#a78bfa]\u27f3[/] Downloading...")
         self.app.notify("Download started...", title="\u2b07 Download", timeout=2)
+        self._download_in_background()
+
+    @work(thread=True)
+    def _download_in_background(self) -> None:
+        ep = self._episodes[self.current_idx]
+        stream_url = self._stream_url or ""
 
         from donghua_cli.player import Downloader
-        if Downloader.download(self._stream_url, self._series_title, ep.title, self._core._quality):
-            self._safe_update("#status-bar", "  [#5eead4]\u2713[/] Download complete")
+
+        ok = Downloader.download(
+            stream_url, self._series_title, ep.title, self._core._quality
+        )
+        if ok:
+            self.app.call_from_thread(
+                self._safe_update,
+                "#status-bar",
+                "  [#5eead4]\u2713[/] Download complete",
+            )
             self.app.call_from_thread(self.app.notify, "Saved!", title="\u2713 Downloaded")
         else:
-            self._safe_update("#status-bar", "  [#f43f5e]\u2717[/] Download failed")
-            self.app.call_from_thread(self.app.notify, "Failed", title="Error", severity="error")
+            self.app.call_from_thread(
+                self._safe_update,
+                "#status-bar",
+                "  [#f43f5e]\u2717[/] Download failed",
+            )
+            self.app.call_from_thread(
+                self.app.notify, "Failed", title="Error", severity="error"
+            )
 
     def action_quit_playback(self) -> None:
         self.app.pop_screen()
@@ -771,7 +841,10 @@ class DonghuaTUI(App):
     SUB_TITLE = "\u6b66\u4fa0\u52a8\u753b\u7ec8\u7aef"
     CSS = WUXIA_CSS
 
-    BINDINGS = [Binding("ctrl+c", "quit", "Quit")]
+    BINDINGS = [
+        Binding("ctrl+c", "quit", "Quit", show=False),
+        Binding("q", "quit", "Quit", priority=True),
+    ]
 
     def __init__(self, app_core) -> None:
         super().__init__()

@@ -9,13 +9,17 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, TimeoutError, as_completed
 from difflib import SequenceMatcher
-from typing import List
+from typing import Callable, List, Optional
 
 from donghua_cli import health
 from donghua_cli.sources import ALL_SOURCES, Source, Series, Episode
 from donghua_cli.utils import extract_episode_number
 
 log = logging.getLogger("donghua")
+
+# Callback signature: (source_key, status, hit_count, elapsed_seconds)
+# status ∈ {"pending", "alive", "dead", "timeout"}
+ProgressCallback = Callable[[str, str, int, float], None]
 
 
 def _is_movie(title: str) -> bool:
@@ -87,27 +91,45 @@ def _is_relevant(title: str, query: str) -> bool:
 # ── Unified search (truly concurrent via threads) ────────────────────────
 
 
-def search_all(query: str) -> List[Series]:
+def get_search_sources() -> list[Source]:
+    """Return the sources eligible for search right now (enabled + healthy)."""
+    return [s for s in ALL_SOURCES if s.enabled and health.is_healthy(s.key)]
+
+
+def search_all(
+    query: str,
+    on_progress: Optional[ProgressCallback] = None,
+) -> List[Series]:
     """Search every enabled, healthy source concurrently and merge results.
 
     Each source gets its own `search_timeout` budget (set on the Source class).
     The global deadline is the slowest source's budget plus a small buffer, so
-    no participant is silently dropped just for being slow. Sources that don't
-    finish in time still contribute partial results from any earlier callbacks.
+    no participant is silently dropped just for being slow.
+
+    If `on_progress` is provided it is invoked from worker threads with
+    ``(source_key, status, hit_count, elapsed_seconds)`` each time a source
+    transitions: once with ``"pending"`` at startup, then ``"alive"``,
+    ``"dead"``, or ``"timeout"`` when it settles. Use it to drive live UI
+    indicators.
     """
+    import time
+
     raw: list[tuple[str, str, str]] = []
-    search_sources = [
-        s for s in ALL_SOURCES if s.enabled and health.is_healthy(s.key)
-    ]
+    search_sources = get_search_sources()
     if not search_sources:
         log.warning("No healthy sources available for search")
         return []
 
     deadline = max(s.search_timeout for s in search_sources) + 2
+    started = time.time()
+
+    if on_progress is not None:
+        for s in search_sources:
+            on_progress(s.key, "pending", 0, 0.0)
 
     with ThreadPoolExecutor(max_workers=len(search_sources)) as pool:
         futures = {
-            pool.submit(_search_one, source, query): source
+            pool.submit(_search_one, source, query, on_progress, started): source
             for source in search_sources
         }
         try:
@@ -127,6 +149,13 @@ def search_all(query: str) -> List[Series]:
                     except Exception:
                         pass
                 else:
+                    if on_progress is not None:
+                        on_progress(
+                            futures[future].key,
+                            "timeout",
+                            0,
+                            time.time() - started,
+                        )
                     future.cancel()
 
     # Filter irrelevant results before merging
@@ -136,17 +165,28 @@ def search_all(query: str) -> List[Series]:
     return _merge_results(filtered)
 
 
-def _search_one(source: Source, query: str) -> list[tuple[str, str, str]]:
+def _search_one(
+    source: Source,
+    query: str,
+    on_progress: Optional[ProgressCallback] = None,
+    started: float = 0.0,
+) -> list[tuple[str, str, str]]:
     """Search a single source. Returns (source_key, title, url) tuples."""
+    import time
+
     try:
         log.debug("Searching %s for '%s'", source.name, query)
         results = source.search(query)
         log.debug("%s returned %d results", source.name, len(results))
         health.mark_alive(source.key)
+        if on_progress is not None:
+            on_progress(source.key, "alive", len(results), time.time() - started)
         return [(source.key, title, url) for title, url in results]
     except Exception as e:
         log.warning("Search failed on %s: %s", source.name, e)
         health.mark_dead(source.key, reason=str(e)[:120])
+        if on_progress is not None:
+            on_progress(source.key, "dead", 0, time.time() - started)
         return []
 
 
