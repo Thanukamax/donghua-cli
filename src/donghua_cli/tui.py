@@ -621,6 +621,7 @@ class EpisodeScreen(Screen):
             f"[bold #fbbf24]{self._series.title}[/]\n{srv_pills}",
             id="episode-header",
         )
+        yield Static("", id="series-cover")
         yield Static("", id="status-bar")
         with Container(id="results-container"):
             yield OptionList(id="episode-list")
@@ -629,12 +630,50 @@ class EpisodeScreen(Screen):
             "[#1e293b]\u2502[/]  "
             "[bold #fbbf24]A[/] [#475569]play all[/]  "
             "[#1e293b]\u2502[/]  "
+            "[bold #fbbf24]B[/] [#475569]bookmark[/]  "
+            "[#1e293b]\u2502[/]  "
             "[bold #fbbf24]Esc[/] [#475569]back[/]",
             id="help-text",
         )
 
     def on_mount(self) -> None:
         self._fetch_worker = self._load_episodes()
+        if self._series.cover_url:
+            self._load_cover(self._series.cover_url)
+
+    @work(thread=True)
+    def _load_cover(self, url: str) -> None:
+        """Render the series cover into #series-cover when rich-pixels is available.
+
+        Quietly does nothing if rich-pixels isn't installed or the fetch fails;
+        covers are an opt-in `covers` extra, not a hard dependency.
+        """
+        try:
+            from io import BytesIO
+
+            import httpx
+            from PIL import Image as PILImage
+            from rich_pixels import Pixels
+        except ImportError:
+            return
+
+        try:
+            resp = httpx.get(url, timeout=5, follow_redirects=True)
+            if resp.status_code != 200 or not resp.content:
+                return
+            img = PILImage.open(BytesIO(resp.content))
+            img.thumbnail((28, 14))
+            pixels = Pixels.from_image(img)
+        except Exception:
+            return
+
+        self.app.call_from_thread(self._safe_update_cover, pixels)
+
+    def _safe_update_cover(self, pixels) -> None:
+        try:
+            self.query_one("#series-cover", Static).update(pixels)
+        except NoMatches:
+            pass
 
     def action_go_back(self) -> None:
         # Cancel an in-flight fetch before leaving the screen so the worker

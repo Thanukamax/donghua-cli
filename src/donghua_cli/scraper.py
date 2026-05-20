@@ -114,7 +114,7 @@ def search_all(
     """
     import time
 
-    raw: list[tuple[str, str, str]] = []
+    raw: list[tuple[str, str, str, str | None]] = []
     search_sources = get_search_sources()
     if not search_sources:
         log.warning("No healthy sources available for search")
@@ -159,7 +159,7 @@ def search_all(
                     future.cancel()
 
     # Filter irrelevant results before merging
-    filtered = [(sk, t, u) for sk, t, u in raw if _is_relevant(t, query)]
+    filtered = [(sk, t, u, c) for sk, t, u, c in raw if _is_relevant(t, query)]
     log.debug("Search raw=%d filtered=%d for query='%s'", len(raw), len(filtered), query)
 
     return _merge_results(filtered)
@@ -170,18 +170,18 @@ def _search_one(
     query: str,
     on_progress: Optional[ProgressCallback] = None,
     started: float = 0.0,
-) -> list[tuple[str, str, str]]:
-    """Search a single source. Returns (source_key, title, url) tuples."""
+) -> list[tuple[str, str, str, str | None]]:
+    """Search a single source. Returns (source_key, title, url, cover) tuples."""
     import time
 
     try:
         log.debug("Searching %s for '%s'", source.name, query)
-        results = source.search(query)
+        results = source.search_with_covers(query)
         log.debug("%s returned %d results", source.name, len(results))
         health.mark_alive(source.key)
         if on_progress is not None:
             on_progress(source.key, "alive", len(results), time.time() - started)
-        return [(source.key, title, url) for title, url in results]
+        return [(source.key, title, url, cover) for title, url, cover in results]
     except Exception as e:
         log.warning("Search failed on %s: %s", source.name, e)
         health.mark_dead(source.key, reason=str(e)[:120])
@@ -190,21 +190,23 @@ def _search_one(
         return []
 
 
-def _merge_results(raw: list[tuple[str, str, str]]) -> List[Series]:
+def _merge_results(raw: list[tuple[str, str, str, str | None]]) -> List[Series]:
     """Merge raw results from multiple sources into deduplicated Series list."""
     merged: list[Series] = []
 
-    for source_key, title, url in raw:
+    for source_key, title, url, cover in raw:
         matched = False
         for series in merged:
             if _titles_match(series.title, title):
                 series.add_url(source_key, url)
+                if cover and not series.cover_url:
+                    series.cover_url = cover
                 matched = True
                 log.debug("Merged '%s' into '%s'", title, series.title)
                 break
 
         if not matched:
-            s = Series(title=title)
+            s = Series(title=title, cover_url=cover)
             s.add_url(source_key, url)
             merged.append(s)
 

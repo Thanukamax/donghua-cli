@@ -106,6 +106,14 @@ class Source:
 
     def search(self, query: str) -> List[tuple[str, str]]:
         """Search for series. Returns [(title, url), ...]."""
+        return [(title, url) for title, url, _cover in self.search_with_covers(query)]
+
+    def search_with_covers(self, query: str) -> List[tuple[str, str, str | None]]:
+        """Search and also extract poster URLs when present.
+
+        Returns ``[(title, url, cover_url), ...]``. ``cover_url`` is ``None``
+        when no ``<img>`` was found inside the result card.
+        """
         from donghua_cli.utils import fetch_html
 
         tree = fetch_html(self.search_url(query), timeout=self.search_timeout, fast=True)
@@ -118,7 +126,7 @@ class Source:
         if not nodes:
             nodes = tree.css("a")
 
-        results: list[tuple[str, str]] = []
+        results: list[tuple[str, str, str | None]] = []
         seen: set[str] = set()
         for node in nodes[:15]:
             a = node if node.tag == "a" else node.css_first("a")
@@ -131,8 +139,19 @@ class Source:
                 continue
             seen.add(href)
             title = a.attributes.get("title") or a.text(strip=True)
-            if title and len(title) >= self._min_title_len:
-                results.append((title, href))
+            if not title or len(title) < self._min_title_len:
+                continue
+
+            cover = None
+            if node.tag != "a":
+                img = node.css_first("img")
+                if img is not None:
+                    cover = (
+                        img.attributes.get("data-src")
+                        or img.attributes.get("data-lazy-src")
+                        or img.attributes.get("src")
+                    )
+            results.append((title, href, cover))
 
         return results
 

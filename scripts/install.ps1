@@ -4,7 +4,7 @@
 Write-Host ""
 Write-Host "  ╔══════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "  ║       Donghua CLI Installer          ║" -ForegroundColor Cyan
-Write-Host "  ║   武侠动画终端 · v3.1.0              ║" -ForegroundColor Cyan
+Write-Host "  ║   武侠动画终端 · v3.2.0              ║" -ForegroundColor Cyan
 Write-Host "  ╚══════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 

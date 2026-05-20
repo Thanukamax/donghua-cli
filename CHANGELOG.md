@@ -2,6 +2,33 @@
 
 All notable changes to Donghua CLI will be documented in this file.
 
+## [3.2.0] - 2026-05-21
+
+### Added
+- **Watch history + Continue watching** — every play is recorded to `~/.config/donghua-cli/library.json`. Press `C` on the search screen to jump back into the most-recent series; the inline "continue strip" shows the last title and resume episode at a glance.
+- **Bookmarks** — press `B` on a series to star it; press `B` on the search screen to browse the bookmark list. Stored next to history in the same JSON file.
+- **MPV auto-next-episode** — MPV is now launched with `--input-ipc-server`; when an episode finishes the TUI auto-advances. Disable with `auto_next = false` in `config.toml`.
+- **Per-source progress pills** during search — the status bar updates as each source returns (⟳ pending → ✓ N hits / ✗ fail / ⌛ slow) so users can see md/hd/lm land late instead of staring at an opaque spinner.
+- **Source-health benching** — repeated failures bench a source for an hour, persisted at `~/.cache/donghua/source_health.json`. Skipped sources don't waste search time.
+- **Series cover thumbnails** (opt-in) — install `donghua-cli[covers]` for rich-pixels + Pillow and the EpisodeScreen renders the series poster.
+- **Cross-platform download directory** — Windows `%USERPROFILE%\Videos\Donghua`, macOS `~/Movies/Donghua`, Termux uses `~/storage/movies` when shared storage is set up.
+- **`disabled_sources` config knob** so users can silence a plugin without uninstalling.
+- **library tests** — 4 new test cases covering history + bookmark round-trips.
+
+### Fixed
+- **MisterDonghua, H-Donghua, LMAnime now actually return results.** Previous releases hard-skipped them from search because the global deadline was 5s and these sites need 5–13s to respond. Each source now declares its own `search_timeout` and the global deadline scales accordingly.
+- **`cache.py` exception clause** — a malformed nested tuple silently swallowed every error path; corrected to catch the right types so stream-cache loading no longer turns errors into "no cache".
+- **TUI download no longer freezes the event loop** — `Downloader.download` now runs in a worker thread.
+- **`EpisodeScreen.action_go_back` cancels the in-flight fetch worker** before popping the screen, instead of letting the thread keep writing to dead widgets.
+- All 36 pyright errors and 5 ruff F401 errors cleaned up; both are now green.
+
+### Changed
+- **Source plugins collapsed from ~80 lines each to ~10.** The base `Source` class now templates `search()`, `get_episodes()`, and `dedup_episodes()`; plugins only declare selectors and an optional `_is_series_link` override. Backwards-compatible: third-party plugins overriding the old methods still work.
+- **`scraper.search_all` gains an optional `on_progress` callback** for streaming UI updates without breaking the synchronous return contract.
+- **Q now quits the app from any screen** (Ctrl+C still works, hidden from the footer).
+- `PlaybackScreen` constructor accepts a `Series` (not just a title string) so history entries carry source URLs for resume.
+- Banner badge bumped to v3.2.
+
 ## [3.1.0] - 2026-04-10
 
 ### Added
