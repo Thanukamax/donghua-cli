@@ -1,7 +1,6 @@
 """Tests for stream extraction regex patterns."""
 
 import re
-import pytest
 
 
 # Test the regex patterns used in extractor.py without making real HTTP calls.

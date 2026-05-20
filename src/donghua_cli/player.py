@@ -67,8 +67,8 @@ class Player:
                 "start_new_session": True,
             }
             if config.PLATFORM == "windows":
-                si = subprocess.STARTUPINFO()
-                si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                si = subprocess.STARTUPINFO()  # type: ignore[attr-defined]
+                si.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # type: ignore[attr-defined]
                 kwargs["startupinfo"] = si
 
             self._process = subprocess.Popen(cmd, **kwargs)
@@ -151,8 +151,8 @@ class Downloader:
         try:
             kwargs: dict = {"check": True, "capture_output": True, "text": True}
             if config.PLATFORM == "windows":
-                si = subprocess.STARTUPINFO()
-                si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                si = subprocess.STARTUPINFO()  # type: ignore[attr-defined]
+                si.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # type: ignore[attr-defined]
                 kwargs["startupinfo"] = si
 
             subprocess.run(cmd, **kwargs)

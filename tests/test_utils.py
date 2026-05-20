@@ -1,6 +1,5 @@
 """Tests for utility functions."""
 
-import pytest
 
 from donghua_cli.utils import extract_episode_number, sanitize_filename
 

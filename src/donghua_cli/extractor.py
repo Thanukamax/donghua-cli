@@ -73,14 +73,14 @@ def extract(episode_url: str) -> str:
     tree = fetch_html(episode_url, timeout=8)
 
     for script in tree.css("script[data-video]"):
-        src = script.attributes.get("src", "")
+        src = script.attributes.get("src") or ""
         if "dailymotion" in src:
             vid = script.attributes.get("data-video")
             if vid:
                 return f"https://www.dailymotion.com/video/{vid}"
 
     for meta in tree.css("meta"):
-        content = meta.attributes.get("content", "")
+        content = meta.attributes.get("content") or ""
         if "dailymotion" in content or "ok.ru" in content:
             return content
 
@@ -109,8 +109,8 @@ def _ytdlp_extract(url: str) -> str:
     try:
         kwargs: dict = {"capture_output": True, "text": True, "timeout": 15}
         if config.PLATFORM == "windows":
-            si = subprocess.STARTUPINFO()
-            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            si = subprocess.STARTUPINFO()  # type: ignore[attr-defined]
+            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # type: ignore[attr-defined]
             kwargs["startupinfo"] = si
 
         result = subprocess.run(cmd, **kwargs)

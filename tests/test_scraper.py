@@ -1,9 +1,7 @@
 """Tests for scraper logic -- title normalization, matching, episode merging."""
 
-import pytest
 
 from donghua_cli.scraper import _normalize_title, _titles_match, _merge_episodes, _merge_results
-from donghua_cli.sources.base import Episode
 
 
 class TestNormalizeTitle:

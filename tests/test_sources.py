@@ -1,6 +1,5 @@
 """Tests for source plugin data structures."""
 
-import pytest
 
 from donghua_cli.sources.base import Episode, Series
 

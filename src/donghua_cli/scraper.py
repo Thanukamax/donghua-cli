@@ -11,15 +11,11 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError, as_completed
 from difflib import SequenceMatcher
 from typing import List
 
+from donghua_cli import health
 from donghua_cli.sources import ALL_SOURCES, Source, Series, Episode
 from donghua_cli.utils import extract_episode_number
 
 log = logging.getLogger("donghua")
-
-# Sources to skip during search (too slow or redundant).
-# They're still used for episode fallback when a series URL exists.
-# LD + AX cover ~95% of titles; MD/LM/HD add latency for marginal gain.
-_SEARCH_SKIP = {"hd", "md", "lm"}
 
 
 def _is_movie(title: str) -> bool:
@@ -92,14 +88,22 @@ def _is_relevant(title: str, query: str) -> bool:
 
 
 def search_all(query: str) -> List[Series]:
-    """Search all sources concurrently and merge results into unified Series list.
+    """Search every enabled, healthy source concurrently and merge results.
 
-    Only searches the 2 fastest sources (LD + AX) for speed. The other sources
-    are still used for episode fallback when a series URL exists.
-    Hard deadline: 5s -- anything slower is dropped.
+    Each source gets its own `search_timeout` budget (set on the Source class).
+    The global deadline is the slowest source's budget plus a small buffer, so
+    no participant is silently dropped just for being slow. Sources that don't
+    finish in time still contribute partial results from any earlier callbacks.
     """
     raw: list[tuple[str, str, str]] = []
-    search_sources = [s for s in ALL_SOURCES if s.key not in _SEARCH_SKIP]
+    search_sources = [
+        s for s in ALL_SOURCES if s.enabled and health.is_healthy(s.key)
+    ]
+    if not search_sources:
+        log.warning("No healthy sources available for search")
+        return []
+
+    deadline = max(s.search_timeout for s in search_sources) + 2
 
     with ThreadPoolExecutor(max_workers=len(search_sources)) as pool:
         futures = {
@@ -107,12 +111,15 @@ def search_all(query: str) -> List[Series]:
             for source in search_sources
         }
         try:
-            for future in as_completed(futures, timeout=5):
+            for future in as_completed(futures, timeout=deadline):
                 try:
                     raw.extend(future.result(timeout=0.1))
                 except Exception:
                     pass
         except TimeoutError:
+            slow = [futures[f].key for f in futures if not f.done()]
+            if slow:
+                log.info("Search deadline hit; dropping slow sources: %s", slow)
             for future in futures:
                 if future.done():
                     try:
@@ -135,9 +142,11 @@ def _search_one(source: Source, query: str) -> list[tuple[str, str, str]]:
         log.debug("Searching %s for '%s'", source.name, query)
         results = source.search(query)
         log.debug("%s returned %d results", source.name, len(results))
+        health.mark_alive(source.key)
         return [(source.key, title, url) for title, url in results]
     except Exception as e:
         log.warning("Search failed on %s: %s", source.name, e)
+        health.mark_dead(source.key, reason=str(e)[:120])
         return []
 
 
@@ -181,13 +190,18 @@ def get_episodes(series: Series) -> List[Episode]:
 
         for future in as_completed(futures):
             source_key = futures[future]
+            source = get_source(source_key)
+            timeout = source.episode_timeout if source else 15
             try:
-                eps = future.result(timeout=15)
+                eps = future.result(timeout=timeout)
                 log.debug("%s returned %d episodes", source_key, len(eps))
                 for title, url in eps:
                     all_raw.append((source_key, title, url))
+                if eps:
+                    health.mark_alive(source_key)
             except Exception as e:
                 log.warning("Episode fetch failed on %s: %s", source_key, e)
+                health.mark_dead(source_key, reason=str(e)[:120])
 
     return _merge_episodes(all_raw)
 

@@ -49,7 +49,32 @@ STREAM_CACHE_FILE = os.path.join(CACHE_DIR, "stream_cache.json")
 
 DEFAULT_QUALITY = "720"
 DEFAULT_QUALITY_MOBILE = "360"
-DOWNLOAD_DIR = os.path.normpath(os.path.expanduser("~/Videos/Donghua"))
+
+
+def _default_download_dir() -> str:
+    """Platform-native default download directory.
+
+    Linux/Termux → ``~/Videos/Donghua``
+    Windows → ``%USERPROFILE%\\Videos\\Donghua``
+    macOS → ``~/Movies/Donghua``
+    Android → ``~/storage/movies/Donghua`` when Termux storage is set up,
+              else ``~/DonghuaCultivation/downloads``.
+    """
+    if PLATFORM == "windows":
+        base = os.environ.get("USERPROFILE", os.path.expanduser("~"))
+        return os.path.normpath(os.path.join(base, "Videos", "Donghua"))
+    if PLATFORM == "android":
+        termux_storage = os.path.expanduser("~/storage/movies")
+        if os.path.isdir(termux_storage):
+            return os.path.join(termux_storage, "Donghua")
+        return os.path.join(_CONFIG_DIR, "downloads")
+    system = platform.uname().system
+    if system == "Darwin":
+        return os.path.normpath(os.path.expanduser("~/Movies/Donghua"))
+    return os.path.normpath(os.path.expanduser("~/Videos/Donghua"))
+
+
+DOWNLOAD_DIR = _default_download_dir()
 
 HEADERS = {
     "User-Agent": (
@@ -112,6 +137,21 @@ def get_download_dir() -> str:
     if custom:
         return os.path.normpath(os.path.expanduser(custom))
     return DOWNLOAD_DIR
+
+
+def get_disabled_sources() -> set[str]:
+    """Source keys the user has disabled via config.toml."""
+    cfg = _load_user_config()
+    raw = cfg.get("disabled_sources", [])
+    if isinstance(raw, str):
+        return {raw}
+    return {str(k) for k in raw}
+
+
+def get_auto_next() -> bool:
+    """Whether to auto-advance to the next episode after MPV finishes one."""
+    cfg = _load_user_config()
+    return bool(cfg.get("auto_next", True))
 
 
 def ensure_dirs():

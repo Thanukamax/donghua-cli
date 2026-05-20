@@ -479,6 +479,8 @@ class SearchScreen(Screen):
 
     @on(OptionList.OptionSelected, "#results-list")
     def on_select(self, event: OptionList.OptionSelected) -> None:
+        if event.option_id is None:
+            return
         idx = int(event.option_id)
         if 0 <= idx < len(self._results):
             self.app.push_screen(EpisodeScreen(self._core, self._results[idx]))
@@ -579,6 +581,8 @@ class EpisodeScreen(Screen):
 
     @on(OptionList.OptionSelected, "#episode-list")
     def on_select(self, event: OptionList.OptionSelected) -> None:
+        if event.option_id is None:
+            return
         idx = int(event.option_id)
         if 0 <= idx < len(self._episodes):
             self.app.push_screen(

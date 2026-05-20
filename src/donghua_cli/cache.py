@@ -82,7 +82,7 @@ class StreamCache:
                             self._cache[key] = (val, "unknown")
                         elif isinstance(val, list) and len(val) == 2:
                             self._cache[key] = (val[0], val[1])
-        except (OSError, json.JSONDecodeError, (IndexError, KeyError)):
+        except (OSError, json.JSONDecodeError, IndexError, KeyError, TypeError):
             self._cache = OrderedDict()
 
 
