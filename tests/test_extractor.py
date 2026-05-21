@@ -27,6 +27,56 @@ class TestCanonicalize:
     def test_unrelated_url_passes_through(self):
         assert _canonicalize("https://example.com/foo") == "https://example.com/foo"
 
+    def test_youtube_embed_to_watch(self):
+        assert (
+            _canonicalize("https://www.youtube.com/embed/dQw4w9WgXcQ")
+            == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        )
+
+    def test_youtube_watch_form_unchanged(self):
+        url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        assert _canonicalize(url) == url
+
+    def test_streamtape_embed_to_watch(self):
+        assert (
+            _canonicalize("https://streamtape.com/e/AbCdEf123/title.mp4")
+            == "https://streamtape.com/v/AbCdEf123/title.mp4"
+        )
+        # Other TLDs in the streamtape mirror set.
+        assert _canonicalize("https://streamtape.to/e/X9/").endswith("streamtape.to/v/X9/")
+
+    def test_mixdrop_embed_to_file(self):
+        assert (
+            _canonicalize("https://mixdrop.ag/e/abc123")
+            == "https://mixdrop.ag/f/abc123"
+        )
+
+    def test_mp4upload_embed_to_bare(self):
+        assert (
+            _canonicalize("https://www.mp4upload.com/embed-abc123def.html")
+            == "https://www.mp4upload.com/abc123def"
+        )
+        assert (
+            _canonicalize("https://mp4upload.com/embed-xyz")
+            == "https://mp4upload.com/xyz"
+        )
+
+    def test_doodstream_embed_to_d(self):
+        assert (
+            _canonicalize("https://dood.so/e/abc123")
+            == "https://dood.so/d/abc123"
+        )
+        # Sibling mirrors share the rule.
+        assert (
+            _canonicalize("https://ds2play.com/e/xyz")
+            == "https://ds2play.com/d/xyz"
+        )
+
+    def test_protocol_relative_url_promoted(self):
+        # Many WordPress themes emit //host/path. mpv refuses these; promote
+        # to https unconditionally.
+        assert _canonicalize("//streamtape.com/e/abc").startswith("https://")
+
 
 # Test the regex patterns used in extractor.py without making real HTTP calls.
 
