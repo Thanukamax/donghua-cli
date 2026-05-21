@@ -32,6 +32,26 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
         run: twine upload dist/*
 
+      - name: Bump AUR / Homebrew / Scoop formulas
+        # Runs after PyPI upload so the sdist hash matches what users install.
+        # release-prep.sh polls PyPI for the published sdist, sha256s it, and
+        # rewrites the three formula files in-place.
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          bash scripts/release-prep.sh "$VERSION"
+
+      - name: Commit formula bumps back to main
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- packaging/; then
+            git add packaging/aur/PKGBUILD packaging/homebrew/donghua-cli.rb packaging/scoop/donghua-cli.json
+            git commit -m "chore: bump formulas to ${GITHUB_REF_NAME}"
+            git push origin HEAD:main
+          else
+            echo "No formula changes to commit."
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -58,7 +78,18 @@ jobs:
       - name: Build Windows executable
         run: pyinstaller packaging/pyinstaller/donghua.spec --noconfirm
 
-      - name: Upload exe to release
+      - name: Generate SHA256SUMS for release artifacts
+        # Scoop's autoupdate picks up the EXE hash from this file via the
+        # regex in packaging/scoop/donghua-cli.json. Keep the format
+        # `<sha256>  <filename>` (two spaces — sha256sum default).
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash -Algorithm SHA256 dist/donghua.exe).Hash.ToLower()
+          "$hash  donghua.exe" | Out-File -Encoding ascii -NoNewline dist/SHA256SUMS
+
+      - name: Upload exe + SHA256SUMS to release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/donghua.exe
+          files: |
+            dist/donghua.exe
+            dist/SHA256SUMS
