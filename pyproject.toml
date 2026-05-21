@@ -36,7 +36,6 @@ dhua = "donghua_cli.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/donghua_cli"]
-artifacts = ["src/donghua_cli/banner_frames.json.gz"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

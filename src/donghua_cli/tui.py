@@ -1,7 +1,12 @@
 """Textual-based TUI for Donghua CLI.
 
-Full-screen terminal app with animated particles, live-updating progress,
-toast notifications, and premium Wuxia-themed design.
+Restrained design: single accent per screen, fixed 5-glyph budget, no random
+flavor in render paths. All colors come from palette.py.
+
+Screens:
+- SearchScreen   — query input + live per-source progress + results list
+- EpisodeScreen  — episodes for a chosen series, optional cover art
+- PlaybackScreen — now-playing + controls; auto-advances when configured
 """
 
 from __future__ import annotations
@@ -25,354 +30,290 @@ from textual.widgets import (
 )
 from textual.widgets.option_list import Option
 
+from donghua_cli import __version__
+from donghua_cli.palette import GLYPH, PALETTE
+from donghua_cli.theme import TECHNIQUES, level_for_episode
+
 if TYPE_CHECKING:
     from donghua_cli.sources.base import Episode, Series
 
-# ── Wuxia flavour ────────────────────────────────────────────────────────
-
-TECHNIQUES = [
-    "Dragon Tail Sweep", "Phoenix Wing Strike", "Cloud Step Ascension",
-    "Mountain Breaker Fist", "Moonlight Cut", "Star Fall Descent",
-    "Lotus Palm Strike", "Void Piercer", "Heavenly Sword Flash",
-    "Iron Body Tempering", "Azure Dragon Roar", "Shadow Step",
-    "Crimson Phoenix Dance", "Jade Emperor's Decree", "Thunder God Fist",
-]
-
-LEVELS = [
-    "Qi Refining", "Foundation", "Golden Core",
-    "Nascent Soul", "Divine Transformation", "Void Refinement",
-    "Body Integration", "Tribulation", "Mahayana",
-]
-
-# ── Custom Widgets ───────────────────────────────────────────────────────
+# Banner technique is pinned for the lifetime of the app — never reshuffles
+# on every render, so the eye can anchor.
+_SESSION_TECHNIQUE = random.choice(TECHNIQUES)
 
 
+# ── Static banner (replaces the old animated ParticleBanner) ─────────────
 
-class ParticleBanner(Static):
-    """Plays a BTTH heavenly flame fight clip as half-block pixel art.
 
-    All frames are pre-parsed into Rich Text objects at load time.
-    During playback, render() just returns the next pre-parsed object --
-    no markup parsing, no string processing, just a pointer swap.
-    25 frames at 5fps = 5s loop (seconds 6-11 of the clip).
+class StaticBanner(Static):
+    """Quiet 4-row title block. Renders once, never redraws.
+
+    Replaces the old 12-row 4fps animated particle banner. The old banner
+    earned its space the first time a user saw it; not the hundredth.
     """
 
-    from rich.text import Text as _Text
-
-    # Class-level frame cache: pre-parsed Text objects
-    _parsed_frames: list[_Text] = []
-    _loaded: bool = False
-
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self._frame_idx = 0
-        self._current: ParticleBanner._Text | str = " \n" * 11
-
-    def render(self) -> str | _Text:
-        return self._current
+    DEFAULT_CSS = ""
 
     def on_mount(self) -> None:
-        if ParticleBanner._loaded and ParticleBanner._parsed_frames:
-            self._current = ParticleBanner._parsed_frames[0]
-            self._timer = self.set_interval(1.0 / 4, self._step)
-        else:
-            # Load + parse in background thread so UI appears instantly
-            self._load_in_background()
+        accent = PALETTE["accent"]
+        accent_alt = PALETTE["accent_alt"]
+        muted = PALETTE["text_muted"]
+        faint = PALETTE["text_faint"]
+        ghost = PALETTE["text_ghost"]
 
-    @work(thread=True)
-    def _load_in_background(self) -> None:
-        if not ParticleBanner._loaded:
-            self._load_frames()
-        if ParticleBanner._parsed_frames:
-            self._current = ParticleBanner._parsed_frames[0]
-            self.app.call_from_thread(self.refresh)
-            # Start the animation timer on the main thread
-            self.app.call_from_thread(self._start_timer)
-
-    def _start_timer(self) -> None:
-        self._timer = self.set_interval(1.0 / 4, self._step)
-
-    def _load_frames(self) -> None:
-        import gzip
-        import json
-        from pathlib import Path
-        from rich.text import Text
-
-        data_path = Path(__file__).parent / "banner_frames.json.gz"
-        if not data_path.exists():
-            ParticleBanner._loaded = True
-            return
-
-        try:
-            with gzip.open(data_path, "rb") as f:
-                raw_frames = json.loads(f.read().decode())
-
-            # Pre-parse all markup into Text objects -- this is the key optimization.
-            # Parsing happens once at startup, then playback is instant.
-            parsed = []
-            for markup_str in raw_frames:
-                parsed.append(Text.from_markup(markup_str))
-
-            ParticleBanner._parsed_frames = parsed
-            ParticleBanner._loaded = True
-        except Exception:
-            ParticleBanner._parsed_frames = []
-            ParticleBanner._loaded = True
-
-    def _step(self) -> None:
-        if not ParticleBanner._parsed_frames:
-            return
-        self._frame_idx = (self._frame_idx + 1) % len(ParticleBanner._parsed_frames)
-        self._current = ParticleBanner._parsed_frames[self._frame_idx]
-        self.refresh(layout=True)
+        body = (
+            f"[bold {accent}]武 侠 动 画 终 端[/]\n"
+            f"[bold {accent_alt}]D O N G H U A   C L I[/]   "
+            f"[{muted}]v{__version__}[/]\n"
+            f"[{ghost}]{'─' * 36}[/]\n"
+            f"[italic {faint}]{_SESSION_TECHNIQUE}[/]"
+        )
+        self.update(body)
 
 
-# ── CSS ──────────────────────────────────────────────────────────────────
+# ── CSS (token-driven, built from palette at module load) ────────────────
 
-WUXIA_CSS = """\
+_CSS_TEMPLATE = """
+Screen {{
+    background: {surface};
+}}
 
-Screen {
-    background: #0c0e1a;
-}
-
-/* ─── Particle Banner ─── */
-
-ParticleBanner {
+/* ── Static banner ── */
+StaticBanner {{
     width: 100%;
-    height: 12;
-    background: #0c0e1a;
-    overflow: hidden;
-}
-
-/* ─── Banner title ─── */
-
-#banner-title {
-    width: 100%;
-    height: 1;
+    height: 4;
+    content-align: center middle;
     text-align: center;
-    background: #0c0e1a;
-    color: #fbbf24;
-    margin: 0;
-}
+    background: {surface};
+    margin: 1 0 0 0;
+}}
 
-/* ─── Banner sub-info ─── */
-
-#banner-badges {
-    width: 100%;
-    height: 1;
-    text-align: center;
-    background: #0c0e1a;
-    color: #475569;
-    margin-bottom: 0;
-}
-
-
-/* ─── Rule ─── */
-
-Rule {
-    color: #1e293b;
+/* ── Rule ── */
+Rule {{
+    color: {border};
     margin: 0 3;
-}
+}}
 
-/* ─── Search ─── */
-
-#search-box {
+/* ── Search input ── */
+#search-box {{
     height: auto;
     padding: 0 3;
     margin: 0 0 1 0;
-}
+}}
 
-#search-label {
-    color: #475569;
+#search-input {{
+    border: tall {border};
     padding: 0 1;
-    height: 1;
-}
+    background: {surface_alt};
+    color: {text};
+}}
 
-#search-input {
-    border: tall #1e293b;
-    padding: 0 1;
-    background: #111827;
-    color: #e2e8f0;
-}
+#search-input:focus {{
+    border: tall {accent_alt};
+    background: {surface};
+}}
 
-#search-input:focus {
-    border: tall #5eead4;
-    background: #0f172a;
-}
-
-/* ─── Status bar ─── */
-
-#status-bar {
-    dock: bottom;
+/* ── Status bar (inline, above results) ── */
+#status-bar {{
     height: 1;
     padding: 0 3;
-    background: #111827;
-    color: #94a3b8;
-}
+    color: {text_muted};
+}}
 
-/* ─── Results / Episodes ─── */
+#continue-strip {{
+    height: auto;
+    padding: 0 3;
+    color: {text_muted};
+}}
 
-#results-container {
+/* ── Results / Episodes container ── */
+#results-container {{
     height: 1fr;
     padding: 0 2;
     margin: 0;
-}
+}}
 
-/* ─── OptionList ─── */
-
-OptionList {
+/* ── OptionList ── */
+OptionList {{
     height: 1fr;
-    border: round #1e293b;
-    background: #0c0e1a;
-    scrollbar-background: #0c0e1a;
-    scrollbar-color: #1e293b;
-    scrollbar-color-hover: #5eead4;
-    scrollbar-color-active: #fbbf24;
+    border: round {border};
+    background: {surface};
+    scrollbar-background: {surface};
+    scrollbar-color: {border};
+    scrollbar-color-hover: {accent_alt};
+    scrollbar-color-active: {accent};
     scrollbar-size-vertical: 1;
-}
+}}
 
-OptionList > .option-list--option {
+OptionList > .option-list--option {{
     padding: 0 2;
-    color: #cbd5e1;
-}
+    color: {text};
+}}
 
-OptionList > .option-list--option-highlighted {
-    background: #5eead4 12%;
-    color: #fbbf24;
+OptionList > .option-list--option-highlighted {{
+    background: {accent_alt} 12%;
+    color: {accent};
     text-style: bold;
-}
+}}
 
-OptionList > .option-list--option-hover {
-    background: #5eead4 6%;
-}
+OptionList > .option-list--option-hover {{
+    background: {accent_alt} 6%;
+}}
 
-OptionList:focus {
-    border: round #5eead4 40%;
-}
+OptionList:focus {{
+    border: round {accent_alt} 40%;
+}}
 
-/* ─── Episode header ─── */
+/* ── Empty-state hint inside the list area ── */
+#empty-hint {{
+    width: 100%;
+    height: auto;
+    padding: 1 3;
+    text-align: center;
+    color: {text_faint};
+}}
 
-#episode-header {
+/* ── Episode header ── */
+#episode-header {{
     padding: 1 3;
     height: auto;
-    background: #111827;
-    border-bottom: heavy #1e293b;
-}
+    background: {surface_alt};
+    border-bottom: heavy {border};
+}}
 
-/* ─── Help bar ─── */
+#series-cover {{
+    height: auto;
+    width: auto;
+    margin: 0 3;
+}}
 
-#help-text {
+/* ── Help bar (docked at bottom) ── */
+#help-text {{
     text-align: center;
-    color: #475569;
+    color: {text_faint};
     padding: 0 1;
     height: 1;
-    background: #111827;
+    background: {surface_alt};
     dock: bottom;
-}
+}}
 
-/* ─── Now Playing ─── */
-
-#np-outer {
+/* ── Now Playing ── */
+#np-outer {{
     width: 100%;
     height: auto;
-    padding: 1 4;
-}
+    padding: 1 3;
+}}
 
-#np-header {
+#np-title {{
     width: 100%;
     text-align: center;
-    padding: 1 0;
-    background: #111827;
-    border: heavy #5eead4 30%;
-}
+    color: {text};
+    text-style: bold;
+    padding: 1 0 0 0;
+}}
 
-#np-body {
+#np-meta {{
     width: 100%;
-    padding: 1 4;
-    background: #0c0e1a;
-    height: auto;
-    border: round #1e293b;
-    margin: 1 0 0 0;
-}
+    text-align: center;
+    color: {text_muted};
+    padding: 0 0 1 0;
+}}
 
-#np-progress-box {
+#np-progress-box {{
     width: 100%;
     height: auto;
     padding: 0 4;
-    margin: 1 0 0 0;
-}
+}}
 
-#np-progress-label {
-    text-align: center;
-    color: #94a3b8;
-    height: 1;
-}
-
-ProgressBar {
+ProgressBar {{
     padding: 0;
     margin: 0;
-}
+}}
 
-ProgressBar > .bar--bar {
-    color: #5eead4;
-    background: #1e293b;
-}
+ProgressBar > .bar--bar {{
+    color: {accent_alt};
+    background: {border};
+}}
 
-ProgressBar > .bar--complete {
-    color: #5eead4;
-}
+ProgressBar > .bar--complete {{
+    color: {accent_alt};
+}}
 
-#np-server {
+/* ── Controls strip ── */
+#controls-panel {{
+    width: 100%;
     text-align: center;
-    color: #64748b;
-    height: 1;
-    margin: 1 0 0 0;
-}
+    padding: 1 0;
+    color: {text};
+}}
 
-/* ─── Controls ─── */
+/* ── Footer ── */
+Footer {{
+    background: {surface_alt};
+    color: {text_faint};
+}}
 
-#controls-panel {
-    padding: 1 4;
-    margin: 1 4;
-    border: round #1e293b;
-    background: #111827;
-    height: auto;
-}
-
-/* ─── Footer ─── */
-
-Footer {
-    background: #111827;
-    color: #64748b;
-}
-
-Footer > .footer--key {
-    background: #1e293b;
-    color: #fbbf24;
+Footer > .footer--key {{
+    background: {border};
+    color: {accent};
     text-style: bold;
-}
+}}
 
-Footer > .footer--description {
-    color: #94a3b8;
-}
+Footer > .footer--description {{
+    color: {text_muted};
+}}
 
-LoadingIndicator {
-    color: #a78bfa;
-}
+LoadingIndicator {{
+    color: {accent_alt};
+}}
 """
+
+WUXIA_CSS = _CSS_TEMPLATE.format(**PALETTE)
+
+
+# ── Tiny helpers ─────────────────────────────────────────────────────────
+
+
+def _source_pills(sources: list[str]) -> str:
+    """Render server keys as a single faint line: 'LD · AX · LM'.
+
+    Replaces the old `[bg-on-fg] LD [/]` colored badge blocks. Same info,
+    tenth the visual weight.
+    """
+    accent_alt = PALETTE["accent_alt"]
+    ghost = PALETTE["text_ghost"]
+    parts = [f"[{accent_alt}]{s.upper()}[/]" for s in sources]
+    return f" [{ghost}]·[/] ".join(parts)
+
 
 # ── Screens ──────────────────────────────────────────────────────────────
 
 
 class SearchScreen(Screen):
-    """Search screen with animated particle banner."""
+    """Search screen with static banner + live per-source progress."""
 
     BINDINGS = [
         Binding("escape", "quit", "Quit", show=True),
-        Binding("f", "focus_search", "Search", show=True),
         Binding("c", "resume_recent", "Continue", show=True),
         Binding("b", "show_bookmarks", "Bookmarks", show=True),
     ]
+
+    EMPTY_HINT = (
+        f"[{PALETTE['text_faint']}]Type a title and press Enter "
+        f"— try 'Battle Through the Heavens'.  "
+        f"Press [bold {PALETTE['accent']}]C[/] to resume, "
+        f"[bold {PALETTE['accent']}]B[/] for bookmarks.[/]"
+    )
+
+    HELP_BAR = (
+        f"[bold {PALETTE['accent']}]Enter[/] [{PALETTE['text_faint']}]search[/]  "
+        f"[{PALETTE['border']}]│[/]  "
+        f"[bold {PALETTE['accent']}]C[/] [{PALETTE['text_faint']}]continue[/]  "
+        f"[{PALETTE['border']}]│[/]  "
+        f"[bold {PALETTE['accent']}]B[/] [{PALETTE['text_faint']}]bookmarks[/]  "
+        f"[{PALETTE['border']}]│[/]  "
+        f"[bold {PALETTE['accent']}]Q[/] [{PALETTE['text_faint']}]quit[/]"
+    )
 
     def __init__(self, app_core) -> None:
         super().__init__()
@@ -380,42 +321,16 @@ class SearchScreen(Screen):
         self._results: list[Series] = []
 
     def compose(self) -> ComposeResult:
-        yield ParticleBanner(id="particle-banner")
-        yield Static(
-            "[bold #fbbf24]\u6b66\u4fa0\u52a8\u753b\u7ec8\u7aef[/]  "
-            "[#334155]\u2502[/]  "
-            "[bold #5eead4]DONGHUA CLI[/] [#475569]v3.2[/]",
-            id="banner-title",
-        )
-        yield Static(
-            "[#334155][[/][#f43f5e] v3.2 [/][#334155]][/]  "
-            "[#334155][[/][#5eead4] Stream [/][#334155]][/]  "
-            "[#334155][[/][#a78bfa] Download [/][#334155]][/]  "
-            "[#334155][[/][#fbbf24] Cultivate [/][#334155]][/]",
-            id="banner-badges",
-        )
+        yield StaticBanner(id="static-banner")
         yield Rule(line_style="heavy")
-
         with Container(id="search-box"):
-            yield Input(placeholder="  Search for donghua...", id="search-input")
-
+            yield Input(placeholder="  Search for donghua…", id="search-input")
         yield Static("", id="continue-strip")
         yield Static("", id="status-bar")
         with Container(id="results-container"):
             yield OptionList(id="results-list")
-        yield Static(
-            "[bold #fbbf24]Enter[/] [#475569]search[/]  "
-            "[#1e293b]│[/]  "
-            "[bold #fbbf24]C[/] [#475569]continue[/]  "
-            "[#1e293b]│[/]  "
-            "[bold #fbbf24]B[/] [#475569]bookmarks[/]  "
-            "[#1e293b]│[/]  "
-            "[bold #fbbf24]Q[/] [#475569]quit[/]",
-            id="help-text",
-        )
-
-    def action_focus_search(self) -> None:
-        self.query_one("#search-input", Input).focus()
+            yield Static(self.EMPTY_HINT, id="empty-hint")
+        yield Static(self.HELP_BAR, id="help-text")
 
     def on_mount(self) -> None:
         self.query_one("#search-input", Input).focus()
@@ -429,22 +344,29 @@ class SearchScreen(Screen):
         if not recent and not bookmarks:
             return
 
+        accent_alt = PALETTE["accent_alt"]
+        accent = PALETTE["accent"]
+        muted = PALETTE["text_muted"]
+        text = PALETTE["text"]
+        faint = PALETTE["text_faint"]
+        border = PALETTE["border"]
+
         parts: list[str] = []
         if recent:
             top = recent[0]
             parts.append(
-                f"[#5eead4]↻[/] [#94a3b8]Resume[/] "
-                f"[bold #e2e8f0]{top.title[:32]}[/] "
-                f"[#475569]ep {top.last_episode}[/]"
+                f"[{accent_alt}]{GLYPH['pending']}[/] [{muted}]Resume[/] "
+                f"[bold {text}]{top.title[:32]}[/] "
+                f"[{faint}]ep {top.last_episode}[/]"
             )
         if bookmarks:
             parts.append(
-                f"[#fbbf24]★[/] [#94a3b8]Bookmarks[/] "
-                f"[bold #e2e8f0]{len(bookmarks)}[/]"
+                f"[{accent}]{GLYPH['star']}[/] [{muted}]Bookmarks[/] "
+                f"[bold {text}]{len(bookmarks)}[/]"
             )
         try:
             self.query_one("#continue-strip", Static).update(
-                "  " + "   [#1e293b]│[/]   ".join(parts)
+                "  " + f"   [{border}]│[/]   ".join(parts)
             )
         except NoMatches:
             pass
@@ -454,17 +376,25 @@ class SearchScreen(Screen):
             self.app.notify(f"No {title.lower()} yet", title=title, timeout=2)
             return
 
+        accent = PALETTE["accent"]
+        text = PALETTE["text"]
+        faint = PALETTE["text_faint"]
+
         self._results = [e.to_series() for e in entries]
         options = []
         for i, entry in enumerate(entries):
-            label = f"[bold #fbbf24]{i+1:2d}[/]  [#e2e8f0]{entry.title[:60]}[/]"
+            label = f"[bold {accent}]{i + 1:2d}[/]  [{text}]{entry.title[:60]}[/]"
             extra = getattr(entry, "last_episode", None)
             if extra:
-                label += f"  [#475569]ep {extra}[/]"
+                label += f"  [{faint}]ep {extra}[/]"
             options.append(Option(label, id=str(i)))
         try:
             status = self.query_one("#status-bar", Static)
-            status.update(f"  [#5eead4]✓[/] [bold]{title}[/]  [#94a3b8]{len(entries)} entries[/]")
+            status.update(
+                f"  [{PALETTE['accent_alt']}]{GLYPH['ok']}[/] "
+                f"[bold]{title}[/]  "
+                f"[{PALETTE['text_muted']}]{len(entries)} entries[/]"
+            )
         except NoMatches:
             pass
         self._populate_results(options)
@@ -490,44 +420,59 @@ class SearchScreen(Screen):
     def _do_search(self, query: str) -> None:
         status = self.query_one("#status-bar", Static)
         results_list = self.query_one("#results-list", OptionList)
+        try:
+            hint = self.query_one("#empty-hint", Static)
+        except NoMatches:
+            hint = None
+
+        accent_alt = PALETTE["accent_alt"]
+        accent = PALETTE["accent"]
+        danger = PALETTE["danger"]
+        muted = PALETTE["text_muted"]
+        text = PALETTE["text"]
+        faint = PALETTE["text_faint"]
+        border = PALETTE["border"]
 
         self.app.call_from_thread(
             status.update,
-            f"  [#a78bfa]\u27f3[/] [#94a3b8]Searching[/] [bold #e2e8f0]'{query}'[/]",
+            f"  [{accent_alt}]{GLYPH['pending']}[/] [{muted}]Searching[/] "
+            f"[bold {text}]'{query}'[/]",
         )
         self.app.call_from_thread(results_list.clear_options)
+        if hint is not None:
+            self.app.call_from_thread(hint.update, "")
 
         from donghua_cli.scraper import get_search_sources, search_all
 
-        # Per-source progress pills shown above the result list.
+        # Per-source progress pills, single-glyph budget.
         progress: dict[str, tuple[str, int, float]] = {
             s.key: ("pending", 0, 0.0) for s in get_search_sources()
         }
 
         def render_progress() -> str:
             parts = []
-            for key, (state, hits, elapsed) in progress.items():
+            for key, (state, hits, _) in progress.items():
                 if state == "pending":
-                    icon = "[#a78bfa]\u27f3[/]"
-                    detail = "\u2026"
+                    icon = f"[{muted}]{GLYPH['pending']}[/]"
+                    detail = "…"
                 elif state == "alive":
-                    icon = "[#5eead4]\u2713[/]"
+                    icon = f"[{accent_alt}]{GLYPH['ok']}[/]"
                     detail = f"{hits}"
                 elif state == "dead":
-                    icon = "[#f43f5e]\u2717[/]"
+                    icon = f"[{danger}]{GLYPH['fail']}[/]"
                     detail = "fail"
                 else:  # timeout
-                    icon = "[#fbbf24]\u231b[/]"
+                    icon = f"[{accent}]{GLYPH['fail']}[/]"
                     detail = "slow"
-                parts.append(f"{icon} [#94a3b8]{key.upper()}[/]\u00b7{detail}")
+                parts.append(f"{icon} [{muted}]{key.upper()}[/]·{detail}")
             return "   ".join(parts)
 
         def on_progress(key: str, state: str, hits: int, elapsed: float) -> None:
             progress[key] = (state, hits, elapsed)
             self.app.call_from_thread(
                 status.update,
-                f"  [#a78bfa]\u27f3[/] [#94a3b8]Searching[/] [bold #e2e8f0]'{query}'[/]   "
-                f"{render_progress()}",
+                f"  [{accent_alt}]{GLYPH['pending']}[/] [{muted}]Searching[/] "
+                f"[bold {text}]'{query}'[/]   {render_progress()}",
             )
 
         results = search_all(query, on_progress=on_progress)
@@ -536,37 +481,47 @@ class SearchScreen(Screen):
         if not results:
             self.app.call_from_thread(
                 status.update,
-                "  [#f43f5e]\u2717[/] [#94a3b8]No results[/]",
+                f"  [{danger}]{GLYPH['fail']}[/] [{muted}]No results[/]",
             )
+            if hint is not None:
+                self.app.call_from_thread(
+                    hint.update,
+                    f"[{faint}]Nothing matched '[/{faint}]"
+                    f"[bold {text}]{query}[/][{faint}]'. "
+                    f"Try a different spelling or a partial title.[/]",
+                )
             self.app.call_from_thread(
-                self.app.notify, "No results found", title="Search", severity="warning",
+                self.app.notify,
+                "No results found",
+                title="Search",
+                severity="warning",
             )
             return
 
         multi = sum(1 for s in results if len(s.sources) > 1)
         self.app.call_from_thread(
             status.update,
-            f"  [#5eead4]\u2713[/] [bold]{len(results)}[/] [#94a3b8]results[/]"
-            f"  [#334155]\u2502[/]  "
-            f"[#5eead4]{multi}[/] [#64748b]multi-server[/]",
+            f"  [{accent_alt}]{GLYPH['ok']}[/] [bold]{len(results)}[/] "
+            f"[{muted}]results[/]  [{border}]│[/]  "
+            f"[{accent_alt}]{multi}[/] [{faint}]multi-server[/]",
         )
 
         from donghua_cli.scraper import _is_movie
         options = []
         for i, s in enumerate(results):
-            if _is_movie(s.title):
-                tag = "[#0c0e1a on #f43f5e] MOVIE [/]"
-            else:
-                tag = "[#0c0e1a on #22d3ee] SERIES [/]"
+            # Demoted MOVIE/SERIES tag: a quiet faint suffix instead of a
+            # high-contrast colored background.
+            kind = "movie" if _is_movie(s.title) else None
+            kind_suffix = f"  [{faint} italic]· {kind}[/]" if kind else ""
 
-            sc = len(s.sources)
-            bars = "[#5eead4]\u2503[/]" * sc + "[#1e293b]\u2503[/]" * max(0, 5 - sc)
+            srv_count = len(s.sources)
+            count_dot = f"[{accent_alt}]●[/]" * srv_count + f"[{border}]●[/]" * max(0, 5 - srv_count)
 
             label = (
-                f"[bold #fbbf24]{i+1:2d}[/]  "
-                f"{tag}  "
-                f"[#e2e8f0]{s.title[:42]}[/]  "
-                f"{bars}"
+                f"[bold {accent}]{i + 1:2d}[/]  "
+                f"[{text}]{s.title[:48]}[/]"
+                f"{kind_suffix}  "
+                f"{count_dot}"
             )
             options.append(Option(label, id=str(i)))
 
@@ -574,7 +529,7 @@ class SearchScreen(Screen):
         self.app.call_from_thread(
             self.app.notify,
             f"{len(results)} result(s) found",
-            title="\u2713 Search Complete",
+            title="Search complete",
             timeout=3,
         )
 
@@ -583,6 +538,10 @@ class SearchScreen(Screen):
         rl.clear_options()
         for opt in options:
             rl.add_option(opt)
+        try:
+            self.query_one("#empty-hint", Static).update("")
+        except NoMatches:
+            pass
         rl.focus()
 
     @on(OptionList.OptionSelected, "#results-list")
@@ -598,7 +557,7 @@ class SearchScreen(Screen):
 
 
 class EpisodeScreen(Screen):
-    """Episode selection with server health bars."""
+    """Episode selection. Single accent (gold = your next pick)."""
 
     BINDINGS = [
         Binding("escape", "go_back", "Back", show=True),
@@ -607,6 +566,16 @@ class EpisodeScreen(Screen):
         Binding("b", "toggle_bookmark", "Bookmark", show=True),
     ]
 
+    HELP_BAR = (
+        f"[bold {PALETTE['accent']}]Enter[/] [{PALETTE['text_faint']}]play[/]  "
+        f"[{PALETTE['border']}]│[/]  "
+        f"[bold {PALETTE['accent']}]A[/] [{PALETTE['text_faint']}]play all[/]  "
+        f"[{PALETTE['border']}]│[/]  "
+        f"[bold {PALETTE['accent']}]B[/] [{PALETTE['text_faint']}]bookmark[/]  "
+        f"[{PALETTE['border']}]│[/]  "
+        f"[bold {PALETTE['accent']}]Esc[/] [{PALETTE['text_faint']}]back[/]"
+    )
+
     def __init__(self, app_core, series: Series) -> None:
         super().__init__()
         self._core = app_core
@@ -614,27 +583,21 @@ class EpisodeScreen(Screen):
         self._episodes: list[Episode] = []
 
     def compose(self) -> ComposeResult:
-        srv_pills = "  ".join(
-            f"[#0c0e1a on #5eead4] {s.upper()} [/]" for s in self._series.sources
+        accent = PALETTE["accent"]
+        header = (
+            f"[bold {accent}]{self._series.title}[/]\n"
+            f"{_source_pills(list(self._series.sources))}"
         )
-        yield Static(
-            f"[bold #fbbf24]{self._series.title}[/]\n{srv_pills}",
-            id="episode-header",
-        )
+        yield Static(header, id="episode-header")
         yield Static("", id="series-cover")
         yield Static("", id="status-bar")
         with Container(id="results-container"):
             yield OptionList(id="episode-list")
-        yield Static(
-            "[bold #fbbf24]Enter[/] [#475569]play[/]  "
-            "[#1e293b]\u2502[/]  "
-            "[bold #fbbf24]A[/] [#475569]play all[/]  "
-            "[#1e293b]\u2502[/]  "
-            "[bold #fbbf24]B[/] [#475569]bookmark[/]  "
-            "[#1e293b]\u2502[/]  "
-            "[bold #fbbf24]Esc[/] [#475569]back[/]",
-            id="help-text",
-        )
+            yield Static(
+                f"[{PALETTE['text_faint']}]Loading episodes — Esc to go back.[/]",
+                id="empty-hint",
+            )
+        yield Static(self.HELP_BAR, id="help-text")
 
     def on_mount(self) -> None:
         self._fetch_worker = self._load_episodes()
@@ -643,10 +606,9 @@ class EpisodeScreen(Screen):
 
     @work(thread=True)
     def _load_cover(self, url: str) -> None:
-        """Render the series cover into #series-cover when rich-pixels is available.
-
-        Quietly does nothing if rich-pixels isn't installed or the fetch fails;
-        covers are an opt-in `covers` extra, not a hard dependency.
+        """Render the series cover into #series-cover when rich-pixels is
+        available. Quietly does nothing if the optional `covers` extra
+        isn't installed or the fetch fails.
         """
         try:
             from io import BytesIO
@@ -677,7 +639,7 @@ class EpisodeScreen(Screen):
 
     def action_go_back(self) -> None:
         # Cancel an in-flight fetch before leaving the screen so the worker
-        # thread doesn't continue talking to dead UI widgets.
+        # thread doesn't keep talking to dead UI widgets.
         worker = getattr(self, "_fetch_worker", None)
         if worker is not None and worker.is_running:
             worker.cancel()
@@ -686,8 +648,21 @@ class EpisodeScreen(Screen):
     @work(thread=True, exclusive=True)
     def _load_episodes(self) -> None:
         status = self.query_one("#status-bar", Static)
+        try:
+            hint = self.query_one("#empty-hint", Static)
+        except NoMatches:
+            hint = None
+
+        accent_alt = PALETTE["accent_alt"]
+        accent = PALETTE["accent"]
+        danger = PALETTE["danger"]
+        muted = PALETTE["text_muted"]
+        faint = PALETTE["text_faint"]
+        border = PALETTE["border"]
+
         self.app.call_from_thread(
-            status.update, "  [#a78bfa]\u27f3[/] [#94a3b8]Loading episodes...[/]",
+            status.update,
+            f"  [{accent_alt}]{GLYPH['pending']}[/] [{muted}]Loading episodes…[/]",
         )
 
         from donghua_cli.scraper import get_episodes
@@ -696,36 +671,53 @@ class EpisodeScreen(Screen):
 
         if not episodes:
             self.app.call_from_thread(
-                status.update, "  [#f43f5e]\u2717[/] [#94a3b8]No episodes[/]",
+                status.update,
+                f"  [{danger}]{GLYPH['fail']}[/] [{muted}]No episodes[/]",
             )
+            if hint is not None:
+                self.app.call_from_thread(
+                    hint.update,
+                    f"[{faint}]Source returned no episodes. "
+                    f"Press [bold {accent}]Esc[/] to go back and try another result.[/]",
+                )
             self.app.call_from_thread(
-                self.app.notify, "No episodes found", title="Episodes", severity="warning",
+                self.app.notify,
+                "No episodes found",
+                title="Episodes",
+                severity="warning",
             )
             return
+
+        if hint is not None:
+            self.app.call_from_thread(hint.update, "")
 
         multi = sum(1 for e in episodes if len(e.sources) > 1)
         self.app.call_from_thread(
             status.update,
-            f"  [#5eead4]\u2713[/] [bold]{len(episodes)}[/] [#94a3b8]episodes[/]"
-            f"  [#334155]\u2502[/]  "
-            f"[#5eead4]{multi}[/] [#64748b]multi-server[/]",
+            f"  [{accent_alt}]{GLYPH['ok']}[/] [bold]{len(episodes)}[/] "
+            f"[{muted}]episodes[/]  [{border}]│[/]  "
+            f"[{accent_alt}]{multi}[/] [{faint}]multi-server[/]",
         )
 
         options = []
         for i, ep in enumerate(episodes):
             num = ep.number if ep.number < 999999 else i + 1
-            sc = len(ep.sources)
-            bars = "[#5eead4]\u2503[/]" * sc + "[#1e293b]\u2503[/]" * max(0, 5 - sc)
+            srv_count = len(ep.sources)
+            count_dot = f"[{accent_alt}]●[/]" * srv_count + f"[{border}]●[/]" * max(0, 5 - srv_count)
+            # Single number per row — drop the redundant list index that
+            # mirrored the episode number on most plugins.
             label = (
-                f"[bold #fbbf24]{i+1:3d}[/]  "
-                f"[#94a3b8]EP[/] [bold #e2e8f0]{num:<4}[/]  "
-                f"{bars}"
+                f"[bold {accent}]EP {num:<4}[/]  "
+                f"{count_dot}"
             )
             options.append(Option(label, id=str(i)))
 
         self.app.call_from_thread(self._populate, options)
         self.app.call_from_thread(
-            self.app.notify, f"{len(episodes)} episodes loaded", title="\u2713 Ready", timeout=2,
+            self.app.notify,
+            f"{len(episodes)} episodes loaded",
+            title="Ready",
+            timeout=2,
         )
 
     def _populate(self, options: list[Option]) -> None:
@@ -764,16 +756,20 @@ class EpisodeScreen(Screen):
         bookmarked = library.toggle_bookmark(self._series)
         if bookmarked:
             self.app.notify(
-                f"Bookmarked: {self._series.title}", title="★ Saved", timeout=3
+                f"Bookmarked: {self._series.title}",
+                title=f"{GLYPH['star']} Saved",
+                timeout=3,
             )
         else:
             self.app.notify(
-                f"Removed: {self._series.title}", title="Bookmark", timeout=3
+                f"Removed: {self._series.title}",
+                title="Bookmark",
+                timeout=3,
             )
 
 
 class PlaybackScreen(Screen):
-    """Playback screen with progress bar and toasts."""
+    """Now-playing screen. Three blocks: title, progress, controls."""
 
     BINDINGS = [
         Binding("n", "next_ep", "Next", show=True),
@@ -805,14 +801,14 @@ class PlaybackScreen(Screen):
 
     def compose(self) -> ComposeResult:
         with Container(id="np-outer"):
-            yield Static("", id="np-header")
-            with Container(id="np-body"):
-                yield Static("", id="np-body-text")
+            yield Static("", id="np-title")
+            yield Static("", id="np-meta")
             with Container(id="np-progress-box"):
-                yield Static("", id="np-progress-label")
-                yield ProgressBar(total=max(len(self._episodes), 1), show_eta=False, show_percentage=False)
-            yield Static("", id="np-server")
-
+                yield ProgressBar(
+                    total=max(len(self._episodes), 1),
+                    show_eta=False,
+                    show_percentage=False,
+                )
         yield Static("", id="controls-panel")
         yield Static("", id="status-bar")
 
@@ -827,25 +823,28 @@ class PlaybackScreen(Screen):
             return
         ep = self._episodes[self.current_idx]
         num = ep.number if ep.number < 999999 else self.current_idx + 1
-        level = random.choice(LEVELS)
-        servers = " [#334155]\u00b7[/] ".join(f"[#5eead4]{s.upper()}[/]" for s in ep.sources)
+        # Deterministic level per episode — never reshuffles on refresh.
+        level = level_for_episode(num)
         cur = self.current_idx + 1
         total = len(self._episodes)
 
-        self._safe_update("#np-header",
-            "[bold #f43f5e]\u25b6[/]  [bold #fbbf24]NOW PLAYING[/]  [bold #f43f5e]\u25b6[/]"
+        accent = PALETTE["accent"]
+        accent_alt = PALETTE["accent_alt"]
+        text = PALETTE["text"]
+        muted = PALETTE["text_muted"]
+        faint = PALETTE["text_faint"]
+        border = PALETTE["border"]
+
+        self._safe_update(
+            "#np-title",
+            f"[{accent}]{GLYPH['play']}[/]  [bold {text}]{self._series_title}[/]   "
+            f"[{muted}]EP[/] [bold {accent_alt}]{num}[/]",
         )
-        self._safe_update("#np-body-text",
-            f"[#7c3aed]\u2726[/] [italic #a78bfa]{level}[/] [#7c3aed]\u2726[/]\n\n"
-            f"[bold #fbbf24]{self._series_title}[/]\n"
-            f"[#94a3b8]Episode[/] [bold #5eead4]{num}[/]"
-        )
-        self._safe_update("#np-progress-label",
-            f"[bold #e2e8f0]{cur}[/] [#475569]/[/] [#94a3b8]{total}[/]"
-        )
-        self._safe_update("#np-server",
-            f"[#5eead4]\u25b8[/] [bold #e2e8f0]{self._server_name}[/]  "
-            f"[#1e293b]\u2502[/]  {servers}"
+        self._safe_update(
+            "#np-meta",
+            f"[italic {faint}]{level}[/]   [{border}]·[/]   "
+            f"[{muted}]{cur} of {total}[/]   [{border}]·[/]   "
+            f"{_source_pills(list(ep.sources))}",
         )
 
         try:
@@ -855,12 +854,16 @@ class PlaybackScreen(Screen):
 
         can_n = self.current_idx < len(self._episodes) - 1
         can_p = self.current_idx > 0
-        def _k(key: str, label: str, on: bool = True) -> str:
-            return f"[bold #fbbf24]{key}[/] [#e2e8f0]{label}[/]" if on else f"[#1e293b]{key}[/] [#334155]{label}[/]"
 
-        self._safe_update("#controls-panel",
-            f"  {_k('N','Next',can_n)}    {_k('P','Prev',can_p)}    "
-            f"{_k('R','Replay')}    {_k('D','Download')}    {_k('Q','Quit')}"
+        def _k(key: str, label: str, on: bool = True) -> str:
+            if on:
+                return f"[bold {accent}]{key}[/] [{text}]{label}[/]"
+            return f"[{border}]{key}[/] [{faint}]{label}[/]"
+
+        self._safe_update(
+            "#controls-panel",
+            f"{_k('N', 'Next', can_n)}    {_k('P', 'Prev', can_p)}    "
+            f"{_k('R', 'Replay')}    {_k('D', 'Download')}    {_k('Q', 'Quit')}",
         )
 
     def _safe_update(self, selector: str, content: str) -> None:
@@ -871,16 +874,27 @@ class PlaybackScreen(Screen):
 
     @work(thread=True)
     def _play_current(self) -> None:
+        accent_alt = PALETTE["accent_alt"]
+        danger = PALETTE["danger"]
+        muted = PALETTE["text_muted"]
+
         if self.current_idx >= len(self._episodes):
-            self.app.call_from_thread(self._safe_update, "#status-bar",
-                "  [#5eead4]\u2713[/] [bold]All episodes complete![/]")
-            self.app.call_from_thread(self.app.notify,
-                "All episodes played!", title="\u2726 Complete")
+            self.app.call_from_thread(
+                self._safe_update,
+                "#status-bar",
+                f"  [{accent_alt}]{GLYPH['ok']}[/] [bold]All episodes complete[/]",
+            )
+            self.app.call_from_thread(
+                self.app.notify, "All episodes played", title="Complete",
+            )
             return
 
         ep = self._episodes[self.current_idx]
-        self.app.call_from_thread(self._safe_update, "#status-bar",
-            "  [#a78bfa]\u27f3[/] [#94a3b8]Resolving stream...[/]")
+        self.app.call_from_thread(
+            self._safe_update,
+            "#status-bar",
+            f"  [{accent_alt}]{GLYPH['pending']}[/] [{muted}]Resolving stream…[/]",
+        )
 
         from donghua_cli.extractor import extract_with_fallback
         from donghua_cli.sources import get_source
@@ -900,10 +914,17 @@ class PlaybackScreen(Screen):
         title = f"{self._series_title} - Episode {ep.number}"
 
         if player.play(stream_url, title=title):
-            self.app.call_from_thread(self._safe_update, "#status-bar",
-                f"  [#5eead4]\u2713[/] Playing via [bold]{self._server_name}[/]")
-            self.app.call_from_thread(self.app.notify,
-                f"Playing via {self._server_name}", title=f"\u25b6 Episode {ep.number}", timeout=3)
+            self.app.call_from_thread(
+                self._safe_update,
+                "#status-bar",
+                f"  [{accent_alt}]{GLYPH['ok']}[/] Playing via [bold]{self._server_name}[/]",
+            )
+            self.app.call_from_thread(
+                self.app.notify,
+                f"Playing via {self._server_name}",
+                title=f"{GLYPH['play']} Episode {ep.number}",
+                timeout=3,
+            )
 
             ep_num = ep.number if ep.number < 999999 else self.current_idx + 1
             library.record_watch(
@@ -915,8 +936,8 @@ class PlaybackScreen(Screen):
             )
 
             # Auto-advance when the current player finishes, if enabled and
-            # there's a next episode queued up. Guard against an immediate
-            # exit (extraction returned a bad URL → mpv dies in <1s) — without
+            # there's a next episode queued. Guard against an immediate exit
+            # (extraction returned a bad URL → mpv dies in <1s) — without
             # this check the TUI cascades through every episode in seconds.
             if _config.get_auto_next() and self.current_idx < len(self._episodes) - 1:
                 import time as _time
@@ -927,11 +948,13 @@ class PlaybackScreen(Screen):
                     self.app.call_from_thread(
                         self._safe_update,
                         "#status-bar",
-                        f"  [#f43f5e]✗[/] Playback failed in {elapsed:.1f}s — auto-next disabled",
+                        f"  [{danger}]{GLYPH['fail']}[/] Playback failed in "
+                        f"{elapsed:.1f}s — auto-next disabled",
                     )
                     self.app.call_from_thread(
                         self.app.notify,
-                        f"mpv exited after {elapsed:.1f}s. Check the URL or try Replay (R).",
+                        f"mpv exited after {elapsed:.1f}s. Check the URL "
+                        f"or try Replay (R).",
                         title="Playback failed",
                         severity="error",
                         timeout=6,
@@ -939,13 +962,19 @@ class PlaybackScreen(Screen):
                 else:
                     self.app.call_from_thread(self._advance_after_playback)
         else:
-            self.app.call_from_thread(self._safe_update, "#status-bar",
-                "  [#f43f5e]\u2717[/] No player found")
-            self.app.call_from_thread(self.app.notify,
-                f"Install mpv or vlc.\nURL: {stream_url[:50]}", title="No Player", severity="error")
+            self.app.call_from_thread(
+                self._safe_update,
+                "#status-bar",
+                f"  [{danger}]{GLYPH['fail']}[/] No player found",
+            )
+            self.app.call_from_thread(
+                self.app.notify,
+                f"Install mpv or vlc.\nURL: {stream_url[:50]}",
+                title="No Player",
+                severity="error",
+            )
 
     def _advance_after_playback(self) -> None:
-        """Called on the UI thread after auto-next is triggered."""
         if self.current_idx < len(self._episodes) - 1:
             self.current_idx += 1
             self._play_current()
@@ -966,12 +995,18 @@ class PlaybackScreen(Screen):
     def action_download(self) -> None:
         if not self._stream_url:
             return
-        self._safe_update("#status-bar", "  [#a78bfa]\u27f3[/] Downloading...")
-        self.app.notify("Download started...", title="\u2b07 Download", timeout=2)
+        self._safe_update(
+            "#status-bar",
+            f"  [{PALETTE['accent_alt']}]{GLYPH['pending']}[/] Downloading…",
+        )
+        self.app.notify("Download started…", title="Download", timeout=2)
         self._download_in_background()
 
     @work(thread=True)
     def _download_in_background(self) -> None:
+        accent_alt = PALETTE["accent_alt"]
+        danger = PALETTE["danger"]
+
         ep = self._episodes[self.current_idx]
         stream_url = self._stream_url or ""
 
@@ -984,14 +1019,16 @@ class PlaybackScreen(Screen):
             self.app.call_from_thread(
                 self._safe_update,
                 "#status-bar",
-                "  [#5eead4]\u2713[/] Download complete",
+                f"  [{accent_alt}]{GLYPH['ok']}[/] Download complete",
             )
-            self.app.call_from_thread(self.app.notify, "Saved!", title="\u2713 Downloaded")
+            self.app.call_from_thread(
+                self.app.notify, "Saved", title=f"{GLYPH['ok']} Downloaded"
+            )
         else:
             self.app.call_from_thread(
                 self._safe_update,
                 "#status-bar",
-                "  [#f43f5e]\u2717[/] Download failed",
+                f"  [{danger}]{GLYPH['fail']}[/] Download failed",
             )
             self.app.call_from_thread(
                 self.app.notify, "Failed", title="Error", severity="error"
@@ -1006,12 +1043,13 @@ class PlaybackScreen(Screen):
 
 class DonghuaTUI(App):
     TITLE = "Donghua CLI"
-    SUB_TITLE = "\u6b66\u4fa0\u52a8\u753b\u7ec8\u7aef"
+    SUB_TITLE = "武侠动画终端"
     CSS = WUXIA_CSS
 
     BINDINGS = [
         Binding("ctrl+c", "quit", "Quit", show=False),
-        Binding("q", "quit", "Quit", priority=True),
+        # `q` is NOT priority=True any more — that would swallow a `q` typed
+        # into the search input. Each screen handles its own Q semantics.
     ]
 
     def __init__(self, app_core) -> None:
