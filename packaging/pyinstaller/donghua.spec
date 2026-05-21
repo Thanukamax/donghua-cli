@@ -40,7 +40,11 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter', 'PIL', 'matplotlib', 'numpy'],
+    # The Windows EXE is intentionally the slim build. `PIL` and `rich_pixels`
+    # back the optional `donghua-cli[covers]` poster-art feature; users who
+    # want it should install via pip instead of the EXE. Bundling them roughly
+    # doubles the binary size for a feature most Windows users won't use.
+    excludes=['tkinter', 'PIL', 'rich_pixels', 'matplotlib', 'numpy'],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
