@@ -33,13 +33,23 @@ class StreamCache:
         return episode.primary_url
 
     def get(self, key: str) -> Optional[tuple[str, str]]:
-        """Get cached (stream_url, source_key) or None."""
+        """Get cached (stream_url, source_key) or None.
+
+        Canonicalises the URL on the way out, so cache entries written by
+        older versions (with /embed/ URLs that mpv can't handle) still play.
+        """
         if key in self._cache:
             self._cache.move_to_end(key)
-            return self._cache[key]
+            from donghua_cli.extractor import _canonicalize
+
+            stream_url, source_key = self._cache[key]
+            return _canonicalize(stream_url), source_key
         return None
 
     def put(self, key: str, stream_url: str, source_key: str) -> None:
+        from donghua_cli.extractor import _canonicalize
+
+        stream_url = _canonicalize(stream_url)
         if key in self._cache:
             self._cache.move_to_end(key)
         else:
@@ -82,7 +92,7 @@ class StreamCache:
                             self._cache[key] = (val, "unknown")
                         elif isinstance(val, list) and len(val) == 2:
                             self._cache[key] = (val[0], val[1])
-        except (OSError, json.JSONDecodeError, (IndexError, KeyError)):
+        except (OSError, json.JSONDecodeError, IndexError, KeyError, TypeError):
             self._cache = OrderedDict()
 
 

@@ -1,7 +1,31 @@
-"""Tests for stream extraction regex patterns."""
+"""Tests for stream extraction regex patterns + URL canonicalisation."""
 
 import re
-import pytest
+
+from donghua_cli.extractor import _canonicalize
+
+
+class TestCanonicalize:
+    """The canonicaliser rewrites embed-style URLs into forms mpv's ytdl_hook
+    can resolve. Without this, mpv plays the HTML embed page as a video and
+    exits in <1s, which used to cascade auto-next through every episode."""
+
+    def test_dailymotion_embed_collapses_to_video(self):
+        url = "https://www.dailymotion.com/embed/video/k3fOeWYJYDH5DVybIIp?queue-enable=false"
+        assert _canonicalize(url) == "https://www.dailymotion.com/video/k3fOeWYJYDH5DVybIIp"
+
+    def test_dailymotion_video_form_unchanged(self):
+        url = "https://www.dailymotion.com/video/k3fOeWYJYDH5DVybIIp"
+        assert _canonicalize(url) == url
+
+    def test_ok_ru_embed_becomes_https_video(self):
+        assert _canonicalize("//ok.ru/videoembed/6816742902324") == "https://ok.ru/video/6816742902324"
+
+    def test_empty_string_passes_through(self):
+        assert _canonicalize("") == ""
+
+    def test_unrelated_url_passes_through(self):
+        assert _canonicalize("https://example.com/foo") == "https://example.com/foo"
 
 
 # Test the regex patterns used in extractor.py without making real HTTP calls.

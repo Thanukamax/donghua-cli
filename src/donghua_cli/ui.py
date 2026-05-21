@@ -47,18 +47,18 @@ def select_from_list_with_badges(items: list[tuple[str, str]], title: str) -> in
     for i, (item_title, badges) in enumerate(items, 1):
         display = item_title[:46] + "\u2026" if len(item_title) > 46 else item_title
         table.add_row(
-            f"[bold #fbbf24]{i}[/]",
-            "[#475569]\u25b8[/]",
-            f"[#e2e8f0]{display}[/]",
-            f"[#64748b]{badges}[/]",
+            f"[accent.bold]{i}[/]",
+            "[ghost]\u00b7[/]",
+            f"[text]{display}[/]",
+            f"[faint]{badges}[/]",
         )
 
     console.print(Panel(
         table,
-        border_style="#334155",
+        border_style=theme.C_BORDER,
         width=76,
         padding=(0, 1),
-        title="[#5eead4]\u2726 Results \u2726[/]",
+        title="[accent.alt]Results[/]",
     ))
 
     while True:
@@ -111,25 +111,25 @@ def select_episodes_from_list(episodes: List[Episode]) -> List[Episode]:
             label = f"Episode {ep.number}" if ep.number < 999999 else f"Episode {i + 1}"
             servers = " ".join(f"[{k.upper()}]" for k in ep.sources)
             table.add_row(
-                f"[#94a3b8]{i + 1}[/]",
-                "[#475569]\u25b8[/]",
-                f"[#e2e8f0]{label}[/]",
-                f"[#5eead4]{servers}[/]",
+                f"[muted]{i + 1}[/]",
+                "[ghost]\u00b7[/]",
+                f"[text]{label}[/]",
+                f"[accent.alt]{servers}[/]",
             )
 
-        subtitle = f"[#64748b]Page {page}/{total_pages}[/]" if total_pages > 1 else None
+        subtitle = f"[faint]Page {page}/{total_pages}[/]" if total_pages > 1 else None
         console.print(Panel(
             table,
-            border_style="#334155",
+            border_style=theme.C_BORDER,
             width=76,
             padding=(0, 1),
             subtitle=subtitle,
-            title="[#5eead4]\u2726 Episodes \u2726[/]",
+            title="[accent.alt]Episodes[/]",
         ))
 
         if total_pages > 1:
-            console.print(f"  [#94a3b8]Page[/] [bold #fbbf24]{page}[/][#475569]/[/][#94a3b8]{total_pages}[/]  {theme.progress_text(page, total_pages)}")
-            console.print("  [#475569]\u25b8[/] [bold #fbbf24]\\[N][/][#94a3b8]ext[/] [#475569]|[/] [bold #fbbf24]\\[P][/][#94a3b8]rev[/]")
+            console.print(f"  [muted]Page[/] [accent.bold]{page}[/][ghost]/[/][muted]{total_pages}[/]  {theme.progress_text(page, total_pages)}")
+            console.print("  [ghost]\u00b7[/] [accent.bold]\\[N][/][muted]ext[/] [ghost]\u00b7[/] [accent.bold]\\[P][/][muted]rev[/]")
 
         console.print()
         console.print(theme.selection_help_table(len(episodes), total_pages > 1))
@@ -181,11 +181,11 @@ def show_playback(title: str, current: int, total: int, server_name: str = "", s
     console.print(theme.now_playing_panel(title, current, total))
     if server_name:
         all_servers = ", ".join(s.upper() for s in (sources or []))
-        console.print(f"  [#5eead4]\u25b8[/] [bold #e2e8f0]{server_name}[/]  [#475569]\u2502[/]  [#64748b]Available: {all_servers}[/]")
+        console.print(f"  [accent.alt]\u00b7[/] [bold text]{server_name}[/]  [ghost]\u00b7[/]  [faint]Available: {all_servers}[/]")
     console.print()
     console.print(theme.playback_controls(current, total))
     console.print()
-    console.print("  [#64748b]Close MPV window or enter command to continue...[/]")
+    console.print("  [faint]Close MPV window or enter command to continue\u2026[/]")
 
 
 def choose_method() -> str:

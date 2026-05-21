@@ -10,9 +10,7 @@ a = Analysis(
     [os.path.join(src_path, 'donghua_cli', '__main__.py')],
     pathex=[src_path],
     binaries=[],
-    datas=[
-        (os.path.join(src_path, 'donghua_cli', 'banner_frames.json.gz'), 'donghua_cli'),
-    ],
+    datas=[],
     hiddenimports=[
         'donghua_cli',
         'donghua_cli.cli',
@@ -20,6 +18,7 @@ a = Analysis(
         'donghua_cli.ui',
         'donghua_cli.tui',
         'donghua_cli.theme',
+        'donghua_cli.palette',
         'donghua_cli.scraper',
         'donghua_cli.extractor',
         'donghua_cli.player',

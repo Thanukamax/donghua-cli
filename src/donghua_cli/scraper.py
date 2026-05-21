@@ -9,17 +9,17 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, TimeoutError, as_completed
 from difflib import SequenceMatcher
-from typing import List
+from typing import Callable, List, Optional
 
+from donghua_cli import health
 from donghua_cli.sources import ALL_SOURCES, Source, Series, Episode
 from donghua_cli.utils import extract_episode_number
 
 log = logging.getLogger("donghua")
 
-# Sources to skip during search (too slow or redundant).
-# They're still used for episode fallback when a series URL exists.
-# LD + AX cover ~95% of titles; MD/LM/HD add latency for marginal gain.
-_SEARCH_SKIP = {"hd", "md", "lm"}
+# Callback signature: (source_key, status, hit_count, elapsed_seconds)
+# status ∈ {"pending", "alive", "dead", "timeout"}
+ProgressCallback = Callable[[str, str, int, float], None]
 
 
 def _is_movie(title: str) -> bool:
@@ -91,28 +91,57 @@ def _is_relevant(title: str, query: str) -> bool:
 # ── Unified search (truly concurrent via threads) ────────────────────────
 
 
-def search_all(query: str) -> List[Series]:
-    """Search all sources concurrently and merge results into unified Series list.
+def get_search_sources() -> list[Source]:
+    """Return the sources eligible for search right now (enabled + healthy)."""
+    return [s for s in ALL_SOURCES if s.enabled and health.is_healthy(s.key)]
 
-    Only searches the 2 fastest sources (LD + AX) for speed. The other sources
-    are still used for episode fallback when a series URL exists.
-    Hard deadline: 5s -- anything slower is dropped.
+
+def search_all(
+    query: str,
+    on_progress: Optional[ProgressCallback] = None,
+) -> List[Series]:
+    """Search every enabled, healthy source concurrently and merge results.
+
+    Each source gets its own `search_timeout` budget (set on the Source class).
+    The global deadline is the slowest source's budget plus a small buffer, so
+    no participant is silently dropped just for being slow.
+
+    If `on_progress` is provided it is invoked from worker threads with
+    ``(source_key, status, hit_count, elapsed_seconds)`` each time a source
+    transitions: once with ``"pending"`` at startup, then ``"alive"``,
+    ``"dead"``, or ``"timeout"`` when it settles. Use it to drive live UI
+    indicators.
     """
-    raw: list[tuple[str, str, str]] = []
-    search_sources = [s for s in ALL_SOURCES if s.key not in _SEARCH_SKIP]
+    import time
+
+    raw: list[tuple[str, str, str, str | None]] = []
+    search_sources = get_search_sources()
+    if not search_sources:
+        log.warning("No healthy sources available for search")
+        return []
+
+    deadline = max(s.search_timeout for s in search_sources) + 2
+    started = time.time()
+
+    if on_progress is not None:
+        for s in search_sources:
+            on_progress(s.key, "pending", 0, 0.0)
 
     with ThreadPoolExecutor(max_workers=len(search_sources)) as pool:
         futures = {
-            pool.submit(_search_one, source, query): source
+            pool.submit(_search_one, source, query, on_progress, started): source
             for source in search_sources
         }
         try:
-            for future in as_completed(futures, timeout=5):
+            for future in as_completed(futures, timeout=deadline):
                 try:
                     raw.extend(future.result(timeout=0.1))
                 except Exception:
                     pass
         except TimeoutError:
+            slow = [futures[f].key for f in futures if not f.done()]
+            if slow:
+                log.info("Search deadline hit; dropping slow sources: %s", slow)
             for future in futures:
                 if future.done():
                     try:
@@ -120,42 +149,64 @@ def search_all(query: str) -> List[Series]:
                     except Exception:
                         pass
                 else:
+                    if on_progress is not None:
+                        on_progress(
+                            futures[future].key,
+                            "timeout",
+                            0,
+                            time.time() - started,
+                        )
                     future.cancel()
 
     # Filter irrelevant results before merging
-    filtered = [(sk, t, u) for sk, t, u in raw if _is_relevant(t, query)]
+    filtered = [(sk, t, u, c) for sk, t, u, c in raw if _is_relevant(t, query)]
     log.debug("Search raw=%d filtered=%d for query='%s'", len(raw), len(filtered), query)
 
     return _merge_results(filtered)
 
 
-def _search_one(source: Source, query: str) -> list[tuple[str, str, str]]:
-    """Search a single source. Returns (source_key, title, url) tuples."""
+def _search_one(
+    source: Source,
+    query: str,
+    on_progress: Optional[ProgressCallback] = None,
+    started: float = 0.0,
+) -> list[tuple[str, str, str, str | None]]:
+    """Search a single source. Returns (source_key, title, url, cover) tuples."""
+    import time
+
     try:
         log.debug("Searching %s for '%s'", source.name, query)
-        results = source.search(query)
+        results = source.search_with_covers(query)
         log.debug("%s returned %d results", source.name, len(results))
-        return [(source.key, title, url) for title, url in results]
+        health.mark_alive(source.key)
+        if on_progress is not None:
+            on_progress(source.key, "alive", len(results), time.time() - started)
+        return [(source.key, title, url, cover) for title, url, cover in results]
     except Exception as e:
         log.warning("Search failed on %s: %s", source.name, e)
+        health.mark_dead(source.key, reason=str(e)[:120])
+        if on_progress is not None:
+            on_progress(source.key, "dead", 0, time.time() - started)
         return []
 
 
-def _merge_results(raw: list[tuple[str, str, str]]) -> List[Series]:
+def _merge_results(raw: list[tuple[str, str, str, str | None]]) -> List[Series]:
     """Merge raw results from multiple sources into deduplicated Series list."""
     merged: list[Series] = []
 
-    for source_key, title, url in raw:
+    for source_key, title, url, cover in raw:
         matched = False
         for series in merged:
             if _titles_match(series.title, title):
                 series.add_url(source_key, url)
+                if cover and not series.cover_url:
+                    series.cover_url = cover
                 matched = True
                 log.debug("Merged '%s' into '%s'", title, series.title)
                 break
 
         if not matched:
-            s = Series(title=title)
+            s = Series(title=title, cover_url=cover)
             s.add_url(source_key, url)
             merged.append(s)
 
@@ -181,13 +232,18 @@ def get_episodes(series: Series) -> List[Episode]:
 
         for future in as_completed(futures):
             source_key = futures[future]
+            source = get_source(source_key)
+            timeout = source.episode_timeout if source else 15
             try:
-                eps = future.result(timeout=15)
+                eps = future.result(timeout=timeout)
                 log.debug("%s returned %d episodes", source_key, len(eps))
                 for title, url in eps:
                     all_raw.append((source_key, title, url))
+                if eps:
+                    health.mark_alive(source_key)
             except Exception as e:
                 log.warning("Episode fetch failed on %s: %s", source_key, e)
+                health.mark_dead(source_key, reason=str(e)[:120])
 
     return _merge_episodes(all_raw)
 

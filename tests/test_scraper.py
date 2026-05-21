@@ -1,9 +1,7 @@
 """Tests for scraper logic -- title normalization, matching, episode merging."""
 
-import pytest
 
 from donghua_cli.scraper import _normalize_title, _titles_match, _merge_episodes, _merge_results
-from donghua_cli.sources.base import Episode
 
 
 class TestNormalizeTitle:
@@ -68,8 +66,8 @@ class TestMergeEpisodes:
 class TestMergeResults:
     def test_deduplicates_across_sources(self):
         raw = [
-            ("ld", "Soul Land (2024)", "http://ld/soul-land"),
-            ("ax", "Soul Land (2024) Subbed", "http://ax/soul-land"),
+            ("ld", "Soul Land (2024)", "http://ld/soul-land", None),
+            ("ax", "Soul Land (2024) Subbed", "http://ax/soul-land", None),
         ]
         merged = _merge_results(raw)
         assert len(merged) == 1
@@ -77,8 +75,17 @@ class TestMergeResults:
 
     def test_keeps_different_series(self):
         raw = [
-            ("ld", "Soul Land", "http://ld/soul-land"),
-            ("ld", "Martial Peak", "http://ld/martial-peak"),
+            ("ld", "Soul Land", "http://ld/soul-land", None),
+            ("ld", "Martial Peak", "http://ld/martial-peak", None),
         ]
         merged = _merge_results(raw)
         assert len(merged) == 2
+
+    def test_cover_url_propagates(self):
+        raw = [
+            ("ld", "Soul Land", "http://ld/soul-land", "http://ld/cover.jpg"),
+            ("ax", "Soul Land", "http://ax/soul-land", None),
+        ]
+        merged = _merge_results(raw)
+        assert len(merged) == 1
+        assert merged[0].cover_url == "http://ld/cover.jpg"

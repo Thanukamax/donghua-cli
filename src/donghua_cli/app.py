@@ -117,8 +117,10 @@ class DonghuaCLI:
 
     def _search(self, query: str) -> List[Series]:
         theme.divider()
-        from donghua_cli.scraper import _SEARCH_SKIP
-        search_sources = [s for s in ALL_SOURCES if s.key not in _SEARCH_SKIP]
+        from donghua_cli import health
+        search_sources = [
+            s for s in ALL_SOURCES if s.enabled and health.is_healthy(s.key)
+        ]
         source_names = " + ".join(s.name for s in search_sources)
 
         from rich.live import Live
