@@ -22,6 +22,7 @@ from typing import List
 
 from donghua_cli import config
 from donghua_cli.sources.base import Series
+from donghua_cli.utils import atomic_write_json
 
 log = logging.getLogger("donghua")
 
@@ -66,12 +67,21 @@ def _load() -> LibraryState:
     try:
         with open(_PATH, "r", encoding="utf-8") as fh:
             data = json.load(fh)
-        history = [HistoryEntry(**h) for h in data.get("history", [])]
-        bookmarks = [BookmarkEntry(**b) for b in data.get("bookmarks", [])]
+        if not isinstance(data, dict):
+            raise TypeError("library.json root is not an object")
+        raw_history = data.get("history", [])
+        raw_bookmarks = data.get("bookmarks", [])
+        if not isinstance(raw_history, list):
+            raise TypeError("library.json 'history' is not a list")
+        if not isinstance(raw_bookmarks, list):
+            raise TypeError("library.json 'bookmarks' is not a list")
+        history = [HistoryEntry(**h) for h in raw_history if isinstance(h, dict)]
+        bookmarks = [BookmarkEntry(**b) for b in raw_bookmarks if isinstance(b, dict)]
         _state = LibraryState(history=history, bookmarks=bookmarks)
-    except (FileNotFoundError, ValueError, TypeError) as e:
-        if not isinstance(e, FileNotFoundError):
-            log.debug("library.json unreadable, starting fresh: %s", e)
+    except FileNotFoundError:
+        _state = LibraryState()
+    except (ValueError, TypeError) as e:
+        log.warning("library.json unreadable, starting fresh: %s", e)
         _state = LibraryState()
     return _state
 
@@ -79,16 +89,14 @@ def _load() -> LibraryState:
 def _save() -> None:
     state = _load()
     try:
-        os.makedirs(os.path.dirname(_PATH), exist_ok=True)
-        with open(_PATH, "w", encoding="utf-8") as fh:
-            json.dump(
-                {
-                    "history": [asdict(h) for h in state.history],
-                    "bookmarks": [asdict(b) for b in state.bookmarks],
-                },
-                fh,
-                indent=2,
-            )
+        atomic_write_json(
+            _PATH,
+            {
+                "history": [asdict(h) for h in state.history],
+                "bookmarks": [asdict(b) for b in state.bookmarks],
+            },
+            indent=2,
+        )
     except OSError as e:
         log.debug("Could not persist library: %s", e)
 

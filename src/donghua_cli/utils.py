@@ -1,8 +1,10 @@
 """Shared utility functions."""
 
+import json
 import os
 import re
 import subprocess
+import tempfile
 
 import httpx
 from selectolax.parser import HTMLParser
@@ -13,6 +15,42 @@ from donghua_cli import config
 import threading
 
 _local = threading.local()
+
+
+def atomic_write_json(path: str, data, *, indent: int | None = None) -> None:
+    """Write JSON to `path` atomically.
+
+    Writes to a temp file in the same directory, fsyncs, then `os.replace`s
+    the target. Power loss mid-write can no longer leave a half-written file
+    behind — the user either sees the old contents or the new ones.
+
+    Raises OSError on directory creation / write failure; callers decide
+    whether to swallow it.
+    """
+    parent = os.path.dirname(path) or "."
+    os.makedirs(parent, exist_ok=True)
+
+    fd, tmp_path = tempfile.mkstemp(
+        prefix=".tmp_", suffix=".json", dir=parent
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=indent, ensure_ascii=False)
+            fh.flush()
+            try:
+                os.fsync(fh.fileno())
+            except OSError:
+                # fsync is best-effort; some filesystems (procfs, virtio)
+                # don't support it. The os.replace below is still atomic.
+                pass
+        os.replace(tmp_path, path)
+    except Exception:
+        # Don't leave a stray temp file if the replace failed.
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def get_client() -> httpx.Client:

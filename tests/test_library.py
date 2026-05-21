@@ -72,3 +72,40 @@ def test_state_persists_to_disk(lib):
     assert history[0].last_episode == 12
     assert len(bookmarks) == 1
     assert bookmarks[0].title == "Renegade Immortal"
+
+
+def test_malformed_library_json_falls_back_to_empty(lib, tmp_path):
+    """A corrupted library.json must not crash on load — just start fresh."""
+    import os
+
+    # Write garbage into the on-disk path (lib._PATH points into tmp via fixture).
+    with open(lib._PATH, "w", encoding="utf-8") as fh:
+        fh.write("{not valid json")
+    assert os.path.exists(lib._PATH)
+
+    importlib.reload(lib)
+    assert lib.recent_history() == []
+    assert lib.list_bookmarks() == []
+
+
+def test_wrong_shape_library_json_falls_back_to_empty(lib):
+    """`history` being a string instead of a list shouldn't crash."""
+    import json
+
+    with open(lib._PATH, "w", encoding="utf-8") as fh:
+        json.dump({"history": "not-a-list", "bookmarks": []}, fh)
+
+    importlib.reload(lib)
+    assert lib.recent_history() == []
+    assert lib.list_bookmarks() == []
+
+
+def test_atomic_save_leaves_no_temp_file(lib):
+    """After a save, no .tmp_*.json siblings should remain in the dir."""
+    import os
+
+    lib.record_watch(_series("Soul Land"), 5)
+
+    dirpath = os.path.dirname(lib._PATH)
+    leftovers = [f for f in os.listdir(dirpath) if f.startswith(".tmp_")]
+    assert leftovers == []
