@@ -27,43 +27,74 @@ def _is_movie(title: str) -> bool:
     return bool(re.search(r"\b(Movie|Film|OVA|Special|Gekijouban)\b", title, re.IGNORECASE))
 
 
+_SEASON_RE = re.compile(r"\bseason\s*(\d+)\b", re.IGNORECASE)
+
+
 def _normalize_title(title: str) -> str:
     """Normalize a title for fuzzy comparison.
 
-    Strips noise but PRESERVES the movie/series distinction -- that's handled
-    separately in _titles_match so movies don't merge with series.
+    Strips noise but PRESERVES season info (so S1 and S5 stay distinct) and
+    the movie/series distinction (handled in _titles_match).
     """
     t = title.strip()
     # Strip noise suffixes
     t = re.sub(r"\s*(English\s+Sub(bed)?|Subbed|Dubbed|Sub|Dub)\s*$", "", t, flags=re.IGNORECASE)
     t = re.sub(r"\s*[\[\(]\d{4}[\]\)]\s*$", "", t)       # [2024] or (2024)
     t = re.sub(r"\s*\|.*$", "", t)                         # | Chinese title
-    t = re.sub(r"\s*\(?(Season|S)\s*\d+\)?", "", t, flags=re.IGNORECASE)
     t = re.sub(r"\s*(THAI\s+DUB|DUB)\s*(VER\.?)?\s*$", "", t, flags=re.IGNORECASE)
+    # Strip annotation suffixes that don't change identity ([ Temporary ], [ New ])
+    t = re.sub(r"\s*[\[\(]\s*(Temporary|New)\s*[\]\)]\s*", " ", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s*\(Temporary\)\s*$", "", t, flags=re.IGNORECASE)
     # Strip movie subtitle variations (so "Movie: Battle of Gods" merges with "Movie")
     t = re.sub(r"\s*[:–\-]\s*(Battle\s+of\s+(the\s+)?Gods|Remake|Director'?s?\s+Cut).*$", "", t, flags=re.IGNORECASE)
-    # Strip bracket tags like [Xian Ni], (Temporary)
+    # Strip bracket tags like [Xian Ni]
     t = re.sub(r"\s*[\[\(](Xian\s+Ni|[^)]{1,20})[\]\)]\s*$", "", t)
-    t = re.sub(r"\s*\(Temporary\)\s*$", "", t, flags=re.IGNORECASE)
+    # NORMALIZE season notation (do NOT strip): "Season 04" / "S 5" / "S5" → "season N"
+    t = re.sub(r"\bS\s*(\d+)\b", lambda m: f"season {int(m.group(1))}", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bseason\s*0*(\d+)\b", lambda m: f"season {int(m.group(1))}", t, flags=re.IGNORECASE)
     t = re.sub(r"\s+", " ", t).strip().lower()
     return t
 
 
-def _titles_match(a: str, b: str, threshold: float = 0.82) -> bool:
-    """Check if two titles are the same thing.
+def _season_of(normalized: str) -> Optional[int]:
+    """Extract the season number from an already-normalized title, or None."""
+    m = _SEASON_RE.search(normalized)
+    return int(m.group(1)) if m else None
 
-    Movies only merge with movies, series only merge with series.
+
+def _titles_match(a: str, b: str, threshold: float = 0.82) -> bool:
+    """Check if two titles refer to the same season of the same series.
+
+    Movies only merge with movies, series with series. Different seasons of
+    the same series NEVER merge (a 0.97 string ratio between "season 4" and
+    "season 5" otherwise leaks them together — that's how the BTTH bug hid
+    Seasons 1–4).
     """
-    # Don't merge a movie with a series
-    a_movie = _is_movie(a)
-    b_movie = _is_movie(b)
-    if a_movie != b_movie:
+    if _is_movie(a) != _is_movie(b):
         return False
 
     na = _normalize_title(a)
     nb = _normalize_title(b)
     if na == nb:
         return True
+
+    sa = _season_of(na)
+    sb = _season_of(nb)
+
+    if sa is not None and sb is not None:
+        # Both have season markers — only merge same-season titles, then
+        # require ratio match for the rest of the title.
+        if sa != sb:
+            return False
+        return SequenceMatcher(None, na, nb).ratio() >= threshold
+
+    if (sa is None) != (sb is None):
+        # One side has a season marker, the other doesn't. Treat them as
+        # distinct so a bare-title landing page doesn't swallow a numbered
+        # season (or vice versa).
+        return False
+
+    # Neither has a season marker — substring/ratio is fine here.
     if na in nb or nb in na:
         return True
     return SequenceMatcher(None, na, nb).ratio() >= threshold
@@ -249,11 +280,23 @@ def get_episodes(series: Series) -> List[Episode]:
 
 
 def _merge_episodes(raw: list[tuple[str, str, str]]) -> List[Episode]:
-    """Merge episode lists from multiple sources by episode number."""
+    """Merge episode lists from multiple sources by episode number.
+
+    Unknown-numbered episodes (sentinel 999999) are kept as distinct entries
+    instead of being bucketed together — otherwise every page that didn't
+    parse cleanly gets collapsed into one phantom "Episode 999999".
+    """
     by_number: dict[int, Episode] = {}
+    unknowns: list[Episode] = []
 
     for source_key, title, url in raw:
         num = extract_episode_number(title, url)
+
+        if num >= 999999:
+            ep = Episode(number=num, title=title)
+            ep.add_url(source_key, url)
+            unknowns.append(ep)
+            continue
 
         if num in by_number:
             by_number[num].add_url(source_key, url)
@@ -262,4 +305,5 @@ def _merge_episodes(raw: list[tuple[str, str, str]]) -> List[Episode]:
             ep.add_url(source_key, url)
             by_number[num] = ep
 
-    return sorted(by_number.values(), key=lambda e: e.number)
+    known = sorted(by_number.values(), key=lambda e: e.number)
+    return known + unknowns
