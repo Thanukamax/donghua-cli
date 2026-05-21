@@ -18,6 +18,7 @@ import time
 from dataclasses import asdict, dataclass
 
 from donghua_cli import config
+from donghua_cli.utils import atomic_write_json
 
 log = logging.getLogger("donghua")
 
@@ -60,9 +61,11 @@ def _load() -> None:
 
 def _save() -> None:
     try:
-        os.makedirs(os.path.dirname(_STATE_PATH), exist_ok=True)
-        with open(_STATE_PATH, "w", encoding="utf-8") as fh:
-            json.dump({k: asdict(v) for k, v in _state.items()}, fh, indent=2)
+        atomic_write_json(
+            _STATE_PATH,
+            {k: asdict(v) for k, v in _state.items()},
+            indent=2,
+        )
     except OSError as e:
         log.debug("Could not persist source health: %s", e)
 
