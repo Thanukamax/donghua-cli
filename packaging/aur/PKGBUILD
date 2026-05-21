@@ -15,7 +15,7 @@ optdepends=(
     'ffmpeg: required by yt-dlp for merging streams'
 )
 source=("https://files.pythonhosted.org/packages/source/d/${pkgname}/${pkgname//-/_}-${pkgver}.tar.gz")
-sha256sums=('UPDATE_WITH_ACTUAL_SHA256')
+sha256sums=('fc6f2a9d1fb1542ca8f616963fdf18ef49cb363982feece6989aa432f4d0b9c8')
 
 build() {
     cd "${pkgname//-/_}-${pkgver}"

@@ -30,7 +30,10 @@ jobs:
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: twine upload dist/*
+        # --skip-existing makes re-runs idempotent: if a tag is re-pushed
+        # to recover from a downstream failure, twine treats "file already
+        # exists" as success instead of failing the whole pipeline.
+        run: twine upload --skip-existing dist/*
 
       - name: Bump AUR / Homebrew / Scoop formulas
         # Runs after PyPI upload so the sdist hash matches what users install.
