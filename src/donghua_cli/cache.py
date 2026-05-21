@@ -9,23 +9,34 @@ The preloader tracks navigation patterns and adapts:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 from collections import OrderedDict
 from typing import TYPE_CHECKING, List, Optional
 
 from donghua_cli import config
+from donghua_cli.utils import atomic_write_json
 
 if TYPE_CHECKING:
     from donghua_cli.sources.base import Episode
 
+log = logging.getLogger("donghua")
+
 
 class StreamCache:
-    """Persistent LRU cache for resolved stream URLs."""
+    """Persistent LRU cache for resolved stream URLs.
+
+    Thread-safe: the Preloader runs `put()` from a background worker while
+    the playback thread can be reading via `get()`. A single lock guards
+    the OrderedDict; the disk write happens inside the lock too so concurrent
+    saves can't trample each other.
+    """
 
     def __init__(self, max_size: int = 100):
         self.max_size = max_size
         self._cache: OrderedDict[str, tuple[str, str]] = OrderedDict()  # ep_key -> (stream_url, source_key)
+        self._lock = threading.RLock()
         self._load()
 
     def _key(self, episode: Episode) -> str:
@@ -38,61 +49,71 @@ class StreamCache:
         Canonicalises the URL on the way out, so cache entries written by
         older versions (with /embed/ URLs that mpv can't handle) still play.
         """
-        if key in self._cache:
-            self._cache.move_to_end(key)
-            from donghua_cli.extractor import _canonicalize
+        from donghua_cli.extractor import _canonicalize
 
+        with self._lock:
+            if key not in self._cache:
+                return None
+            self._cache.move_to_end(key)
             stream_url, source_key = self._cache[key]
-            return _canonicalize(stream_url), source_key
-        return None
+        return _canonicalize(stream_url), source_key
 
     def put(self, key: str, stream_url: str, source_key: str) -> None:
         from donghua_cli.extractor import _canonicalize
 
         stream_url = _canonicalize(stream_url)
-        if key in self._cache:
-            self._cache.move_to_end(key)
-        else:
-            if len(self._cache) >= self.max_size:
-                self._cache.popitem(last=False)
-        self._cache[key] = (stream_url, source_key)
-        self._save()
+        with self._lock:
+            if key in self._cache:
+                self._cache.move_to_end(key)
+            else:
+                if len(self._cache) >= self.max_size:
+                    self._cache.popitem(last=False)
+            self._cache[key] = (stream_url, source_key)
+            self._save()
 
     def clear(self) -> bool:
-        self._cache.clear()
-        try:
-            if os.path.exists(config.STREAM_CACHE_FILE):
-                os.remove(config.STREAM_CACHE_FILE)
-                return True
-        except OSError:
-            pass
+        with self._lock:
+            self._cache.clear()
+            try:
+                if os.path.exists(config.STREAM_CACHE_FILE):
+                    os.remove(config.STREAM_CACHE_FILE)
+                    return True
+            except OSError:
+                pass
         return False
 
     def _save(self) -> None:
+        # Caller holds self._lock.
         try:
-            os.makedirs(config.CACHE_DIR, exist_ok=True)
             # Serialize as list of [key, [stream_url, source_key]]
             data = [[k, list(v)] for k, v in self._cache.items()]
-            with open(config.STREAM_CACHE_FILE, "w") as f:
-                json.dump(data, f)
-        except OSError:
-            pass
+            atomic_write_json(config.STREAM_CACHE_FILE, data)
+        except OSError as e:
+            log.debug("StreamCache._save failed: %s", e)
 
     def _load(self) -> None:
         try:
-            if os.path.exists(config.STREAM_CACHE_FILE):
-                with open(config.STREAM_CACHE_FILE, "r") as f:
-                    items = json.load(f)
-                    self._cache = OrderedDict()
-                    for item in items[-self.max_size:]:
-                        key = item[0]
-                        val = item[1]
-                        # Handle old format (string) and new format ([url, source])
-                        if isinstance(val, str):
-                            self._cache[key] = (val, "unknown")
-                        elif isinstance(val, list) and len(val) == 2:
-                            self._cache[key] = (val[0], val[1])
-        except (OSError, json.JSONDecodeError, IndexError, KeyError, TypeError):
+            if not os.path.exists(config.STREAM_CACHE_FILE):
+                return
+            with open(config.STREAM_CACHE_FILE, "r", encoding="utf-8") as f:
+                items = json.load(f)
+            if not isinstance(items, list):
+                log.debug("StreamCache file has unexpected shape; ignoring")
+                return
+            self._cache = OrderedDict()
+            for item in items[-self.max_size:]:
+                if not isinstance(item, list) or len(item) != 2:
+                    continue
+                key, val = item[0], item[1]
+                if not isinstance(key, str):
+                    continue
+                # Handle old format (string) and new format ([url, source])
+                if isinstance(val, str):
+                    self._cache[key] = (val, "unknown")
+                elif isinstance(val, list) and len(val) == 2:
+                    self._cache[key] = (val[0], val[1])
+        except (OSError, json.JSONDecodeError) as e:
+            log.debug("StreamCache._load failed, starting fresh: %s", e)
             self._cache = OrderedDict()
 
 
