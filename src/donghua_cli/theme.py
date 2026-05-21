@@ -1,10 +1,18 @@
-"""Wuxia-themed Rich styling for Donghua CLI.
+"""Rich-based theming for Donghua CLI's classic mode.
 
-Premium visual design with gradient-inspired color palette, layered panels,
-and cinematic martial arts aesthetic.
+Public API (consumed by ui.py / app.py / cli.py) is preserved:
+console, banner(), section_header(), divider(), status(), prompt_text(),
+tip_box(), now_playing_panel(), episode_table(), search_results_table(),
+playback_controls(), source_table(), selection_help_table(),
+method_choice_panel(), feature_cards(), progress_text(), farewell().
+
+All colors come from palette.py. No inline hex.
 """
 
+from __future__ import annotations
+
 import random
+from typing import Callable
 
 from rich.console import Console
 from rich.panel import Panel
@@ -12,61 +20,70 @@ from rich.table import Table
 from rich.text import Text
 from rich.theme import Theme
 
-# ── Premium color palette ──────────────────────────────────────────────────
+from donghua_cli import __version__
+from donghua_cli.palette import GLYPH, PALETTE
 
+# ── Color shorthands ──────────────────────────────────────────────────────
+
+C_TEXT = PALETTE["text"]
+C_MUTED = PALETTE["text_muted"]
+C_FAINT = PALETTE["text_faint"]
+C_GHOST = PALETTE["text_ghost"]
+C_BORDER = PALETTE["border"]
+C_SURFACE_ALT = PALETTE["surface_alt"]
+C_ACCENT = PALETTE["accent"]
+C_ACCENT_ALT = PALETTE["accent_alt"]
+C_DANGER = PALETTE["danger"]
+
+# Register tokens as named styles so callers can write [accent] / [muted] / etc.
 WUXIA_THEME = Theme(
     {
-        # Core palette -- deep purples and electric blues
-        "jade": "#5eead4",            # teal / primary accent
-        "dark.jade": "#2dd4bf",       # darker teal
-        "gold": "#fbbf24",            # warm amber gold
-        "light.gold": "#fde68a",      # soft yellow
-        "hot.gold": "#f59e0b",        # intense amber
-        "martial.red": "#f43f5e",     # rose red -- errors / intense
-        "hot.pink": "#ec4899",        # pink accent
-        "purple": "#a78bfa",          # soft violet
-        "deep.purple": "#7c3aed",     # deep violet accent
-        "cyan": "#22d3ee",            # electric cyan
-        "silver": "#e2e8f0",          # bright text
-        "steel": "#94a3b8",           # secondary text
-        "dim": "#64748b",             # muted text
-        "ghost": "#475569",           # very muted
-        "void": "#1e293b",            # dark background tint
+        "text":         C_TEXT,
+        "muted":        C_MUTED,
+        "faint":        C_FAINT,
+        "ghost":        C_GHOST,
+        "accent":       C_ACCENT,
+        "accent.bold":  f"bold {C_ACCENT}",
+        "accent.alt":   C_ACCENT_ALT,
+        "danger":       C_DANGER,
+        # Legacy aliases — old callers used these names directly.
+        "gold":         C_ACCENT,
+        "light.gold":   C_ACCENT,
+        "hot.gold":     C_ACCENT,
+        "jade":         C_ACCENT_ALT,
+        "dark.jade":    C_ACCENT_ALT,
+        "silver":       C_TEXT,
+        "steel":        C_MUTED,
+        "dim":          C_FAINT,
         # Semantic
-        "border": "#5eead4",
-        "title": "bold #fbbf24",
-        "subtitle": "#e2e8f0",
-        "accent": "#fbbf24",
-        "success": "#5eead4",
-        "error": "#f43f5e",
-        "warning": "#fbbf24",
-        "info": "#e2e8f0",
+        "success":      C_ACCENT_ALT,
+        "error":        C_DANGER,
+        "warning":      C_ACCENT,
+        "info":         C_TEXT,
+        "title":        f"bold {C_ACCENT}",
+        "subtitle":     C_TEXT,
+        "border":       C_ACCENT_ALT,
     }
 )
 
 console = Console(theme=WUXIA_THEME)
 
-# ── Wuxia flavour text ────────────────────────────────────────────────────
 
-TECHNIQUES = [
+# ── Wuxia flavour (curated, restrained) ───────────────────────────────────
+# Used sparingly. Random per process, never per-render — so the eye anchors.
+
+TECHNIQUES = (
     "Dragon Tail Sweep",
     "Phoenix Wing Strike",
-    "Tiger Claw Attack",
     "Cloud Step Ascension",
     "Mountain Breaker Fist",
-    "River Flow Counter",
     "Moonlight Cut",
-    "Star Fall Descent",
     "Lotus Palm Strike",
-    "Void Piercer",
     "Heavenly Sword Flash",
-    "Iron Body Tempering",
-    "Azure Dragon Roar",
-    "Crimson Phoenix Dance",
     "Shadow Step Technique",
-]
+)
 
-CULTIVATION_LEVELS = [
+CULTIVATION_LEVELS = (
     "Qi Refining",
     "Foundation Establishment",
     "Golden Core",
@@ -76,172 +93,137 @@ CULTIVATION_LEVELS = [
     "Body Integration",
     "Tribulation",
     "Mahayana",
-]
+)
+
+# Pin once per process. Banner technique never shuffles after import.
+_SESSION_TECHNIQUE = random.choice(TECHNIQUES)
 
 
 def random_technique() -> str:
-    return random.choice(TECHNIQUES)
+    return _SESSION_TECHNIQUE
 
 
 def random_level() -> str:
-    return random.choice(CULTIVATION_LEVELS)
+    """Deprecated — prefer level_for_episode(n). Kept for API stability."""
+    return _SESSION_TECHNIQUE  # stable; just so callers don't churn
+
+
+def level_for_episode(episode: int) -> str:
+    """Deterministic level from episode number — progresses with watch."""
+    return CULTIVATION_LEVELS[max(0, episode - 1) % len(CULTIVATION_LEVELS)]
 
 
 # ── Reusable display components ───────────────────────────────────────────
 
 
 def banner() -> Panel:
-    """The main application banner -- cinematic header."""
+    """Application banner — quiet, single accent, real version."""
     import platform as _plat
 
-    technique = random_technique()
     os_name = _plat.system()
+    technique = _SESSION_TECHNIQUE
 
     body = Text.assemble(
+        ("\n  ", ""),
+        ("武 侠 动 画 终 端", f"bold {C_ACCENT}"),
+        ("\n  ", ""),
+        ("D O N G H U A   C L I", f"bold {C_ACCENT_ALT}"),
+        ("   ", ""),
+        (f"v{__version__}", C_MUTED),
+        ("\n  ", ""),
+        ("─" * 32, C_BORDER),
+        ("\n  ", ""),
+        (technique, f"italic {C_MUTED}"),
+        ("\n  ", ""),
+        (f"{os_name} · Python 3.9+ · MIT", C_FAINT),
         ("\n", ""),
-        ("         ", ""),
-        ("\u6b66 \u4fa0 \u52a8 \u753b \u7ec8 \u7aef", "bold #fbbf24"),
-        ("\n", ""),
-        ("         ", ""),
-        ("D O N G H U A   C L I", "bold #5eead4"),
-        ("  ", ""),
-        ("v3.1", "#94a3b8"),
-        ("\n", ""),
-        ("         ", ""),
-        ("\u2500" * 36, "#334155"),
-        ("\n\n", ""),
-        ("         ", ""),
-        ("\u2726 ", "#7c3aed"),
-        (f"{technique}", "#a78bfa italic"),
-        (" \u2726", "#7c3aed"),
-        ("\n\n", ""),
-        ("         ", ""),
-        ("[", "#475569"),
-        (" v3.1 ", "#f43f5e bold"),
-        ("]", "#475569"),
-        ("  ", ""),
-        ("[", "#475569"),
-        (f" {os_name} ", "#22d3ee"),
-        ("]", "#475569"),
-        ("  ", ""),
-        ("[", "#475569"),
-        (" Python 3.9+ ", "#a78bfa"),
-        ("]", "#475569"),
-        ("  ", ""),
-        ("[", "#475569"),
-        (" MIT ", "#5eead4"),
-        ("]", "#475569"),
-        ("\n\n", ""),
-        ("         ", ""),
-        ("\U0001f409", ""),
-        ("  Enter the realm of immortal cultivation  ", "#64748b italic"),
-        ("\U0001f409", ""),
     )
 
     return Panel(
         body,
-        border_style="#334155",
-        padding=(0, 0),
-        width=72,
-        title="[bold #5eead4]\u2726 DONGHUA CLI \u2726[/]",
-        subtitle="[#475569]\u2500\u2500 Stream \u00b7 Download \u00b7 Cultivate \u2500\u2500[/]",
+        border_style=C_BORDER,
+        padding=(0, 2),
+        width=60,
+        title=f"[bold {C_ACCENT_ALT}]Donghua CLI[/]",
+        subtitle=f"[{C_GHOST}]Stream · Download · Cultivate[/]",
     )
 
 
 def section_header(label: str, title: str, subtitle: str = "") -> None:
-    """Print a section header with gradient-style treatment."""
     console.print()
-    bar = "\u2500" * 3
-    console.print(f"  [#475569]{bar}[/] [bold #a78bfa]{label.upper()}[/] [#475569]{bar}[/]")
-    console.print(f"  [bold #fbbf24]{title}[/]")
+    bar = "─" * 3
+    console.print(f"  [ghost]{bar}[/] [accent.alt]{label.upper()}[/] [ghost]{bar}[/]")
+    console.print(f"  [accent.bold]{title}[/]")
     if subtitle:
-        console.print(f"  [#64748b]{subtitle}[/]")
+        console.print(f"  [faint]{subtitle}[/]")
     console.print()
 
 
 def divider() -> None:
-    """Ornamental section divider."""
-    left = "\u2500" * 22
-    right = "\u2500" * 22
-    console.print(f"\n  [#334155]{left}[/] [#7c3aed]\u2726[/] [#334155]{right}[/]\n")
+    """Quiet horizontal rule. No ornament."""
+    console.print(f"\n  [ghost]{'─' * 56}[/]\n")
 
 
 def status(style: str, message: str) -> None:
-    """Print a status line with colored icons."""
+    """Print a status line. Glyphs from the 5-glyph budget only."""
     icons = {
-        "success": "[#5eead4]\u2713[/]",
-        "error": "[#f43f5e]\u2717[/]",
-        "warning": "[#fbbf24]\u26a0[/]",
-        "info": "[#94a3b8]\u25cb[/]",
-        "loading": "[#a78bfa]\u27f3[/]",
+        "success": f"[accent.alt]{GLYPH['ok']}[/]",
+        "error":   f"[danger]{GLYPH['fail']}[/]",
+        "warning": f"[accent]{GLYPH['fail']}[/]",
+        "info":    f"[muted]{GLYPH['pending']}[/]",
+        "loading": f"[muted]{GLYPH['pending']}[/]",
     }
     icon = icons.get(style, icons["info"])
-    console.print(f"  {icon} {message}")
+    console.print(f"  {icon} [text]{message}[/]")
 
 
 def prompt_text(label: str = "Enter command") -> str:
-    """Return a styled prompt string for input()."""
-    return f"\n  [#7c3aed]\u25b8[/] [bold #fbbf24]{label}[/] [#475569]\u00bb[/] "
+    return f"\n  [accent.alt]›[/] [accent.bold]{label}[/] [ghost]»[/] "
 
 
 def tip_box(title: str, content: str, style: str = "jade") -> Panel:
-    """An info/tip panel."""
-    border = "#5eead4" if style == "jade" else "#fbbf24"
-    icon = "\u25cb" if style == "jade" else "\u26a0\ufe0f"
+    border = C_ACCENT_ALT if style == "jade" else C_ACCENT
     return Panel(
-        f"  {icon} [silver]{content}[/]",
+        f"  [text]{content}[/]",
         title=f"[bold {border}]{title}[/]",
-        border_style="#334155",
-        width=68,
+        border_style=C_BORDER,
+        width=64,
         padding=(0, 1),
     )
 
 
 def now_playing_panel(title: str, episode: int, total: int) -> Panel:
-    """The now-playing display -- cinematic style."""
-    level = random_level()
+    """Compact Now Playing — one block, no theatre."""
+    level = level_for_episode(episode)
     body = Text.assemble(
-        ("\n", ""),
-        ("  ", ""),
-        ("\u25b6 ", "#f43f5e"),
-        ("NOW PLAYING", "#f43f5e bold"),
-        ("\n", ""),
-        ("  ", ""),
-        ("\u2500" * 40, "#334155"),
-        ("\n\n", ""),
-        ("  ", ""),
-        ("\u2726 ", "#7c3aed"),
-        (f"{level}", "#a78bfa"),
-        (" \u2726", "#7c3aed"),
-        ("\n\n", ""),
-        ("  ", ""),
-        (f"{title[:56]}", "bold #fbbf24"),
-        ("\n", ""),
-        ("  Episode ", "#94a3b8"),
-        (f"{episode:03d}", "#5eead4 bold"),
-        (" / ", "#475569"),
-        (f"{total:03d}", "#94a3b8"),
-        ("  ", ""),
-        ("\u2500" * 5, "#334155"),
-        ("  ", ""),
+        ("\n  ", ""),
+        (GLYPH["play"], C_ACCENT),
+        ("  NOW PLAYING", f"bold {C_ACCENT}"),
+        ("\n\n  ", ""),
+        (title[:56], f"bold {C_TEXT}"),
+        ("\n  ", ""),
+        ("Episode ", C_MUTED),
+        (f"{episode:03d}", f"bold {C_ACCENT_ALT}"),
+        (" / ", C_GHOST),
+        (f"{total:03d}", C_MUTED),
+        ("   ", ""),
         (_progress_bar_small(episode, total), ""),
+        ("\n  ", ""),
+        (level, f"italic {C_FAINT}"),
         ("\n", ""),
     )
     return Panel(
         body,
-        border_style="#5eead4",
-        width=64,
+        border_style=C_ACCENT_ALT,
+        width=60,
         padding=(0, 1),
-        title="[bold #5eead4]\u2726[/]",
-        subtitle="[#475569]\u2500 cultivation in progress \u2500[/]",
     )
 
 
 def _progress_bar_small(current: int, total: int) -> str:
-    """Mini progress bar for now-playing."""
-    width = 12
+    width = 14
     filled = int(width * current / max(total, 1))
-    return f"[#5eead4]{'━' * filled}[/][#334155]{'━' * (width - filled)}[/]"
+    return f"[accent.alt]{'━' * filled}[/][ghost]{'━' * (width - filled)}[/]"
 
 
 def episode_table(
@@ -250,9 +232,9 @@ def episode_table(
     end: int,
     page: int,
     total_pages: int,
-    extract_num,
+    extract_num: Callable[..., int],
 ) -> Table:
-    """Build a Rich table of episodes for a given page slice."""
+    """Episode list for classic mode. Quiet, readable."""
     table = Table(
         show_header=False,
         box=None,
@@ -260,7 +242,7 @@ def episode_table(
         expand=False,
         min_width=62,
     )
-    table.add_column("#", style="#94a3b8", width=5, justify="right")
+    table.add_column("#", style=C_MUTED, width=5, justify="right")
     table.add_column("", width=2)
     table.add_column("Episode", style="white", min_width=50)
 
@@ -269,16 +251,16 @@ def episode_table(
         ep_num = extract_num(ep_title, ep_url)
         label = f"Episode {ep_num}" if ep_num < 999999 else f"Episode {i + 1}"
         table.add_row(
-            f"[#64748b]{i + 1}[/]",
-            "[#475569]\u25b8[/]",
-            f"[#e2e8f0]{label}[/]",
+            f"[faint]{i + 1}[/]",
+            "[ghost]·[/]",
+            f"[text]{label}[/]",
         )
 
     return table
 
 
 def search_results_table(results: list) -> Table:
-    """Build a Rich table of search results."""
+    """Search results for classic mode."""
     table = Table(
         show_header=False,
         box=None,
@@ -286,23 +268,23 @@ def search_results_table(results: list) -> Table:
         expand=False,
         min_width=62,
     )
-    table.add_column("#", style="#fbbf24", width=5, justify="right")
+    table.add_column("#", style=C_ACCENT, width=5, justify="right")
     table.add_column("", width=2)
     table.add_column("Title", style="white", min_width=50, max_width=55)
 
     for i, (title, _) in enumerate(results, 1):
-        display = title[:55] + "\u2026" if len(title) > 55 else title
-        table.add_row(str(i), "[#475569]\u25b8[/]", display)
+        display = title[:55] + "…" if len(title) > 55 else title
+        table.add_row(str(i), "[ghost]·[/]", display)
 
     return table
 
 
 def playback_controls(current: int, total: int) -> Panel:
-    """Playback controls panel -- compact and clean."""
+    """Playback controls — compact, single accent for keys."""
     def _key(key: str, desc: str, enabled: bool = True) -> str:
         if enabled:
-            return f"  [bold #fbbf24]\\[{key}][/] [#e2e8f0]{desc}[/]"
-        return f"  [#334155]\\[{key}][/] [#475569]{desc}[/]"
+            return f"  [accent.bold]\\[{key}][/] [text]{desc}[/]"
+        return f"  [border]\\[{key}][/] [ghost]{desc}[/]"
 
     rows = [
         _key("N", "Next", current < total),
@@ -315,95 +297,102 @@ def playback_controls(current: int, total: int) -> Panel:
 
     return Panel(
         "\n".join(rows),
-        title="[#5eead4]Controls[/]",
-        border_style="#334155",
+        title=f"[{C_ACCENT_ALT}]Controls[/]",
+        border_style=C_BORDER,
         width=50,
         padding=(0, 1),
     )
 
 
 def source_table() -> Table:
-    """Source selection table."""
+    """Live source listing. Reflects the actual ALL_SOURCES registry —
+    no fake placeholders."""
+    from donghua_cli.sources import ALL_SOURCES
+
     table = Table(
         show_header=False,
         box=None,
         padding=(0, 1),
         expand=False,
     )
-    table.add_column("Key", style="#fbbf24 bold", width=8)
+    table.add_column("Key", style=f"bold {C_ACCENT}", width=8)
     table.add_column("", width=2)
-    table.add_column("Name", style="#e2e8f0", width=24)
-    table.add_column("Desc", style="#64748b", width=24)
+    table.add_column("Name", style=C_TEXT, width=24)
+    table.add_column("Status", style=C_FAINT, width=18)
 
-    table.add_row("[LD]", "[#475569]\u25b8[/]", "LuciferDonghua", "Primary source")
-    table.add_row("[AX]", "[#475569]\u25b8[/]", "AnimeXin", "Alternative source")
-    table.add_row("[BOTH]", "[#475569]\u25b8[/]", "Both Realms", "Maximum coverage")
+    for src in ALL_SOURCES:
+        status_label = "enabled" if getattr(src, "enabled", True) else "disabled"
+        table.add_row(
+            f"[{src.key.upper()}]",
+            "[ghost]·[/]",
+            src.name,
+            status_label,
+        )
 
     return table
 
 
 def selection_help_table(total_episodes: int, has_pages: bool) -> Panel:
-    """Episode selection help panel."""
     rows = [
-        "  [bold #fbbf24]\\[1-5,8,10-12][/]  [#94a3b8]Select specific episodes[/]",
-        "  [bold #fbbf24]\\[all][/]          [#94a3b8]Select all episodes[/]",
-        "  [bold #fbbf24]\\[number][/]       [#94a3b8]Select single episode[/]",
+        "  [accent.bold]\\[1-5,8,10-12][/]  [muted]Select specific episodes[/]",
+        "  [accent.bold]\\[all][/]          [muted]Select all episodes[/]",
+        "  [accent.bold]\\[number][/]       [muted]Select single episode[/]",
     ]
     if has_pages:
-        rows.append("  [bold #fbbf24]\\[n/p][/]          [#94a3b8]Navigate pages[/]")
+        rows.append("  [accent.bold]\\[n/p][/]          [muted]Navigate pages[/]")
 
     return Panel(
         "\n".join(rows),
-        title="[#5eead4]Selection[/]",
-        border_style="#334155",
+        title=f"[{C_ACCENT_ALT}]Selection[/]",
+        border_style=C_BORDER,
         width=56,
         padding=(0, 1),
     )
 
 
 def method_choice_panel() -> Panel:
-    """Stream or download choice panel."""
     body = (
         "\n"
-        "  [bold #fbbf24]\\[P][/]  [#5eead4]\u25b6[/]  [bold #e2e8f0]Stream episodes[/]\n"
-        "       [#64748b]Watch instantly with MPV[/]\n\n"
-        "  [bold #fbbf24]\\[D][/]  [#a78bfa]\u2b07[/]  [bold #e2e8f0]Download episodes[/]\n"
-        "       [#64748b]Save for offline viewing[/]\n"
+        f"  [accent.bold]\\[P][/]  [accent.alt]{GLYPH['play']}[/]  [bold text]Stream episodes[/]\n"
+        "       [faint]Watch instantly with MPV[/]\n\n"
+        f"  [accent.bold]\\[D][/]  [muted]↓[/]  [bold text]Download episodes[/]\n"
+        "       [faint]Save for offline viewing[/]\n"
     )
     return Panel(
         body,
-        title="[bold #fbbf24]Choose Your Path[/]",
-        border_style="#334155",
+        title="[accent.bold]Choose Your Path[/]",
+        border_style=C_BORDER,
         width=56,
         padding=(0, 1),
     )
 
 
 def feature_cards() -> None:
-    """Display feature showcase with styled rows."""
+    """Feature showcase. Claims match what the app actually does."""
+    from donghua_cli.sources import ALL_SOURCES
+
+    source_count = len(ALL_SOURCES)
     features = [
-        ("[#f43f5e]\u25cf[/]", "Multi-Source", "5 servers searched simultaneously"),
-        ("[#fbbf24]\u25cf[/]", "Lightning Fast", "Preloading + stream cache"),
-        ("[#5eead4]\u25cf[/]", "Smart Downloads", "Parallel via yt-dlp + ffmpeg"),
-        ("[#a78bfa]\u25cf[/]", "Cross-Platform", "Linux / Windows / macOS / Android"),
-        ("[#22d3ee]\u25cf[/]", "Smart Search", "Fuzzy match across all sources"),
-        ("[#ec4899]\u25cf[/]", "Auto Fallback", "Seamless server switching"),
+        ("Multi-Source",   f"{source_count} servers searched in parallel"),
+        ("Lightning Fast", "Preloading + stream cache (<15s to play)"),
+        ("Smart Downloads", "Parallel via yt-dlp + ffmpeg"),
+        ("Cross-Platform", "Linux · Windows · macOS · Android"),
+        ("Smart Search",   "Fuzzy match across all sources"),
+        ("Auto Fallback",  "Seamless server switching"),
     ]
 
-    for dot, title, desc in features:
-        console.print(f"  {dot}  [bold #e2e8f0]{title:<20}[/] [#64748b]{desc}[/]")
+    for title, desc in features:
+        console.print(f"  [accent.alt]·[/]  [bold text]{title:<20}[/] [faint]{desc}[/]")
 
 
 def progress_text(current: int, total: int, width: int = 20) -> str:
-    """Text-based progress indicator."""
     filled = int(width * current / max(total, 1))
-    bar = f"[#5eead4]{'━' * filled}[/][#334155]{'━' * (width - filled)}[/]"
-    return f"{bar} [#fbbf24]{current}[/][#475569]/[/][#94a3b8]{total}[/]"
+    bar = f"[accent.alt]{'━' * filled}[/][ghost]{'━' * (width - filled)}[/]"
+    return f"{bar} [accent]{current}[/][ghost]/[/][muted]{total}[/]"
 
 
 def farewell() -> None:
-    """Exit message."""
     divider()
-    console.print("  [#7c3aed]\u2726[/] [bold #fbbf24]Farewell, Young Master[/] [#7c3aed]\u2726[/]")
+    console.print("  [accent.bold]Farewell, traveller.[/]")
     status("success", "May your cultivation reach new heights")
     console.print()
