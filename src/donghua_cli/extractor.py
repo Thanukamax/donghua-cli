@@ -26,27 +26,95 @@ if TYPE_CHECKING:
 log = logging.getLogger("donghua")
 
 
+# Hosts whose iframe / regex matches we trust enough to hand to mpv. Donghua
+# aggregators rotate through these as alternative servers; if we don't pick
+# them up they fall through to yt-dlp and usually fail.
+VIDEO_HOSTS: tuple[str, ...] = (
+    "dailymotion",
+    "ok.ru",
+    "youtube",
+    "youtu.be",
+    "streamtape",
+    "mixdrop",
+    "doodstream",
+    "dood.",
+    "ds2play",
+    "d0000d",
+    "mp4upload",
+    "vidmoly",
+    "fembed",
+    "feurl",
+    "supervideo",
+)
+
+
+def _normalise_scheme(url: str) -> str:
+    """Promote protocol-relative URLs and trim leading whitespace."""
+    url = url.strip()
+    if url.startswith("//"):
+        url = "https:" + url
+    return url
+
+
 def _canonicalize(url: str) -> str:
     """Rewrite embed-style player URLs into forms mpv's ytdl_hook can handle.
 
-    mpv only invokes yt-dlp for URLs its built-in matcher recognises, and the
-    matcher uses the canonical ``/video/<id>`` form. The embed pages return
-    HTML (sometimes just a loading SVG) which mpv tries to demux as media and
-    immediately exits.
+    mpv only invokes yt-dlp for URLs its built-in matcher recognises (the
+    extractor's ``_VALID_URL`` regex). Several hosts use distinct ``/embed/``
+    paths whose embed page returns HTML (sometimes just a loading SVG); mpv
+    tries to demux that as media and exits in <1s. Canonicalisation rewrites
+    each known host's embed form to the form yt-dlp's extractor expects.
     """
     if not url:
         return url
-    # Dailymotion: https://www.dailymotion.com/embed/video/<id>[?…] → /video/<id>
+
+    url = _normalise_scheme(url)
+
+    # Dailymotion: /embed/video/<id>[?…] → /video/<id>
     if "dailymotion.com/embed/video/" in url:
         url = url.replace("/embed/video/", "/video/")
-        # Drop the embed-only query string so we don't confuse yt-dlp.
         if "?" in url:
             url = url.split("?", 1)[0]
-    # ok.ru: //ok.ru/videoembed/<id> → https://ok.ru/video/<id>
+
+    # ok.ru: /videoembed/<id> → /video/<id>
     if "ok.ru/videoembed/" in url:
-        if url.startswith("//"):
-            url = "https:" + url
         url = url.replace("/videoembed/", "/video/")
+
+    # YouTube: /embed/<id> → /watch?v=<id>
+    m = re.match(r"(https?://(?:www\.)?youtube\.com)/embed/([A-Za-z0-9_-]{6,})(?:[/?&#].*)?$", url)
+    if m:
+        url = f"{m.group(1)}/watch?v={m.group(2)}"
+
+    # Streamtape: /e/<id>/... → /v/<id>/... (yt-dlp's Streamtape extractor
+    # accepts both, but the /v/ "watch" URL is the canonical form most
+    # extractor releases pin.)
+    url = re.sub(
+        r"(streamtape\.[A-Za-z]{2,6})/e/",
+        r"\1/v/",
+        url,
+    )
+
+    # Mixdrop: /e/<id> → /f/<id>
+    url = re.sub(
+        r"(mixdrop\.[A-Za-z]{2,6})/e/",
+        r"\1/f/",
+        url,
+    )
+
+    # mp4upload: /embed-<id>.html → /<id> (yt-dlp's mp4upload extractor wants
+    # the bare ID path)
+    m = re.match(r"(https?://(?:www\.)?mp4upload\.com)/embed-([A-Za-z0-9_-]+)(?:\.html)?$", url)
+    if m:
+        url = f"{m.group(1)}/{m.group(2)}"
+
+    # Doodstream / dood family: /e/<id> → /d/<id> across the rotating mirror
+    # set (dood.so, dood.cx, ds2play.com, d0000d.com, …)
+    url = re.sub(
+        r"((?:dood|ds2play|d0000d)\.[A-Za-z]{2,8})/e/",
+        r"\1/d/",
+        url,
+    )
+
     return url
 
 
@@ -86,11 +154,14 @@ def extract(episode_url: str) -> str:
         if m:
             return f"https://www.dailymotion.com/video/{m.group(1)}"
 
-        m = re.search(r'src\s*=\s*["\'](https?://[^"\']*dailymotion[^"\']*)["\']', chunk)
-        if m:
-            return m.group(1)
-
-        m = re.search(r'src\s*=\s*["\'](https?://ok\.[^"\']+)["\']', chunk)
+        # Generic iframe/src match for any known host (covers the previous
+        # dailymotion + ok.ru cases plus streamtape, doodstream, mixdrop,
+        # mp4upload, youtube, vidmoly, fembed, supervideo).
+        host_alt = "|".join(re.escape(h) for h in VIDEO_HOSTS)
+        m = re.search(
+            rf'src\s*=\s*["\']((?:https?:)?//[^"\']*(?:{host_alt})[^"\']*)["\']',
+            chunk,
+        )
         if m:
             return m.group(1)
 
@@ -106,12 +177,12 @@ def extract(episode_url: str) -> str:
 
     for meta in tree.css("meta"):
         content = meta.attributes.get("content") or ""
-        if "dailymotion" in content or "ok.ru" in content:
+        if any(host in content for host in VIDEO_HOSTS):
             return content
 
     for iframe in tree.css("iframe"):
         src = iframe.attributes.get("src") or iframe.attributes.get("data-src") or ""
-        if src and any(x in src for x in ("dailymotion", "ok.ru", "youtube")):
+        if src and any(host in src for host in VIDEO_HOSTS):
             return src
 
     # 4. yt-dlp fallback
