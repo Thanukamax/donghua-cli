@@ -21,7 +21,7 @@ float noise(vec2 p){
 }
 float fbm(vec2 p){
   float v=0.;float a=.5;mat2 r=mat2(.8,.6,-.6,.8);
-  for(int i=0;i<5;i++){v+=a*noise(p);p=r*p*2.1+vec2(1.7,9.2);a*=.46;}
+  for(int i=0;i<4;i++){v+=a*noise(p);p=r*p*2.1+vec2(1.7,9.2);a*=.46;}
   return v;
 }
 float ink(vec2 p){
@@ -39,7 +39,7 @@ void main(){
   float f=clamp(ink(st*1.1+md*mw),0.,1.);
   vec3 c0=vec3(.039,.059,.051),c1=vec3(.055,.082,.071),c2=vec3(.065,.105,.09);
   vec3 col=mix(c0,mix(c1,c2,f),f*f);
-  for(int i=0;i<28;i++){
+  for(int i=0;i<16;i++){
     float fi=float(i); vec2 sd=h2(vec2(fi*.137,fi*.291));
     float sp=.055+sd.x*.085; float ph=sd.y*6.283;
     float y=fract(1.-(sd.y*.8+u_t*sp));
@@ -90,56 +90,88 @@ export function WebGLCanvas({ reduced }: { reduced?: boolean }) {
     let gl: WebGL2RenderingContext | null = null;
     try { gl = canvas.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'high-performance' }); } catch { gl = null; }
     if (!gl) { setFailed(true); return; }
+    const g = gl;
+
+    const DPR_CAP = 1; // weak/integrated GPUs: keep the fragment count low
+    let disposed = false;
+    let raf = 0;
+    let t0 = performance.now();
+    let elapsed = 0;
+    let mx = 0, my = 0;
+    let prog: WebGLProgram | null = null;
+    let uRes: WebGLUniformLocation | null = null;
+    let uT: WebGLUniformLocation | null = null;
+    let uM: WebGLUniformLocation | null = null;
+
     const mkS = (type: number, src: string) => {
-      const s = gl!.createShader(type)!;
-      gl!.shaderSource(s, src); gl!.compileShader(s);
-      if (!gl!.getShaderParameter(s, gl!.COMPILE_STATUS)) { console.error(gl!.getShaderInfoLog(s)); return null; }
+      const s = g.createShader(type)!;
+      g.shaderSource(s, src); g.compileShader(s);
+      if (!g.getShaderParameter(s, g.COMPILE_STATUS)) { console.error(g.getShaderInfoLog(s)); return null; }
       return s;
     };
-    const vs = mkS(gl.VERTEX_SHADER, VERT);
-    const fs = mkS(gl.FRAGMENT_SHADER, FRAG);
-    if (!vs || !fs) { setFailed(true); return; }
-    const prog = gl.createProgram()!;
-    gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-      console.error('Shader link failed:', gl.getProgramInfoLog(prog));
-      setFailed(true); return;
-    }
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,-1,1,1,-1,1]), gl.STATIC_DRAW);
-    const loc = gl.getAttribLocation(prog, 'a_pos');
-    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-    const uRes = gl.getUniformLocation(prog, 'u_res');
-    const uT   = gl.getUniformLocation(prog, 'u_t');
-    const uM   = gl.getUniformLocation(prog, 'u_mouse');
+    const build = () => {
+      const vs = mkS(g.VERTEX_SHADER, VERT);
+      const fs = mkS(g.FRAGMENT_SHADER, FRAG);
+      if (!vs || !fs) return false;
+      prog = g.createProgram()!;
+      g.attachShader(prog, vs); g.attachShader(prog, fs); g.linkProgram(prog);
+      if (!g.getProgramParameter(prog, g.LINK_STATUS)) {
+        console.error('Shader link failed:', g.getProgramInfoLog(prog)); return false;
+      }
+      const buf = g.createBuffer();
+      g.bindBuffer(g.ARRAY_BUFFER, buf);
+      g.bufferData(g.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,-1,1,1,-1,1]), g.STATIC_DRAW);
+      const loc = g.getAttribLocation(prog, 'a_pos');
+      g.enableVertexAttribArray(loc); g.vertexAttribPointer(loc, 2, g.FLOAT, false, 0, 0);
+      uRes = g.getUniformLocation(prog, 'u_res');
+      uT   = g.getUniformLocation(prog, 'u_t');
+      uM   = g.getUniformLocation(prog, 'u_mouse');
+      return true;
+    };
+    if (!build()) { setFailed(true); return; }
+
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-      canvas.width  = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
-      gl.viewport(0, 0, canvas.width, canvas.height);
+      const dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+      canvas.width  = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      g.viewport(0, 0, canvas.width, canvas.height);
     };
     resize();
-    window.addEventListener('resize', resize);
-    window.addEventListener('mousemove', e => { st.current.mx = e.clientX; st.current.my = e.clientY; });
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) cancelAnimationFrame(st.current.raf);
-      else { st.current.t0 = performance.now() - st.current.elapsed * 1000; loop(); }
-    });
-    st.current.t0 = performance.now();
-    function loop() {
-      if (document.hidden) return;
-      const s = st.current; s.elapsed = (performance.now() - s.t0) * .001;
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-      gl!.useProgram(prog);
-      gl!.uniform2f(uRes, canvas.width, canvas.height);
-      gl!.uniform1f(uT, s.elapsed);
-      gl!.uniform2f(uM, s.mx * dpr, s.my * dpr);
-      gl!.drawArrays(gl!.TRIANGLES, 0, 6);
-      s.raf = requestAnimationFrame(loop);
-    }
-    loop();
-    return () => { cancelAnimationFrame(st.current.raf); window.removeEventListener('resize', resize); };
+
+    const onResize = () => resize();
+    const onMove = (e: MouseEvent) => { mx = e.clientX; my = e.clientY; };
+    const onVis = () => { if (!document.hidden) t0 = performance.now() - elapsed * 1000; };
+    const onLost = (e: Event) => { e.preventDefault(); };       // allow restore
+    const onRestored = () => { if (build()) resize(); else setFailed(true); };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('mousemove', onMove, { passive: true });
+    document.addEventListener('visibilitychange', onVis);
+    canvas.addEventListener('webglcontextlost', onLost, false);
+    canvas.addEventListener('webglcontextrestored', onRestored, false);
+
+    const loop = () => {
+      if (disposed) return;
+      raf = requestAnimationFrame(loop);                         // keep the chain alive (single loop)
+      if (document.hidden || g.isContextLost() || !prog) return; // skip drawing, don't tear down
+      elapsed = (performance.now() - t0) * 0.001;
+      const dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+      g.useProgram(prog);
+      g.uniform2f(uRes, canvas.width, canvas.height);
+      g.uniform1f(uT, elapsed);
+      g.uniform2f(uM, mx * dpr, my * dpr);
+      g.drawArrays(g.TRIANGLES, 0, 6);
+    };
+    raf = requestAnimationFrame(loop);
+
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('mousemove', onMove);
+      document.removeEventListener('visibilitychange', onVis);
+      canvas.removeEventListener('webglcontextlost', onLost);
+      canvas.removeEventListener('webglcontextrestored', onRestored);
+    };
   }, [reduced]);
 
   if (reduced || failed) return <BgFallback />;
