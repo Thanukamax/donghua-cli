@@ -1,39 +1,30 @@
-import { useEffect } from 'react';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import Lenis from 'lenis';
-import { useReducedMotion } from './lib/useReducedMotion';
-import Scene from './webgl/Scene';
-import TravelingSeal from './components/TravelingSeal';
-import Hero from './sections/Hero';
-import Intro from './sections/Intro';
-
-gsap.registerPlugin(ScrollTrigger);
+import { MotionConfig } from 'framer-motion';
+import { WebGLCanvas, TravelingSeal, Nav, HeroSection, WhatItIsSection } from './design/components';
+import { GoldRule, FeaturesSection, TerminalDemoSection, CTASection, Footer } from './design/sections';
 
 export default function App() {
-  const reduced = useReducedMotion();
-
-  useEffect(() => {
-    if (reduced) return;
-    const lenis = new Lenis({ lerp: 0.1, smoothWheel: true });
-    lenis.on('scroll', ScrollTrigger.update);
-    const raf = (time: number) => lenis.raf(time * 1000);
-    gsap.ticker.add(raf);
-    gsap.ticker.lagSmoothing(0);
-    return () => {
-      gsap.ticker.remove(raf);
-      lenis.destroy();
-    };
-  }, [reduced]);
+  const reduced =
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   return (
-    <>
-      {!reduced && <Scene />}
-      <TravelingSeal reduced={reduced} />
-      <main>
-        <Hero reduced={reduced} />
-        <Intro reduced={reduced} />
-      </main>
-    </>
+    <MotionConfig reducedMotion="user">
+      <div style={{ position: 'relative', minHeight: '100vh' }}>
+        <WebGLCanvas reduced={reduced} />
+        <TravelingSeal reduced={reduced} />
+        <Nav />
+        <main>
+          <HeroSection />
+          <GoldRule />
+          <WhatItIsSection />
+          <GoldRule />
+          <FeaturesSection />
+          <GoldRule />
+          <TerminalDemoSection />
+          <GoldRule />
+          <CTASection />
+          <Footer reduced={reduced} />
+        </main>
+      </div>
+    </MotionConfig>
   );
 }
