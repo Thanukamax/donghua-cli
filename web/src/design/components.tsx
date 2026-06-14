@@ -55,26 +55,56 @@ void main(){
   out_color=vec4(clamp(col,0.,1.),1.);
 }`;
 
+// ─── Background fallback (no WebGL2 — e.g. hardware accel off) ──────────────────
+function BgFallback() {
+  return (
+    <div aria-hidden="true" style={{
+      position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden',
+      background: 'radial-gradient(ellipse 120% 85% at 50% 36%, #122019 0%, #0c1512 44%, #0a0f0d 74%)',
+    }}>
+      <div style={{ position: 'absolute', inset: 0,
+        background: 'radial-gradient(circle at 50% 32%, rgba(212,175,55,.12), transparent 56%)' }} />
+      <div style={{ position: 'absolute', inset: 0,
+        background: 'radial-gradient(circle at 78% 78%, rgba(0,168,107,.06), transparent 60%)' }} />
+      {Array.from({ length: 22 }).map((_, i) => (
+        <span key={i} aria-hidden="true" style={{
+          position: 'absolute', bottom: '-12px', left: `${(i * 4.6 + (i % 3) * 2) % 100}%`,
+          width: `${2 + (i % 3)}px`, height: `${2 + (i % 3)}px`, borderRadius: '50%',
+          background: 'rgba(224,196,90,.75)', boxShadow: '0 0 8px rgba(240,208,96,.8)',
+          animation: `emberRise ${9 + (i % 6) * 2.3}s linear ${(i % 7) * 1.3}s infinite`,
+        }} />
+      ))}
+    </div>
+  );
+}
+
 // ─── WebGLCanvas ──────────────────────────────────────────────────────────────
 export function WebGLCanvas({ reduced }: { reduced?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [failed, setFailed] = useState(false);
   const st = useRef<any>({ raf: null, t0: 0, elapsed: 0, mx: 0, my: 0 });
 
   useEffect(() => {
     if (reduced) return;
     const canvas = canvasRef.current; if (!canvas) return;
-    const gl = canvas.getContext('webgl2'); if (!gl) return;
+    let gl: WebGL2RenderingContext | null = null;
+    try { gl = canvas.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'high-performance' }); } catch { gl = null; }
+    if (!gl) { setFailed(true); return; }
     const mkS = (type: number, src: string) => {
-      const s = gl.createShader(type)!;
-      gl.shaderSource(s, src); gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.error(gl.getShaderInfoLog(s)); return null; }
+      const s = gl!.createShader(type)!;
+      gl!.shaderSource(s, src); gl!.compileShader(s);
+      if (!gl!.getShaderParameter(s, gl!.COMPILE_STATUS)) { console.error(gl!.getShaderInfoLog(s)); return null; }
       return s;
     };
     const vs = mkS(gl.VERTEX_SHADER, VERT);
     const fs = mkS(gl.FRAGMENT_SHADER, FRAG);
-    if (!vs || !fs) return;
+    if (!vs || !fs) { setFailed(true); return; }
     const prog = gl.createProgram()!;
     gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      console.error('Shader link failed:', gl.getProgramInfoLog(prog));
+      setFailed(true); return;
+    }
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,-1,1,1,-1,1]), gl.STATIC_DRAW);
@@ -112,12 +142,9 @@ export function WebGLCanvas({ reduced }: { reduced?: boolean }) {
     return () => { cancelAnimationFrame(st.current.raf); window.removeEventListener('resize', resize); };
   }, [reduced]);
 
-  if (reduced) return (
-    <div aria-hidden="true" style={{ position:'fixed', inset:0, zIndex:0, pointerEvents:'none',
-      background:'radial-gradient(ellipse 130% 80% at 25% 45%, #0e1512 0%, #0a0f0d 65%)' }} />
-  );
+  if (reduced || failed) return <BgFallback />;
   return <canvas ref={canvasRef} aria-hidden="true" style={{
-    position:'fixed', inset:0, zIndex:0, pointerEvents:'none', display:'block' }} />;
+    position:'fixed', inset:0, width:'100%', height:'100%', zIndex:0, pointerEvents:'none', display:'block' }} />;
 }
 
 // ─── MagicRings ───────────────────────────────────────────────────────────────
