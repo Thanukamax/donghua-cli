@@ -82,14 +82,18 @@ a:hover {
   border-radius: 4px;
 }
 
-/* ── ambient gold-ember canvas ── */
-.ember {
+/* ── WebGL atmosphere layer (ink/fog + embers + bloom) ── */
+.webgl-bg {
   position: fixed;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
   z-index: 1;
+  pointer-events: none;
+}
+
+.webgl-bg canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* ── atmospheric background wash on the whole page ── */
@@ -141,82 +145,81 @@ main {
   height: 100%;
 }
 
-.obj--seal {
-  width: clamp(150px, 20vw, 280px);
-  aspect-ratio: 1;
-  left: 50%;
-  top: 38%;
-  transform: translate(-50%, -50%);
-  filter: drop-shadow(0 0 50px rgba(196, 39, 43, 0.35)) drop-shadow(0 0 30px rgba(212, 175, 55, 0.2));
-  z-index: 3;
+/* objects pushed to the margins so the centre column stays clean */
+.obj--cloud-1 {
+  width: clamp(120px, 16vw, 240px);
+  left: 3%;
+  top: 6%;
+  opacity: 0.45;
 }
 
-.obj--sword {
-  width: clamp(60px, 7vw, 110px);
-  left: 16%;
-  top: 30%;
+.obj--cloud-2 {
+  width: clamp(96px, 12vw, 190px);
+  right: 4%;
+  top: 10%;
+  opacity: 0.4;
 }
 
 .obj--lantern {
-  width: clamp(54px, 6vw, 90px);
-  right: 18%;
-  top: 16%;
+  width: clamp(52px, 6vw, 86px);
+  right: 9%;
+  top: 22%;
 }
 
 .obj--lantern-2 {
-  width: clamp(40px, 4.5vw, 64px);
-  right: 30%;
-  top: 40%;
-  opacity: 0.8;
+  width: clamp(40px, 4.5vw, 62px);
+  left: 8%;
+  top: 24%;
+  opacity: 0.85;
+}
+
+.obj--sword {
+  width: clamp(52px, 5.5vw, 92px);
+  left: 4.5%;
+  top: 48%;
+}
+
+.obj--card-1 {
+  width: clamp(72px, 8.5vw, 120px);
+  left: 12%;
+  bottom: 14%;
+}
+
+.obj--card-2 {
+  width: clamp(68px, 8vw, 112px);
+  right: 12%;
+  bottom: 16%;
 }
 
 .obj--bamboo-l {
-  width: clamp(90px, 12vw, 170px);
-  left: 2%;
+  width: clamp(96px, 13vw, 184px);
+  left: -1.5%;
   bottom: -2%;
 }
 
 .obj--bamboo-r {
-  width: clamp(70px, 10vw, 140px);
-  right: 1%;
+  width: clamp(80px, 11vw, 156px);
+  right: -1.5%;
   bottom: -3%;
 }
 
-.obj--cloud-1 {
-  width: clamp(120px, 16vw, 240px);
-  left: 8%;
-  top: 12%;
-  opacity: 0.5;
-}
-
-.obj--cloud-2 {
-  width: clamp(90px, 12vw, 180px);
-  right: 6%;
-  bottom: 16%;
-  opacity: 0.4;
-}
-
-.obj--card-1 {
-  width: clamp(74px, 9vw, 128px);
-  left: 24%;
-  bottom: 18%;
-  transform: rotate(-9deg);
-}
-
-.obj--card-2 {
-  width: clamp(70px, 8.5vw, 120px);
-  right: 23%;
-  bottom: 22%;
-  transform: rotate(8deg);
-}
-
-.obj--terminal {
-  width: clamp(180px, 26vw, 420px);
+/* ── the protagonist seal: a fixed layer that travels across sections ── */
+.traveling-seal {
+  position: fixed;
   left: 50%;
-  bottom: 6%;
-  transform: translateX(-50%);
-  opacity: 0.92;
-  z-index: 2;
+  top: 30%;
+  width: clamp(150px, 18vw, 240px);
+  aspect-ratio: 1;
+  z-index: 5;
+  pointer-events: none;
+  filter: drop-shadow(0 0 50px rgba(196, 39, 43, 0.35)) drop-shadow(0 0 30px rgba(212, 175, 55, 0.2));
+}
+
+.traveling-seal__inner,
+.traveling-seal svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 /* hero copy */
@@ -227,7 +230,7 @@ main {
   display: grid;
   gap: 0.9rem;
   justify-items: center;
-  margin-top: 6rem;
+  margin-top: 20vh;
   pointer-events: auto;
 }
 

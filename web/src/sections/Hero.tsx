@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
-import { Seal, Sword, Lantern, Bamboo, Cloud, SeriesCard, Terminal } from '../components/objects';
+import { Sword, Lantern, Bamboo, Cloud, SeriesCard } from '../components/objects';
 
 export default function Hero({ reduced }: { reduced: boolean }) {
   const root = useRef<HTMLElement>(null);
@@ -15,13 +15,16 @@ export default function Hero({ reduced }: { reduced: boolean }) {
 
       // ── entrance: seal lands, then objects pop in, then copy ──
       const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-      tl.from('.obj--seal', { scale: 0.3, opacity: 0, rotate: -35, duration: 1.2, ease: 'expo.out' })
-        .from(
-          '.obj--pop',
-          { opacity: 0, y: 60, scale: 0.6, rotate: (i) => (i % 2 ? 12 : -12), stagger: { each: 0.07, from: 'center' }, duration: 0.85 },
-          '-=0.7',
-        )
-        .from('.hero-copy > *', { opacity: 0, y: 26, stagger: 0.1, duration: 0.7 }, '-=0.55')
+      tl.from('.obj--pop', {
+        opacity: 0,
+        y: 60,
+        scale: 0.6,
+        rotate: (i) => (i % 2 ? 12 : -12),
+        stagger: { each: 0.08, from: 'edges' },
+        duration: 0.9,
+        delay: 0.3,
+      })
+        .from('.hero-copy > *', { opacity: 0, y: 26, stagger: 0.1, duration: 0.7 }, '-=0.5')
         .from('.scroll-hint', { opacity: 0, duration: 0.6 }, '-=0.2');
 
       // ── idle float (subtle, infinite) ──
@@ -66,8 +69,6 @@ export default function Hero({ reduced }: { reduced: boolean }) {
         <div className="obj obj--lantern-2 obj--pop parallax float" data-depth="2.0"><Lantern /></div>
         <div className="obj obj--card-1 obj--pop parallax float" data-depth="3.2"><SeriesCard /></div>
         <div className="obj obj--card-2 obj--pop parallax float" data-depth="3.0"><SeriesCard /></div>
-        <div className="obj obj--terminal obj--pop parallax" data-depth="1.4"><Terminal /></div>
-        <div className="obj obj--seal parallax float" data-depth="1.6"><Seal /></div>
       </div>
 
       <div className="hero-copy">

@@ -6,4 +6,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   base: './',
   plugins: [react()],
+  // R3F + drei pull React in; keep a single copy so hooks don't see a null dispatcher
+  resolve: { dedupe: ['react', 'react-dom', 'three'] },
+  optimizeDeps: { include: ['react', 'react-dom', 'three'] },
 });

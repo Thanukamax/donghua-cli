@@ -3,7 +3,8 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 import { useReducedMotion } from './lib/useReducedMotion';
-import EmberField from './components/EmberField';
+import Scene from './webgl/Scene';
+import TravelingSeal from './components/TravelingSeal';
 import Hero from './sections/Hero';
 import Intro from './sections/Intro';
 
@@ -27,7 +28,8 @@ export default function App() {
 
   return (
     <>
-      <EmberField />
+      {!reduced && <Scene />}
+      <TravelingSeal reduced={reduced} />
       <main>
         <Hero reduced={reduced} />
         <Intro reduced={reduced} />
