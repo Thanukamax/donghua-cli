@@ -85,7 +85,6 @@ export function WebGLCanvas({ reduced }: { reduced?: boolean }) {
   const st = useRef<any>({ raf: null, t0: 0, elapsed: 0, mx: 0, my: 0 });
 
   useEffect(() => {
-    if (reduced) return;
     const canvas = canvasRef.current; if (!canvas) return;
     let gl: WebGL2RenderingContext | null = null;
     try { gl = canvas.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'high-performance' }); } catch { gl = null; }
@@ -130,13 +129,44 @@ export function WebGLCanvas({ reduced }: { reduced?: boolean }) {
     };
     if (!build()) { setFailed(true); return; }
 
+    // Static frame for reduced-motion: a fixed time into the fbm so the ink
+    // and gold sparks are fully composed (not the flat t=0 start), mouse centred.
+    const STATIC_T = 7.5;
+
+    const draw = (tSec: number, useMouse: boolean) => {
+      if (g.isContextLost() || !prog) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+      g.useProgram(prog);
+      g.uniform2f(uRes, canvas.width, canvas.height);
+      g.uniform1f(uT, tSec);
+      g.uniform2f(uM, useMouse ? mx * dpr : canvas.width / 2, useMouse ? my * dpr : canvas.height / 2);
+      g.drawArrays(g.TRIANGLES, 0, 6);
+    };
+
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
       canvas.width  = Math.floor(window.innerWidth * dpr);
       canvas.height = Math.floor(window.innerHeight * dpr);
       g.viewport(0, 0, canvas.width, canvas.height);
+      if (reduced) draw(STATIC_T, false);  // re-paint the static frame on resize
     };
     resize();
+
+    // Reduced motion: render one static frame, no rAF loop, no mouse parallax.
+    // The full visual identity stays; nothing moves. Still listen for resize and
+    // context-restore so the frame survives those.
+    if (reduced) {
+      const onResizeStatic = () => resize();
+      const onRestoredStatic = () => { if (build()) resize(); else setFailed(true); };
+      window.addEventListener('resize', onResizeStatic);
+      canvas.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
+      canvas.addEventListener('webglcontextrestored', onRestoredStatic, false);
+      draw(STATIC_T, false);
+      return () => {
+        disposed = true;
+        window.removeEventListener('resize', onResizeStatic);
+      };
+    }
 
     const onResize = () => resize();
     const onMove = (e: MouseEvent) => { mx = e.clientX; my = e.clientY; };
@@ -154,12 +184,7 @@ export function WebGLCanvas({ reduced }: { reduced?: boolean }) {
       raf = requestAnimationFrame(loop);                         // keep the chain alive (single loop)
       if (document.hidden || g.isContextLost() || !prog) return; // skip drawing, don't tear down
       elapsed = (performance.now() - t0) * 0.001;
-      const dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
-      g.useProgram(prog);
-      g.uniform2f(uRes, canvas.width, canvas.height);
-      g.uniform1f(uT, elapsed);
-      g.uniform2f(uM, mx * dpr, my * dpr);
-      g.drawArrays(g.TRIANGLES, 0, 6);
+      draw(elapsed, true);
     };
     raf = requestAnimationFrame(loop);
 
@@ -174,7 +199,7 @@ export function WebGLCanvas({ reduced }: { reduced?: boolean }) {
     };
   }, [reduced]);
 
-  if (reduced || failed) return <BgFallback />;
+  if (failed) return <BgFallback />;
   return <canvas ref={canvasRef} aria-hidden="true" style={{
     position:'fixed', inset:0, width:'100%', height:'100%', zIndex:0, pointerEvents:'none', display:'block' }} />;
 }
