@@ -70,11 +70,23 @@ def _canonicalize(url: str) -> str:
 
     url = _normalise_scheme(url)
 
-    # Dailymotion: /embed/video/<id>[?…] → /video/<id>
-    if "dailymotion.com/embed/video/" in url:
-        url = url.replace("/embed/video/", "/video/")
-        if "?" in url:
-            url = url.split("?", 1)[0]
+    # Dailymotion: collapse EVERY embed/geo/player form to the canonical
+    # https://www.dailymotion.com/video/<id> that yt-dlp's extractor pins. The
+    # legacy /embed/video/<id> path is easy, but modern aggregators hand over the
+    # geo player form geo.dailymotion.com/player/<pid>.html?video=<id> — there's
+    # no /video/ in the path, so the old substring check missed it and mpv tried
+    # to demux the player HTML and died in <1s.
+    if "dailymotion." in url:
+        vid = None
+        m = re.search(r"[?&]video=([A-Za-z0-9]+)", url)  # player.html?video=<id>
+        if m:
+            vid = m.group(1)
+        else:
+            m = re.search(r"dailymotion\.com/(?:embed/)?video/([A-Za-z0-9]+)", url)
+            if m:
+                vid = m.group(1)
+        if vid:
+            url = f"https://www.dailymotion.com/video/{vid}"
 
     # ok.ru: /videoembed/<id> → /video/<id>
     if "ok.ru/videoembed/" in url:

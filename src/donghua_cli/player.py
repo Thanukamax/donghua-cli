@@ -51,15 +51,15 @@ class Player:
         user-quit). Returns False if there was no live player to begin with.
         Safe to call repeatedly.
         """
-        if self._process is None:
+        # Bind the process locally: a concurrent stop() (e.g. the user pressed
+        # Next before this episode ended) sets self._process = None, which would
+        # otherwise NoneType-crash the poll loop here.
+        proc = self._process
+        if proc is None:
             return False
-        while self._process.poll() is None:
+        while proc.poll() is None:
             time.sleep(poll_interval)
-        if self._ipc_path and os.path.exists(self._ipc_path):
-            try:
-                os.unlink(self._ipc_path)
-            except OSError:
-                pass
+        self._cleanup_socket()
         return True
 
     def stop(self) -> None:
@@ -73,6 +73,18 @@ class Player:
             except OSError:
                 pass
         self._process = None
+        # Reap the IPC socket too — without this, every superseded player leaks
+        # a stale socket file in tmp until reboot.
+        self._cleanup_socket()
+
+    def _cleanup_socket(self) -> None:
+        """Remove the IPC socket file if it's still on disk. Idempotent."""
+        if self._ipc_path and os.path.exists(self._ipc_path):
+            try:
+                os.unlink(self._ipc_path)
+            except OSError:
+                pass
+        self._ipc_path = None
 
     def is_playing(self) -> bool:
         return self._process is not None and self._process.poll() is None
