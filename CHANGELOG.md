@@ -2,6 +2,12 @@
 
 All notable changes to Donghua CLI will be documented in this file.
 
+## [3.2.1] - 2026-06-22
+
+### Fixed
+- **mpv process leak on auto-next.** The TUI kept no handle on the running player, so Next / Replay / auto-next launched a fresh mpv without stopping the previous one — leaking processes, audio, and IPC sockets, and stranding `wait_for_end` threads. The playback screen now holds the active player, stops it before each new playback, tears it down on screen exit, and uses a per-playback generation tag so a superseded worker never fires auto-next. `wait_for_end` binds the process locally so a concurrent `stop()` can't crash its poll loop.
+- **`geo.dailymotion.com` embeds played as HTML and died in <1s.** Canonicalization only handled the legacy `/embed/video/<id>` path; modern aggregators hand over `geo.dailymotion.com/player/<pid>.html?video=<id>` (id in a query param, no `/video/` in the path). Every embed/geo/player form now collapses to the canonical `https://www.dailymotion.com/video/<id>`.
+
 ## [3.2.0] - 2026-05-21
 
 ### Added
