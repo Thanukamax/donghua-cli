@@ -1,9 +1,9 @@
 {
-    "version": "3.2.0",
+    "version": "3.2.1",
     "description": "Wuxia-themed terminal client for streaming Chinese animation",
     "homepage": "https://github.com/Thanukamax/donghua-cli",
     "license": "MIT",
-    "url": "https://github.com/Thanukamax/donghua-cli/releases/download/v3.2.0/donghua.exe",
+    "url": "https://github.com/Thanukamax/donghua-cli/releases/download/v3.2.1/donghua.exe",
     "hash": "0000000000000000000000000000000000000000000000000000000000000000",
     "bin": "donghua.exe",
     "suggest": {

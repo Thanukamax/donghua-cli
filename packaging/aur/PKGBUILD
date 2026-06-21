@@ -1,6 +1,6 @@
 # Maintainer: Thanukamax <thanukamax@github>
 pkgname=donghua-cli
-pkgver=3.2.0
+pkgver=3.2.1
 pkgrel=1
 pkgdesc='Wuxia-themed terminal client for streaming Chinese animation'
 arch=('any')
@@ -15,7 +15,7 @@ optdepends=(
     'ffmpeg: required by yt-dlp for merging streams'
 )
 source=("https://files.pythonhosted.org/packages/source/d/${pkgname}/${pkgname//-/_}-${pkgver}.tar.gz")
-sha256sums=('fc6f2a9d1fb1542ca8f616963fdf18ef49cb363982feece6989aa432f4d0b9c8')
+sha256sums=('3a810fde870cc521f41745673469874915b122e584dc953d9e811343fb72acda')
 
 build() {
     cd "${pkgname//-/_}-${pkgver}"
