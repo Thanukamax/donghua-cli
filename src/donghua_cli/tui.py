@@ -12,6 +12,7 @@ Screens:
 from __future__ import annotations
 
 import random
+import threading
 from typing import TYPE_CHECKING
 
 from textual import on, work
@@ -35,6 +36,7 @@ from donghua_cli.palette import GLYPH, PALETTE
 from donghua_cli.theme import TECHNIQUES, level_for_episode
 
 if TYPE_CHECKING:
+    from donghua_cli.player import Player
     from donghua_cli.sources.base import Episode, Series
 
 # Banner technique is pinned for the lifetime of the app — never reshuffles
@@ -798,6 +800,12 @@ class PlaybackScreen(Screen):
             self._series_urls = dict(series.urls)
         self._stream_url = ""
         self._server_name = ""
+        # The currently-live player, so a new playback (Next / Replay / auto-next)
+        # can tear the old mpv down instead of leaking it. _play_gen tags each
+        # playback; a superseded worker checks it and bows out without advancing.
+        self._active_player: "Player | None" = None
+        self._play_gen = 0
+        self._play_lock = threading.Lock()
 
     def compose(self) -> ComposeResult:
         with Container(id="np-outer"):
@@ -910,7 +918,17 @@ class PlaybackScreen(Screen):
         from donghua_cli.player import Player
         from donghua_cli.sources.base import Series
 
+        # Tear down whatever was playing before starting the next one, and tag
+        # this playback. Without this, pressing Next/Replay while mpv is still
+        # open spawns a second mpv and strands the old wait_for_end thread.
         player = Player(self._core._quality)
+        with self._play_lock:
+            previous = self._active_player
+            self._play_gen += 1
+            gen = self._play_gen
+            self._active_player = player
+        if previous is not None:
+            previous.stop()
         title = f"{self._series_title} - Episode {ep.number}"
 
         if player.play(stream_url, title=title):
@@ -943,6 +961,11 @@ class PlaybackScreen(Screen):
                 import time as _time
                 started_playback = _time.time()
                 player.wait_for_end()
+                # If a newer playback superseded us (user hit Next, or another
+                # auto-next already fired), our stop() woke wait_for_end early —
+                # don't advance or report failure on this stale worker.
+                if gen != self._play_gen:
+                    return
                 elapsed = _time.time() - started_playback
                 if elapsed < 30:
                     self.app.call_from_thread(
@@ -978,6 +1001,16 @@ class PlaybackScreen(Screen):
         if self.current_idx < len(self._episodes) - 1:
             self.current_idx += 1
             self._play_current()
+
+    def on_unmount(self) -> None:
+        # Leaving playback (Quit / back) must kill the live mpv + its socket,
+        # otherwise it keeps playing detached after the TUI screen is gone.
+        with self._play_lock:
+            self._play_gen += 1  # invalidate any in-flight wait_for_end worker
+            player = self._active_player
+            self._active_player = None
+        if player is not None:
+            player.stop()
 
     def action_next_ep(self) -> None:
         if self.current_idx < len(self._episodes) - 1:

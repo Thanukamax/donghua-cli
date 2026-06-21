@@ -18,6 +18,19 @@ class TestCanonicalize:
         url = "https://www.dailymotion.com/video/k3fOeWYJYDH5DVybIIp"
         assert _canonicalize(url) == url
 
+    def test_dailymotion_geo_player_html_collapses_to_video(self):
+        # Modern aggregator embed: no /video/ in the path, id is a query param.
+        url = "https://geo.dailymotion.com/player/xabcd.html?video=k5abc123&mute=true"
+        assert _canonicalize(url) == "https://www.dailymotion.com/video/k5abc123"
+
+    def test_dailymotion_geo_embed_video_collapses_to_www(self):
+        url = "https://geo.dailymotion.com/embed/video/k9zzz?autoplay=1"
+        assert _canonicalize(url) == "https://www.dailymotion.com/video/k9zzz"
+
+    def test_dailymotion_protocol_relative_geo_player(self):
+        url = "//geo.dailymotion.com/player/x1234.html?video=kPqR9"
+        assert _canonicalize(url) == "https://www.dailymotion.com/video/kPqR9"
+
     def test_ok_ru_embed_becomes_https_video(self):
         assert _canonicalize("//ok.ru/videoembed/6816742902324") == "https://ok.ru/video/6816742902324"
 
