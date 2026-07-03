@@ -2,7 +2,9 @@
 
 import re
 
-from donghua_cli.extractor import _canonicalize
+import donghua_cli.extractor as extractor
+from donghua_cli.extractor import _canonicalize, extract_with_fallback
+from donghua_cli.sources.base import Episode
 
 
 class TestCanonicalize:
@@ -141,3 +143,98 @@ class TestDirectUrlDetection:
     def test_html_page_not_detected(self):
         url = "https://example.com/watch/episode-1"
         assert not url.endswith((".m3u8", ".mp4", ".mkv"))
+
+
+class TestRaceAndProbe:
+    """extract_with_fallback races every mirror concurrently, then keeps the
+    first that both resolves AND passes the liveness probe. These tests stub the
+    network-touching helpers so we exercise pure control flow."""
+
+    def _patch(self, monkeypatch, resolves: dict, alive: set):
+        """Stub extract() to map an episode URL -> resolved stream (or itself
+        for a miss) and probe_alive() to accept only URLs in `alive`. health is
+        stubbed to a no-op so we don't touch the real cache file."""
+        monkeypatch.setattr(
+            extractor, "extract", lambda url, allow_ytdlp=True: resolves.get(url, url)
+        )
+        monkeypatch.setattr(extractor, "probe_alive", lambda url, timeout=4: url in alive)
+
+        class _NoHealth:
+            def mark_alive(self, *a, **k):
+                pass
+
+            def mark_dead(self, *a, **k):
+                pass
+
+        monkeypatch.setattr(extractor, "health", _NoHealth())
+
+    def test_picks_a_live_mirror_over_a_dead_one(self, monkeypatch):
+        ep = Episode(number=1, title="ep", urls={"dead": "http://dead/ep", "live": "http://live/ep"})
+        self._patch(
+            monkeypatch,
+            resolves={"http://dead/ep": "http://s/dead", "http://live/ep": "http://s/live"},
+            alive={"http://s/live"},
+        )
+        stream, key = extract_with_fallback(ep)
+        assert (stream, key) == ("http://s/live", "live")
+
+    def test_falls_back_to_resolved_when_nothing_probes_live(self, monkeypatch):
+        # A mirror resolves to a stream but the probe rejects it (e.g. a dead
+        # dailymotion the oEmbed check catches). We still hand back the resolved
+        # URL rather than the raw episode page — the probe can false-negative.
+        ep = Episode(number=2, title="ep", urls={"a": "http://a/ep"})
+        self._patch(
+            monkeypatch, resolves={"http://a/ep": "http://s/a"}, alive=set()
+        )
+        stream, key = extract_with_fallback(ep)
+        assert (stream, key) == ("http://s/a", "a")
+
+    def test_probe_false_disables_liveness_gate(self, monkeypatch):
+        # With probe=False the first resolved mirror wins immediately, no probe.
+        ep = Episode(number=3, title="ep", urls={"a": "http://a/ep"})
+        self._patch(monkeypatch, resolves={"http://a/ep": "http://s/a"}, alive=set())
+        stream, key = extract_with_fallback(ep, probe=False)
+        assert (stream, key) == ("http://s/a", "a")
+
+    def test_ytdlp_fallback_when_cheap_resolve_finds_nothing(self, monkeypatch):
+        # Cheap path (allow_ytdlp=False) resolves nothing; the sequential
+        # yt-dlp phase (allow_ytdlp=True) then succeeds on one mirror.
+        ep = Episode(number=4, title="ep", urls={"a": "http://a/ep"})
+
+        def fake_extract(url, allow_ytdlp=True):
+            if url == "http://a/ep" and allow_ytdlp:
+                return "http://s/ytdlp"
+            return url  # cheap miss
+
+        monkeypatch.setattr(extractor, "extract", fake_extract)
+        monkeypatch.setattr(extractor, "probe_alive", lambda url, timeout=4: True)
+
+        class _NoHealth:
+            def mark_alive(self, *a, **k):
+                pass
+
+            def mark_dead(self, *a, **k):
+                pass
+
+        monkeypatch.setattr(extractor, "health", _NoHealth())
+        stream, key = extract_with_fallback(ep)
+        assert (stream, key) == ("http://s/ytdlp", "a")
+
+    def test_all_dead_returns_raw_primary(self, monkeypatch):
+        ep = Episode(number=5, title="ep", urls={"a": "http://a/ep", "b": "http://b/ep"})
+        # Nothing resolves on either the cheap or yt-dlp pass.
+        monkeypatch.setattr(extractor, "extract", lambda url, allow_ytdlp=True: url)
+        monkeypatch.setattr(extractor, "probe_alive", lambda url, timeout=4: False)
+
+        class _NoHealth:
+            def mark_alive(self, *a, **k):
+                pass
+
+            def mark_dead(self, *a, **k):
+                pass
+
+        monkeypatch.setattr(extractor, "health", _NoHealth())
+        stream, key = extract_with_fallback(ep)
+        # Raw primary URL, canonicalised, attributed to the first source.
+        assert stream == "http://a/ep"
+        assert key == "a"

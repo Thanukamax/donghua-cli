@@ -172,22 +172,44 @@ def fetch_partial(url: str, max_bytes: int = 8192, timeout: int = 5) -> str:
 
 
 def probe_alive(url: str, timeout: int = 4) -> bool:
-    """Confirm a candidate URL actually serves media bytes, not a shell page.
+    """Confirm a resolved stream/embed URL is actually serving, not a dead shell.
 
     Uses a ranged ``GET`` (``Range: bytes=0-1``) rather than ``HEAD``: many dead
-    embeds answer ``200`` to HEAD and even to a full GET while the body is just a
-    loading SVG / "video unavailable" shell. Asking for the first bytes and
-    checking the response is the only way to tell live media from a polite 200.
+    embeds answer ``200`` to HEAD while the body is a loading SVG / "video
+    unavailable" placeholder. The ranged GET both keeps the probe cheap and lets
+    us read the response headers the server actually commits to.
 
     Runs on the shared impersonated client (``get_client``) so the probe sees
     exactly what the real fetch would — probing naked would get us blocked where
     a browser is served, producing false negatives.
 
-    Returns True when the server answers 2xx/206 for the range and doesn't
-    hand back an obvious HTML/SVG shell.
+    Resolved URLs come in two shapes and we judge each on the only cheap signal
+    it has:
+      • direct media (.m3u8/.mp4/…) — a live one answers 2xx/206 with a
+        media/octet content-type; we accept it.
+      • an embed/watch page (dailymotion, youtube, ok.ru, …) — inherently
+        ``text/html`` and only fully resolved by mpv/yt-dlp downstream, so we
+        can't prove the video plays here without paying that cost. We accept the
+        page as long as it isn't the tell-tale dead shell.
+
+    The one thing we reject outright is ``image/svg`` (the loading-shell embeds
+    hand back for pulled videos) and any non-2xx/206 status. Rejecting all
+    ``text/html`` would nuke every live watch page — the exact opposite of the
+    goal — so we don't.
+
+    Dailymotion — the dominant host these aggregators resolve to — gets a
+    sharper check via its oEmbed endpoint (see ``_probe_dailymotion``): a live
+    video answers ``application/json`` there while a pulled one answers a
+    ``text/html`` error page, both ``200``, so the generic content-type rule on
+    the watch page can't tell them apart but oEmbed can.
     """
     if not url or not url.startswith("http"):
         return False
+
+    m = re.search(r"dailymotion\.com/video/([A-Za-z0-9]+)", url)
+    if m:
+        return _probe_dailymotion(m.group(1), timeout)
+
     try:
         with get_client().stream(
             "GET", url, timeout=timeout, headers={"Range": "bytes=0-1"}
@@ -195,13 +217,29 @@ def probe_alive(url: str, timeout: int = 4) -> bool:
             if resp.status_code not in (200, 206):
                 return False
             ctype = (resp.headers.get("content-type") or "").lower()
-            # A real media/playlist endpoint won't advertise html/svg. Embed
-            # pages that we still want to accept (they carry the player) report
-            # text/html — those are handled upstream by extraction, not here, so
-            # this probe is only ever pointed at resolved stream/candidate URLs.
-            if "text/html" in ctype or "image/svg" in ctype:
+            if "image/svg" in ctype:
                 return False
             return True
+    except RequestException:
+        return False
+
+
+def _probe_dailymotion(video_id: str, timeout: int = 4) -> bool:
+    """Liveness check for a Dailymotion video via its oEmbed endpoint.
+
+    oEmbed is the cheapest authoritative signal Dailymotion exposes: for a live
+    video it returns ``application/json`` metadata; for a removed/geo-blocked one
+    it returns a ``text/html`` error page — both ``200``. Content-type is the
+    discriminator. Runs on the shared impersonated client like every other fetch.
+    """
+    oembed = (
+        "https://www.dailymotion.com/services/oembed?url="
+        f"https://www.dailymotion.com/video/{video_id}"
+    )
+    try:
+        resp = get_client().get(oembed, timeout=timeout)
+        ctype = (resp.headers.get("content-type") or "").lower()
+        return resp.status_code == 200 and "application/json" in ctype
     except RequestException:
         return False
 

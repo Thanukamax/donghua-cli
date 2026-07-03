@@ -15,15 +15,21 @@ from __future__ import annotations
 import logging
 import re
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING
 
-from donghua_cli import config
-from donghua_cli.utils import fetch_html, fetch_partial
+from donghua_cli import config, health
+from donghua_cli.utils import fetch_html, fetch_partial, probe_alive
 
 if TYPE_CHECKING:
     from donghua_cli.sources.base import Episode
 
 log = logging.getLogger("donghua")
+
+# Cap on concurrent mirror races. Aggregators rarely list more than a handful
+# of servers per episode; a small pool keeps us from opening a dozen sockets at
+# once while still resolving every candidate in parallel.
+MAX_RACE_WORKERS = 6
 
 
 # Hosts whose iframe / regex matches we trust enough to hand to mpv. Donghua
@@ -130,30 +136,88 @@ def _canonicalize(url: str) -> str:
     return url
 
 
-def extract_with_fallback(episode: Episode) -> tuple[str, str]:
-    """Try all servers for an episode. Returns (stream_url, source_key).
+def _resolve_candidate(source_key: str, ep_url: str) -> tuple[str, str] | None:
+    """Cheaply resolve one mirror to a canonical stream URL (no yt-dlp).
 
-    Iterates over all source URLs stored on the Episode. For each one,
-    runs the full extraction pipeline. Returns the first successful result.
-    If all fail, returns the primary URL as-is.
+    Returns ``(source_key, stream_url)`` when the fast path (partial-fetch regex
+    + selectolax parse) yields a real stream, else ``None``. yt-dlp is left out
+    on purpose so the concurrent race stays sub-second and cancelling losers
+    never orphans a 15s subprocess.
     """
-    for source_key, ep_url in episode.urls.items():
-        log.debug("Trying %s: %s", source_key, ep_url[:80])
-        stream = extract(ep_url)
+    stream = extract(ep_url, allow_ytdlp=False)
+    if stream and stream != ep_url:
+        return source_key, _canonicalize(stream)
+    return None
+
+
+def extract_with_fallback(episode: Episode, probe: bool = True) -> tuple[str, str]:
+    """Resolve the fastest LIVE mirror for an episode. Returns (stream_url, key).
+
+    Races every candidate source concurrently through the cheap resolver, then
+    hands each resolved URL to a ranged-GET liveness probe. The first mirror that
+    both resolves AND serves real media bytes wins — this is simultaneously the
+    correctness fix (a plain 200 loading-shell no longer counts as "extracted")
+    and a speed win (we stop waiting on the slowest mirror the moment a live one
+    answers, attacking the <15s-to-play target).
+
+    Fallbacks, in order: a mirror that resolved but failed/​skipped the probe
+    (probes can false-negative on odd hosts), then a sequential yt-dlp pass over
+    every candidate, then the raw primary URL.
+    """
+    candidates = list(episode.urls.items())
+    if not candidates:
+        return _canonicalize(episode.primary_url), (episode.sources[0] if episode.sources else "")
+
+    # ── Phase 1: race the cheap resolver across all mirrors ──────────────
+    resolved: list[tuple[str, str]] = []  # resolved-but-not-yet-live pool
+    with ThreadPoolExecutor(max_workers=min(len(candidates), MAX_RACE_WORKERS)) as pool:
+        futures = {
+            pool.submit(_resolve_candidate, key, url): key for key, url in candidates
+        }
+        for fut in as_completed(futures):
+            try:
+                res = fut.result()
+            except Exception as e:  # a mirror blew up; treat as a miss
+                log.debug("Resolver error on %s: %s", futures[fut], e)
+                res = None
+            if res is None:
+                continue
+            source_key, stream = res
+            resolved.append(res)
+            if not probe or probe_alive(stream):
+                for f in futures:
+                    f.cancel()
+                health.mark_alive(source_key)
+                log.info("Live via %s: %s", source_key, stream[:80])
+                return stream, source_key
+
+    # ── Phase 2: something resolved but nothing probed live ──────────────
+    if resolved:
+        source_key, stream = resolved[0]
+        log.info("No live probe hit; using resolved %s: %s", source_key, stream[:80])
+        return stream, source_key
+
+    # ── Phase 3: cheap path found nothing — sequential yt-dlp fallback ───
+    for source_key, ep_url in candidates:
+        log.debug("yt-dlp fallback on %s: %s", source_key, ep_url[:80])
+        stream = extract(ep_url, allow_ytdlp=True)
         if stream and stream != ep_url:
             stream = _canonicalize(stream)
-            log.info("Extracted via %s: %s", source_key, stream[:80])
+            health.mark_alive(source_key)
+            log.info("Extracted via yt-dlp %s: %s", source_key, stream[:80])
             return stream, source_key
-        log.debug("Failed on %s, trying next server", source_key)
+        health.mark_dead(source_key, "extract failed")
 
     log.warning("All servers failed for ep %d, returning raw URL", episode.number)
     return _canonicalize(episode.primary_url), episode.sources[0]
 
 
-def extract(episode_url: str) -> str:
+def extract(episode_url: str, allow_ytdlp: bool = True) -> str:
     """Extract the playable stream URL from a single episode page URL.
 
     Returns the best stream URL found, or the original URL if nothing worked.
+    Set ``allow_ytdlp=False`` to skip the slow yt-dlp last resort — used by the
+    concurrent mirror race, which wants every candidate to stay sub-second.
     """
     # 1. Already a direct media URL
     if episode_url.endswith((".m3u8", ".mp4", ".mkv")):
@@ -197,7 +261,9 @@ def extract(episode_url: str) -> str:
         if src and any(host in src for host in VIDEO_HOSTS):
             return src
 
-    # 4. yt-dlp fallback
+    # 4. yt-dlp fallback (skipped in the concurrent race — too slow to block on)
+    if not allow_ytdlp:
+        return episode_url
     return _ytdlp_extract(episode_url)
 
 
