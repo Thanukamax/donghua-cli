@@ -615,14 +615,15 @@ class EpisodeScreen(Screen):
         try:
             from io import BytesIO
 
-            import httpx
             from PIL import Image as PILImage
             from rich_pixels import Pixels
+
+            from donghua_cli.utils import get_client
         except ImportError:
             return
 
         try:
-            resp = httpx.get(url, timeout=5, follow_redirects=True)
+            resp = get_client().get(url, timeout=5)
             if resp.status_code != 200 or not resp.content:
                 return
             img = PILImage.open(BytesIO(resp.content))

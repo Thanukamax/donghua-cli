@@ -76,6 +76,11 @@ def _default_download_dir() -> str:
 
 DOWNLOAD_DIR = _default_download_dir()
 
+# curl_cffi TLS-fingerprint impersonation target. "chrome" tracks the latest
+# stable Chrome profile curl_cffi ships; override in config.toml if a site
+# starts fingerprinting a specific build.
+IMPERSONATE = "chrome"
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "

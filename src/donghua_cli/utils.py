@@ -6,7 +6,8 @@ import re
 import subprocess
 import tempfile
 
-import httpx
+from curl_cffi import requests as cffi
+from curl_cffi.requests.exceptions import RequestException
 from selectolax.parser import HTMLParser
 
 from donghua_cli import config
@@ -53,14 +54,27 @@ def atomic_write_json(path: str, data, *, indent: int | None = None) -> None:
         raise
 
 
-def get_client() -> httpx.Client:
-    """Return a thread-local httpx client with connection pooling."""
+def get_client() -> cffi.Session:
+    """Return a thread-local curl_cffi session with browser TLS impersonation.
+
+    curl_cffi mimics a real Chrome's TLS/JA3 + HTTP2 fingerprint, which is the
+    single biggest lever against the anti-bot walls these aggregators sit behind
+    — a plain requests/httpx handshake gets a 403 or a loading-shell page where a
+    browser gets served. ``impersonate`` owns the fingerprint-sensitive headers
+    (User-Agent, Accept, sec-ch-ua, …); we only layer on the app-specific
+    Referer trick so the two never contradict each other.
+
+    IMPORTANT: every fetch AND every liveness probe must share this client, or a
+    naked probe gets blocked while the real fetch would have been served — a
+    false "dead" verdict. See ``probe_alive``.
+    """
     client = getattr(_local, "client", None)
-    if client is None or client.is_closed:
-        client = httpx.Client(
-            headers=config.get_headers(),
-            follow_redirects=True,
-            timeout=httpx.Timeout(8, connect=3),
+    if client is None or getattr(client, "_closed", False):
+        client = cffi.Session(
+            impersonate=config.IMPERSONATE,
+            headers={"Referer": config.get_headers().get("Referer", "")},
+            timeout=8,
+            allow_redirects=True,
         )
         _local.client = client
     return client
@@ -114,9 +128,7 @@ def fetch_html(url: str, timeout: int = 8, fast: bool = False) -> HTMLParser:
         resp = get_client().get(url, timeout=timeout)
         if resp.status_code == 200:
             return HTMLParser(resp.text)
-    except httpx.TimeoutException:
-        pass
-    except httpx.HTTPError:
+    except RequestException:
         pass
 
     if fast:
@@ -147,16 +159,51 @@ def fetch_partial(url: str, max_bytes: int = 8192, timeout: int = 5) -> str:
     """Fetch only the first `max_bytes` of a page for fast regex scanning."""
     try:
         with get_client().stream("GET", url, timeout=timeout) as resp:
-            chunks: list[str] = []
+            chunks: list[bytes] = []
             total = 0
-            for chunk in resp.iter_text():
+            for chunk in resp.iter_content():
                 chunks.append(chunk)
                 total += len(chunk)
                 if total >= max_bytes:
                     break
-            return "".join(chunks)[:max_bytes]
-    except (httpx.HTTPError, httpx.TimeoutException):
+            return b"".join(chunks)[:max_bytes].decode("utf-8", "replace")
+    except RequestException:
         return ""
+
+
+def probe_alive(url: str, timeout: int = 4) -> bool:
+    """Confirm a candidate URL actually serves media bytes, not a shell page.
+
+    Uses a ranged ``GET`` (``Range: bytes=0-1``) rather than ``HEAD``: many dead
+    embeds answer ``200`` to HEAD and even to a full GET while the body is just a
+    loading SVG / "video unavailable" shell. Asking for the first bytes and
+    checking the response is the only way to tell live media from a polite 200.
+
+    Runs on the shared impersonated client (``get_client``) so the probe sees
+    exactly what the real fetch would — probing naked would get us blocked where
+    a browser is served, producing false negatives.
+
+    Returns True when the server answers 2xx/206 for the range and doesn't
+    hand back an obvious HTML/SVG shell.
+    """
+    if not url or not url.startswith("http"):
+        return False
+    try:
+        with get_client().stream(
+            "GET", url, timeout=timeout, headers={"Range": "bytes=0-1"}
+        ) as resp:
+            if resp.status_code not in (200, 206):
+                return False
+            ctype = (resp.headers.get("content-type") or "").lower()
+            # A real media/playlist endpoint won't advertise html/svg. Embed
+            # pages that we still want to accept (they carry the player) report
+            # text/html — those are handled upstream by extraction, not here, so
+            # this probe is only ever pointed at resolved stream/candidate URLs.
+            if "text/html" in ctype or "image/svg" in ctype:
+                return False
+            return True
+    except RequestException:
+        return False
 
 
 def clear_screen() -> None:

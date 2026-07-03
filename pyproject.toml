@@ -19,7 +19,7 @@ classifiers = [
     "Topic :: Multimedia :: Video",
 ]
 dependencies = [
-    "httpx>=0.27.0",
+    "curl_cffi>=0.7.0",
     "selectolax>=0.3.21",
     "rich>=13.0.0",
     "textual>=1.0.0",
