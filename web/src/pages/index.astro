@@ -1,0 +1,37 @@
+---
+import '../styles/global.css';
+import App from '../components/App';
+
+const FAVICON =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23c3272b'/%3E%3Ctext x='16' y='24' font-family='Georgia,serif' font-size='20' font-weight='700' text-anchor='middle' fill='%23f5efe2'%3E令%3C/text%3E%3C/svg%3E";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>donghua-cli — Enter the Realm</title>
+    <meta
+      name="description"
+      content="Search, stream, and download Chinese animation from your terminal. One sovereign command."
+    />
+    <meta name="theme-color" content="#0a0f0d" />
+    <link rel="icon" href={FAVICON} />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Fira+Code:wght@300;400;500&family=Long+Cang&family=Noto+Serif+SC:wght@300;400;500;700&family=ZCOOL+XiaoWei&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
+    <div class="noise-overlay" aria-hidden="true"></div>
+
+    <!-- Full-motion page: window/matchMedia/three all touch the DOM, so render
+         client-only to skip SSR + hydration mismatch entirely. -->
+    <App client:only="react" />
+  </body>
+</html>
