@@ -94,3 +94,106 @@ class TestPlayerTeardown:
         t.start()
         assert p.wait_for_end(poll_interval=0.01) is True
         t.join()
+
+
+class _Proc:
+    """Minimal CompletedProcess stand-in for Downloader._run stubs."""
+
+    def __init__(self, returncode=0, stdout=""):
+        self.returncode = returncode
+        self.stdout = stdout
+
+
+class TestDownloadRouting:
+    """Downloader prefers N_m3u8DL-RE for HLS and falls back to yt-dlp for
+    everything else. These stub subprocess + tool detection so nothing hits the
+    network or the real filesystem beyond a tmp download dir."""
+
+    def _setup(self, monkeypatch, tmp_path, *, has_binary):
+        from donghua_cli import config, player
+
+        monkeypatch.setattr(config, "get_download_dir", lambda: str(tmp_path))
+        monkeypatch.setattr(
+            player.shutil, "which", lambda name: "/usr/bin/x" if has_binary else None
+        )
+
+    def test_no_binary_uses_ytdlp(self, monkeypatch, tmp_path):
+        from donghua_cli.player import Downloader
+
+        self._setup(monkeypatch, tmp_path, has_binary=False)
+        calls = []
+        monkeypatch.setattr(Downloader, "_download_nm3u8dlre", lambda *a: calls.append("re") or True)
+        monkeypatch.setattr(Downloader, "_download_ytdlp", lambda *a: calls.append("yt") or True)
+
+        assert Downloader.download("http://x/watch", "S", "E01", "720") is True
+        assert calls == ["yt"]
+
+    def test_hls_resolves_uses_nm3u8dlre(self, monkeypatch, tmp_path):
+        from donghua_cli.player import Downloader
+
+        self._setup(monkeypatch, tmp_path, has_binary=True)
+        calls = []
+        monkeypatch.setattr(Downloader, "_resolve_hls", lambda url, q: "http://cdn/v.m3u8")
+        monkeypatch.setattr(Downloader, "_download_nm3u8dlre", lambda *a: calls.append("re") or True)
+        monkeypatch.setattr(Downloader, "_download_ytdlp", lambda *a: calls.append("yt") or True)
+
+        assert Downloader.download("http://x/watch", "S", "E01", "720") is True
+        assert calls == ["re"]
+
+    def test_nm3u8dlre_failure_falls_back_to_ytdlp(self, monkeypatch, tmp_path):
+        from donghua_cli.player import Downloader
+
+        self._setup(monkeypatch, tmp_path, has_binary=True)
+        calls = []
+        monkeypatch.setattr(Downloader, "_resolve_hls", lambda url, q: "http://cdn/v.m3u8")
+        monkeypatch.setattr(Downloader, "_download_nm3u8dlre", lambda *a: calls.append("re") or False)
+        monkeypatch.setattr(Downloader, "_download_ytdlp", lambda *a: calls.append("yt") or True)
+
+        assert Downloader.download("http://x/watch", "S", "E01", "720") is True
+        assert calls == ["re", "yt"]
+
+    def test_non_hls_source_uses_ytdlp(self, monkeypatch, tmp_path):
+        from donghua_cli.player import Downloader
+
+        self._setup(monkeypatch, tmp_path, has_binary=True)
+        calls = []
+        monkeypatch.setattr(Downloader, "_resolve_hls", lambda url, q: "")  # progressive/miss
+        monkeypatch.setattr(Downloader, "_download_nm3u8dlre", lambda *a: calls.append("re") or True)
+        monkeypatch.setattr(Downloader, "_download_ytdlp", lambda *a: calls.append("yt") or True)
+
+        assert Downloader.download("http://x/file.mp4", "S", "E01", "720") is True
+        assert calls == ["yt"]
+
+
+class TestResolveHls:
+    def test_direct_m3u8_passthrough(self):
+        from donghua_cli.player import Downloader
+
+        assert Downloader._resolve_hls("http://cdn/v.m3u8?token=1", "720") == "http://cdn/v.m3u8?token=1"
+
+    def test_single_hls_url_accepted(self, monkeypatch):
+        from donghua_cli.player import Downloader
+
+        monkeypatch.setattr(Downloader, "_run", lambda cmd, check: _Proc(0, "http://cdn/v.m3u8\n"))
+        assert Downloader._resolve_hls("http://x/watch", "720") == "http://cdn/v.m3u8"
+
+    def test_split_tracks_rejected(self, monkeypatch):
+        from donghua_cli.player import Downloader
+
+        # Two URLs (video + audio) -> yt-dlp should mux instead; return "".
+        monkeypatch.setattr(
+            Downloader, "_run", lambda cmd, check: _Proc(0, "http://cdn/v.m3u8\nhttp://cdn/a.m3u8\n")
+        )
+        assert Downloader._resolve_hls("http://x/watch", "720") == ""
+
+    def test_progressive_mp4_rejected(self, monkeypatch):
+        from donghua_cli.player import Downloader
+
+        monkeypatch.setattr(Downloader, "_run", lambda cmd, check: _Proc(0, "http://cdn/video.mp4\n"))
+        assert Downloader._resolve_hls("http://x/watch", "720") == ""
+
+    def test_resolve_failure_returns_empty(self, monkeypatch):
+        from donghua_cli.player import Downloader
+
+        monkeypatch.setattr(Downloader, "_run", lambda cmd, check: None)
+        assert Downloader._resolve_hls("http://x/watch", "720") == ""

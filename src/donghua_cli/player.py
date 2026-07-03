@@ -8,6 +8,7 @@ auto-advance to the next episode when ``auto_next`` is enabled.
 """
 
 import os
+import shutil
 import subprocess
 import tempfile
 import time
@@ -16,6 +17,11 @@ from typing import Optional
 
 from donghua_cli import config
 from donghua_cli.utils import sanitize_filename
+
+# The HLS downloader we prefer over yt-dlp+ffmpeg: parallel segment fetch plus a
+# merge path that survives the malformed/encrypted playlists ffmpeg chokes on.
+# Optional — absent installs fall straight back to yt-dlp.
+_NM3U8DLRE_BIN = "N_m3u8DL-RE"
 
 
 def _ipc_socket_path() -> str:
@@ -168,7 +174,14 @@ class Player:
 
 
 class Downloader:
-    """Download episodes via yt-dlp."""
+    """Download episodes.
+
+    Prefers N_m3u8DL-RE for HLS — it fetches segments in parallel and merges the
+    quirky playlists ffmpeg refuses — and falls back to yt-dlp for everything
+    else (progressive files, or when N_m3u8DL-RE isn't installed). yt-dlp does
+    double duty: it also resolves a page/embed URL down to the actual variant
+    playlist we then hand to N_m3u8DL-RE.
+    """
 
     @staticmethod
     def download(
@@ -182,9 +195,91 @@ class Downloader:
         )
         os.makedirs(series_dir, exist_ok=True)
 
-        filename = f"{sanitize_filename(ep_title)}.%(ext)s"
-        output_path = os.path.join(series_dir, filename)
+        # Fast path: resolve to a single HLS variant playlist at <=quality and
+        # let N_m3u8DL-RE pull it. Any miss (no binary, not HLS, split
+        # audio/video, resolve failure) drops through to the yt-dlp path.
+        if shutil.which(_NM3U8DLRE_BIN):
+            hls = Downloader._resolve_hls(stream_url, quality)
+            if hls and Downloader._download_nm3u8dlre(hls, series_dir, ep_title):
+                return True
 
+        return Downloader._download_ytdlp(stream_url, series_dir, ep_title, quality)
+
+    @staticmethod
+    def _run(cmd: list[str], *, check: bool) -> subprocess.CompletedProcess | None:
+        """Run a child process with the Windows console-window suppressed.
+
+        Returns the completed process, or None on failure / missing binary.
+        """
+        kwargs: dict = {"capture_output": True, "text": True, "check": check}
+        if config.PLATFORM == "windows":
+            si = subprocess.STARTUPINFO()  # type: ignore[attr-defined]
+            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # type: ignore[attr-defined]
+            kwargs["startupinfo"] = si
+        try:
+            return subprocess.run(cmd, **kwargs)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return None
+
+    @staticmethod
+    def _resolve_hls(stream_url: str, quality: str) -> str:
+        """Return a single HLS/DASH manifest URL at <=quality, or "" if the
+        source isn't HLS (progressive mp4, split tracks, resolve failure).
+
+        When ``stream_url`` is already a manifest we pass it straight through;
+        otherwise yt-dlp ``-g`` resolves the page/embed to its media URL(s).
+        We only accept a *single* returned URL that is a playlist — split
+        video+audio tracks (two lines) go to yt-dlp, which muxes them for us.
+        """
+        if stream_url.split("?")[0].endswith((".m3u8", ".mpd")):
+            return stream_url
+
+        headers = config.get_headers()
+        proc = Downloader._run(
+            [
+                "yt-dlp",
+                "-g",
+                "-f", f"best[height<={quality}]/best",
+                "--no-check-certificates",
+                "--referer", stream_url,
+                "--user-agent", headers["User-Agent"],
+                stream_url,
+            ],
+            check=False,
+        )
+        if not proc or proc.returncode != 0:
+            return ""
+        urls = [ln for ln in proc.stdout.strip().splitlines() if ln.startswith("http")]
+        if len(urls) == 1 and urls[0].split("?")[0].endswith((".m3u8", ".mpd")):
+            return urls[0]
+        return ""
+
+    @staticmethod
+    def _download_nm3u8dlre(manifest_url: str, series_dir: str, ep_title: str) -> bool:
+        """Download an HLS/DASH manifest via N_m3u8DL-RE, muxed to mp4."""
+        headers = config.get_headers()
+        cmd = [
+            _NM3U8DLRE_BIN,
+            manifest_url,
+            "--save-dir", series_dir,
+            "--save-name", sanitize_filename(ep_title),
+            "--auto-select",
+            "--thread-count", "16",
+            "-H", f"User-Agent: {headers['User-Agent']}",
+        ]
+        referer = headers.get("Referer")
+        if referer:
+            cmd += ["-H", f"Referer: {referer}"]
+        cmd += ["-M", "format=mp4"]
+
+        proc = Downloader._run(cmd, check=False)
+        return bool(proc and proc.returncode == 0)
+
+    @staticmethod
+    def _download_ytdlp(
+        stream_url: str, series_dir: str, ep_title: str, quality: str
+    ) -> bool:
+        output_path = os.path.join(series_dir, f"{sanitize_filename(ep_title)}.%(ext)s")
         cmd = [
             "yt-dlp",
             "-f", f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]/best",
@@ -194,15 +289,5 @@ class Downloader:
             "--concurrent-fragments", "4",
             stream_url,
         ]
-
-        try:
-            kwargs: dict = {"check": True, "capture_output": True, "text": True}
-            if config.PLATFORM == "windows":
-                si = subprocess.STARTUPINFO()  # type: ignore[attr-defined]
-                si.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # type: ignore[attr-defined]
-                kwargs["startupinfo"] = si
-
-            subprocess.run(cmd, **kwargs)
-            return True
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            return False
+        proc = Downloader._run(cmd, check=True)
+        return proc is not None

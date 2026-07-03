@@ -375,7 +375,7 @@ def feature_cards() -> None:
     features = [
         ("Multi-Source",   f"{source_count} servers searched in parallel"),
         ("Lightning Fast", "Preloading + stream cache (<15s to play)"),
-        ("Smart Downloads", "Parallel via yt-dlp + ffmpeg"),
+        ("Smart Downloads", "Parallel HLS via N_m3u8DL-RE (yt-dlp fallback)"),
         ("Cross-Platform", "Linux · Windows · macOS · Android"),
         ("Smart Search",   "Fuzzy match across all sources"),
         ("Auto Fallback",  "Seamless server switching"),
