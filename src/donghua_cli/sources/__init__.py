@@ -12,6 +12,7 @@ from donghua_cli.sources.animexin import AnimeXin
 from donghua_cli.sources.misterdonghua import MisterDonghua
 from donghua_cli.sources.hdonghua import HDonghua
 from donghua_cli.sources.lmanime import LMAnime
+from donghua_cli.sources.donghuastream import DonghuaStream
 
 
 def _build_registry() -> list[Source]:
@@ -19,6 +20,7 @@ def _build_registry() -> list[Source]:
         LuciferDonghua(),
         AnimeXin(),
         MisterDonghua(),
+        DonghuaStream(),
         HDonghua(),
         LMAnime(),
     ]
