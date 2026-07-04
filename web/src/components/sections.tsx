@@ -8,6 +8,19 @@ import {
 } from './motion';
 import { MagicCircleSVG, RingPolySVG, ArrayBackdrop, type RingPolyKind } from './magic-circle';
 
+// ─── Real URLs ──────────────────────────────────────────────────────────────
+const REPO = 'https://github.com/Thanukamax/donghua-cli';
+const LINKS = {
+  home: import.meta.env.BASE_URL,          // '/donghua-cli/' — back to top of this page
+  github: REPO,
+  docs: `${REPO}#readme`,
+  changelog: `${REPO}/releases`,
+  issues: `${REPO}/issues`,
+  discussions: `${REPO}/discussions`,
+  pypi: 'https://pypi.org/project/donghua-cli/',
+  install: '#install',                     // in-page anchor to the install section
+} as const;
+
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
@@ -26,7 +39,7 @@ export function Nav() {
       backdropFilter: scrolled ? 'blur(18px)' : 'none',
       borderBottom: `1px solid ${scrolled ? 'rgba(212,175,55,.12)' : 'transparent'}`,
     }}>
-      <a href="#" style={{ display: 'flex', alignItems: 'center', gap: '.6rem',
+      <a href={LINKS.home} style={{ display: 'flex', alignItems: 'center', gap: '.6rem',
         fontFamily: "'Cinzel',serif", fontSize: '.78rem', letterSpacing: '.3em',
         color: '#d4af37', textDecoration: 'none', textTransform: 'uppercase', opacity: .9 }}>
         <span aria-hidden="true" style={{ display: 'inline-flex', animation: 'ringCW 40s linear infinite' }}>
@@ -35,13 +48,18 @@ export function Nav() {
         donghua-cli
       </a>
       <div style={{ display: 'flex', gap: '2.5rem' }}>
-        {([['GitHub', '#'], ['Docs', '#docs'], ['Install', '#install']] as const).map(([label, href]) => (
-          <a key={label} href={href} style={{ fontFamily: "'EB Garamond',serif", fontSize: '1.05rem',
+        {([['GitHub', LINKS.github], ['Docs', LINKS.docs], ['Install', LINKS.install]] as const).map(([label, href]) => {
+          const external = href.startsWith('http');
+          return (
+          <a key={label} href={href}
+            {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+            style={{ fontFamily: "'EB Garamond',serif", fontSize: '1.05rem',
             color: '#e9e4d6', textDecoration: 'none', opacity: .6, transition: 'color .3s, opacity .3s' }}
             onMouseEnter={e => { (e.target as HTMLElement).style.color = '#d4af37'; (e.target as HTMLElement).style.opacity = '1'; }}
             onMouseLeave={e => { (e.target as HTMLElement).style.color = '#e9e4d6'; (e.target as HTMLElement).style.opacity = '.6'; }}
           >{label}</a>
-        ))}
+          );
+        })}
       </div>
     </nav>
   );
@@ -131,7 +149,9 @@ export function HeroSection() {
           </span>
         </div>
 
-        <MagneticButton onClick={() => {}} aria-label="Enter the realm"
+        <MagneticButton
+          onClick={() => document.getElementById('install')?.scrollIntoView({ behavior: 'smooth' })}
+          aria-label="Enter the realm — jump to install"
           style={{ padding: '.7rem 2.4rem', background: 'transparent',
             border: '1px solid #d4af37', borderRadius: '2px', color: '#d4af37',
             fontFamily: "'Cinzel',serif", fontSize: '.8rem', letterSpacing: '.25em',
@@ -726,7 +746,9 @@ export function CTASection() {
             then run <span style={{ color: '#6f9183' }}>donghua --help</span>
           </span>
 
-          <MagneticButton style={{
+          <MagneticButton
+            onClick={() => window.open(LINKS.docs, '_blank', 'noopener,noreferrer')}
+            style={{
             marginTop: '.4rem', padding: '.8rem 2.8rem',
             background: 'rgba(212,175,55,.1)', border: '1px solid #d4af37', borderRadius: '2px',
             color: '#d4af37', fontFamily: "'Cinzel',serif", fontSize: '.82rem',
@@ -898,12 +920,16 @@ export function Footer({ reduced }: { reduced: boolean }) {
           {/* Grouped links + vertical couplet */}
           <div style={{ display: 'flex', gap: 'clamp(2rem,5vw,4rem)', flexWrap: 'wrap',
             borderTop: '1px solid rgba(212,175,55,.1)', paddingTop: '1.8rem' }}>
-            {([['Project', ['GitHub', 'Docs', 'Changelog']], ['Support', ['Issues', 'Discussions', 'Blog']]] as const).map(([group, links]) => (
+            {([
+              ['Project', [['GitHub', LINKS.github], ['Docs', LINKS.docs], ['Changelog', LINKS.changelog]]],
+              ['Support', [['Issues', LINKS.issues], ['Discussions', LINKS.discussions], ['PyPI', LINKS.pypi]]],
+            ] as const).map(([group, links]) => (
               <div key={group} style={{ display: 'flex', flexDirection: 'column', gap: '.7rem' }}>
                 <span style={{ fontFamily: "'Fira Code',monospace", fontSize: '.6rem',
                   letterSpacing: '.25em', color: 'rgba(111,145,131,.42)', textTransform: 'uppercase', marginBottom: '.2rem' }}>{group}</span>
-                {links.map(l => (
-                  <a key={l} href="#" style={{ fontFamily: "'EB Garamond',serif", fontSize: '1.05rem',
+                {links.map(([l, href]) => (
+                  <a key={l} href={href} target="_blank" rel="noopener noreferrer"
+                    style={{ fontFamily: "'EB Garamond',serif", fontSize: '1.05rem',
                     color: 'rgba(233,228,214,.5)', textDecoration: 'none', transition: 'color .3s, letter-spacing .3s', width: 'fit-content' }}
                     onMouseEnter={e => { (e.target as HTMLElement).style.color = '#d4af37'; (e.target as HTMLElement).style.letterSpacing = '.04em'; }}
                     onMouseLeave={e => { (e.target as HTMLElement).style.color = 'rgba(233,228,214,.5)'; (e.target as HTMLElement).style.letterSpacing = '0'; }}
