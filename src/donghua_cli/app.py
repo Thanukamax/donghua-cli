@@ -208,7 +208,7 @@ class DonghuaCLI:
             ui.show_playback(ep.title, idx + 1, len(episodes), server_name, ep.sources)
 
             if not self._player.play(stream_url, title=f"{series_title} - {ep.title}"):
-                theme.status("error", "No player found -- install mpv or vlc")
+                theme.status("error", "No player found -- run 'donghua doctor' to fix (installs mpv)")
                 console.print(f"  [steel]Stream URL:[/] {stream_url}")
                 return
 

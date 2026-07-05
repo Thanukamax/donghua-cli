@@ -181,6 +181,21 @@ def ensure_dirs():
         os.makedirs(get_download_dir(), exist_ok=True)
 
 
+def ensure_bin_on_path() -> None:
+    """Prepend BIN_DIR to ``PATH`` so doctor-fetched binaries are found.
+
+    The player/downloader invoke ``mpv``/``yt-dlp``/``N_m3u8DL-RE`` by bare name,
+    which only resolves against ``PATH``. Binaries the doctor drops in BIN_DIR
+    would otherwise be invisible. Idempotent; a no-op when BIN_DIR is already
+    present or doesn't exist yet.
+    """
+    if not os.path.isdir(BIN_DIR):
+        return
+    parts = os.environ.get("PATH", "").split(os.pathsep)
+    if BIN_DIR not in parts:
+        os.environ["PATH"] = BIN_DIR + os.pathsep + os.environ.get("PATH", "")
+
+
 def create_default_config() -> str:
     """Create a default config.toml if it doesn't exist. Returns the path."""
     if os.path.exists(CONFIG_FILE):

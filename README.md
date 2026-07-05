@@ -49,9 +49,24 @@ dhua "Soul Land" -q 1080
 # Download instead of stream
 dhua "Perfect World" -d
 
+# Check dependencies + run a smoke test
+dhua doctor
+
+# ...and auto-fetch missing static builds (ffmpeg, N_m3u8DL-RE)
+dhua doctor --fetch
+
 # Show version
 dhua -V
 ```
+
+### `doctor` — dependency check
+
+`dhua doctor` reports which external tools are present (`mpv`, `yt-dlp`,
+`ffmpeg`, `N_m3u8DL-RE`), prints the exact install command for your OS's package
+manager for anything missing, and runs a quick smoke test (a real search + a
+player check). Add `--fetch` to auto-download the clean per-arch static builds
+(`ffmpeg`, `N_m3u8DL-RE`) into a managed bin dir that the app puts on `PATH`
+automatically — `mpv` is always installed via your package manager.
 
 ### Aliases
 
