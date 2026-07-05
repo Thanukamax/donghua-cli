@@ -12,9 +12,23 @@ across every source, so the other providers supply the full run and hd just
 contributes an extra live mirror for whatever it can see. Restoring hd here is
 still strictly better than the previous TLS crash, which contributed nothing.
 
-TODO: full listing via the WP REST API — ``/wp-json/wp/v2/episode`` exists but
-the ``?anime=<id>`` filter is ignored (returns the globally-latest episodes,
-not the series'). Needs the correct taxonomy/meta filter param.
+Full listing — investigated 2026-07-05, NO clean endpoint exists (don't re-chase):
+  * The ``episode`` post type has **no taxonomy and no meta** linking an episode
+    to its ``anime`` — ``/wp-json/wp/v2/types/episode`` reports ``taxonomies:
+    []`` and an episode's ``meta`` is just ``{footnotes: ""}``. That's why the
+    old ``?anime=<id>`` guess was ignored: there is nothing to filter on.
+  * ``/wp-json/wp/v2/episode?search=<series>`` matches title/content tokens and
+    returns only a handful (3 for a 160-ep series), not the run.
+  * The theme ships a custom ``hdonghua/v1`` REST namespace, but it exposes only
+    an anime *count* (``discord/anime/<id>`` → ``episodes: "182"``, a string
+    count) and a **global** ``discord/latest-episodes`` feed (carries
+    ``anime_id`` per item but accepts no per-anime filter and no real paging).
+    No "episodes for anime X" route exists.
+  * The anime page embeds only the latest ~3 episodes statically (grid is
+    hydrated client-side); ``single.js`` issues no episode-list fetch.
+URL reconstruction from the count is unreliable — the slug suffix is
+inconsistent within a single series (…-episode-160-``subtitles`` vs
+…-episode-158-``subtitle``) — so we deliberately don't guess.
 """
 
 from donghua_cli.sources.base import Source

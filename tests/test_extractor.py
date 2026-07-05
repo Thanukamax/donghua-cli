@@ -92,6 +92,18 @@ class TestCanonicalize:
         # to https unconditionally.
         assert _canonicalize("//streamtape.com/e/abc").startswith("https://")
 
+    def test_rumble_embed_normalised(self):
+        # yt-dlp's RumbleEmbed extractor pins rumble.com/embed/<id>/ — strip any
+        # .html suffix / query string down to that canonical form.
+        assert (
+            _canonicalize("https://rumble.com/embed/v6xyz12.html?autoplay=1")
+            == "https://rumble.com/embed/v6xyz12/"
+        )
+        assert (
+            _canonicalize("//rumble.com/embed/v6xyz12/")
+            == "https://rumble.com/embed/v6xyz12/"
+        )
+
 
 # Test the regex patterns used in extractor.py without making real HTTP calls.
 
@@ -129,6 +141,22 @@ class TestExtractionPatterns:
         m = re.search(r'src\s*=\s*["\'](https?://ok\.[^"\']+)["\']', html)
         assert m is not None
         assert "ok.ru" in m.group(1)
+
+    def test_rumble_iframe_matched_by_host_sniff(self):
+        # A rumble embed must be picked up by the generic VIDEO_HOSTS regex the
+        # extractor builds — otherwise it falls through to yt-dlp and usually
+        # fails. Reproduces extractor.extract's host_alt construction.
+        from donghua_cli.extractor import VIDEO_HOSTS
+
+        assert "rumble" in VIDEO_HOSTS
+        html = '<iframe src="https://rumble.com/embed/v6xyz12/"></iframe>'
+        host_alt = "|".join(re.escape(h) for h in VIDEO_HOSTS)
+        m = re.search(
+            rf'src\s*=\s*["\']((?:https?:)?//[^"\']*(?:{host_alt})[^"\']*)["\']',
+            html,
+        )
+        assert m is not None
+        assert "rumble.com/embed/v6xyz12" in m.group(1)
 
 
 class TestDirectUrlDetection:

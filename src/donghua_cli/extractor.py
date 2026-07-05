@@ -51,6 +51,7 @@ VIDEO_HOSTS: tuple[str, ...] = (
     "fembed",
     "feurl",
     "supervideo",
+    "rumble",
 )
 
 
@@ -132,6 +133,14 @@ def _canonicalize(url: str) -> str:
         r"\1/d/",
         url,
     )
+
+    # Rumble: aggregators embed as rumble.com/embed/<id>/ (yt-dlp's RumbleEmbed
+    # extractor pins exactly this form). Normalise away any .html suffix, query
+    # string, or trailing junk so a decorated embed URL still matches. Rumble
+    # embed ids are lowercase base36 starting with a version digit, e.g. v6xyz12.
+    m = re.search(r"rumble\.com/embed/([0-9a-z]+)", url)
+    if m:
+        url = f"https://rumble.com/embed/{m.group(1)}/"
 
     return url
 
