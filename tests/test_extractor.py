@@ -238,3 +238,40 @@ class TestRaceAndProbe:
         # Raw primary URL, canonicalised, attributed to the first source.
         assert stream == "http://a/ep"
         assert key == "a"
+
+    def test_mirror_group_dedup_probes_shared_target_once(self, monkeypatch):
+        # Two "mirrors" resolve to the SAME canonical target (the shared
+        # Dailymotion backend case). The race must probe that target once, not
+        # twice — otherwise we pay a redundant RTT and hammer one host.
+        ep = Episode(number=6, title="ep", urls={"a": "http://a/ep", "b": "http://b/ep"})
+        self._patch(
+            monkeypatch,
+            resolves={"http://a/ep": "http://s/shared", "http://b/ep": "http://s/shared"},
+            alive=set(),  # nobody probes live → both would be probed without dedup
+        )
+        probes: list[str] = []
+        monkeypatch.setattr(
+            extractor,
+            "probe_alive",
+            lambda url, timeout=4: probes.append(url) or False,
+        )
+        extract_with_fallback(ep)
+        assert probes.count("http://s/shared") == 1
+
+    def test_negative_cache_skips_known_dead_target(self, monkeypatch):
+        # A target the negative cache already flagged dead is never re-probed.
+        from donghua_cli import cache
+
+        cache.mark_target_dead("http://s/known-dead")
+        ep = Episode(number=7, title="ep", urls={"a": "http://a/ep"})
+        self._patch(
+            monkeypatch, resolves={"http://a/ep": "http://s/known-dead"}, alive=set()
+        )
+        probes: list[str] = []
+        monkeypatch.setattr(
+            extractor,
+            "probe_alive",
+            lambda url, timeout=4: probes.append(url) or True,
+        )
+        extract_with_fallback(ep)
+        assert probes == []  # skipped the probe entirely

@@ -18,7 +18,7 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING
 
-from donghua_cli import config, health
+from donghua_cli import cache, config, health
 from donghua_cli.utils import fetch_html, fetch_partial, probe_alive
 
 if TYPE_CHECKING:
@@ -170,6 +170,7 @@ def extract_with_fallback(episode: Episode, probe: bool = True) -> tuple[str, st
 
     # ── Phase 1: race the cheap resolver across all mirrors ──────────────
     resolved: list[tuple[str, str]] = []  # resolved-but-not-yet-live pool
+    probed: set[str] = set()  # canonical targets we've already probed this race
     with ThreadPoolExecutor(max_workers=min(len(candidates), MAX_RACE_WORKERS)) as pool:
         futures = {
             pool.submit(_resolve_candidate, key, url): key for key, url in candidates
@@ -184,12 +185,24 @@ def extract_with_fallback(episode: Episode, probe: bool = True) -> tuple[str, st
                 continue
             source_key, stream = res
             resolved.append(res)
+
+            # Mirror-group dedup: these aggregators share a small set of
+            # backends (one Dailymotion id often sits behind several "mirrors"),
+            # so two candidates routinely resolve to the *same* canonical
+            # target. Probing it twice wastes an RTT and hammers one host — skip
+            # a target we've already probed this race, or one the negative cache
+            # says just failed a probe elsewhere.
+            if stream in probed or cache.is_target_dead(stream):
+                continue
+            probed.add(stream)
+
             if not probe or probe_alive(stream):
                 for f in futures:
                     f.cancel()
                 health.mark_alive(source_key)
                 log.info("Live via %s: %s", source_key, stream[:80])
                 return stream, source_key
+            cache.mark_target_dead(stream)
 
     # ── Phase 2: something resolved but nothing probed live ──────────────
     if resolved:
