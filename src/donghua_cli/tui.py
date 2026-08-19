@@ -11,7 +11,6 @@ Screens:
 
 from __future__ import annotations
 
-import random
 import threading
 from typing import TYPE_CHECKING
 
@@ -32,8 +31,8 @@ from textual.widgets import (
 from textual.widgets.option_list import Option
 
 from donghua_cli import __version__
-from donghua_cli.palette import GLYPH, PALETTE
-from donghua_cli.theme import TECHNIQUES, level_for_episode
+from donghua_cli.palette import GLYPH, PALETTE, build_theme
+from donghua_cli.theme import level_for_episode
 
 if TYPE_CHECKING:
     from donghua_cli.player import Player
@@ -41,7 +40,20 @@ if TYPE_CHECKING:
 
 # Banner technique is pinned for the lifetime of the app — never reshuffles
 # on every render, so the eye can anchor.
-_SESSION_TECHNIQUE = random.choice(TECHNIQUES)
+
+
+
+def _clip(text: str, width: int) -> str:
+    """Trim to `width`, marking the cut with an ellipsis.
+
+    A bare slice produces "Battle Through The Heavens Seaso", which reads as a
+    data bug rather than a display limit. The ellipsis is inside the budget, so
+    the result never exceeds `width` cells.
+    """
+    text = text.strip()
+    if len(text) <= width:
+        return text
+    return text[: max(0, width - 1)].rstrip() + "…"
 
 
 # ── Static banner (replaces the old animated ParticleBanner) ─────────────
@@ -59,218 +71,252 @@ class StaticBanner(Static):
     def on_mount(self) -> None:
         accent = PALETTE["accent"]
         accent_alt = PALETTE["accent_alt"]
-        muted = PALETTE["text_muted"]
         faint = PALETTE["text_faint"]
-        ghost = PALETTE["text_ghost"]
 
+        # Two rows, not four. The separator rule and the flavour line were
+        # decoration stacked above the only control on the screen, pushing the
+        # search box to row 8 on a cold start.
         body = (
             f"[bold {accent}]武 侠 动 画 终 端[/]\n"
-            f"[bold {accent_alt}]D O N G H U A   C L I[/]   "
-            f"[{muted}]v{__version__}[/]\n"
-            f"[{ghost}]{'─' * 36}[/]\n"
-            f"[italic {faint}]{_SESSION_TECHNIQUE}[/]"
+            f"[bold {accent_alt}]D O N G H U A   C L I[/]  "
+            f"[{faint}]v{__version__}[/]"
         )
         self.update(body)
 
 
 # ── CSS (token-driven, built from palette at module load) ────────────────
 
-_CSS_TEMPLATE = """
-Screen {{
-    background: {surface};
-}}
+# ── CSS ──────────────────────────────────────────────────────────────────
+# Plain TCSS against the theme in palette.build_theme(). This used to be a
+# .format() template, which meant every literal CSS brace had to be doubled
+# — a standing invitation to a formatting bug. Theme variables remove both
+# the escaping and the second copy of the palette.
+
+WUXIA_CSS = """
+Screen {
+    background: $background;
+}
 
 /* ── Static banner ── */
-StaticBanner {{
+StaticBanner {
     width: 100%;
-    height: 4;
+    height: 2;
     content-align: center middle;
     text-align: center;
-    background: {surface};
+    background: $background;
     margin: 1 0 0 0;
-}}
+}
 
 /* ── Rule ── */
-Rule {{
-    color: {border};
+Rule {
+    color: $panel;
     margin: 0 3;
-}}
+}
 
 /* ── Search input ── */
-#search-box {{
+#search-box {
     height: auto;
     padding: 0 3;
     margin: 0 0 1 0;
-}}
+}
 
-#search-input {{
-    border: tall {border};
+#search-input {
+    border: round $panel;
     padding: 0 1;
-    background: {surface_alt};
-    color: {text};
-}}
+    background: $surface;
+    color: $foreground;
+}
 
-#search-input:focus {{
-    border: tall {accent_alt};
-    background: {surface};
-}}
+#search-input:focus {
+    border: round $secondary;
+    background: $background;
+}
 
 /* ── Status bar (inline, above results) ── */
-#status-bar {{
+#status-bar {
     height: 1;
     padding: 0 3;
-    color: {text_muted};
-}}
+    color: $text-muted;
+}
 
-#continue-strip {{
+#continue-strip {
     height: auto;
     padding: 0 3;
-    color: {text_muted};
-}}
+    color: $text-muted;
+}
 
 /* ── Results / Episodes container ── */
-#results-container {{
+#results-container {
     height: 1fr;
-    padding: 0 2;
+    padding: 0 3;
     margin: 0;
-}}
+}
 
 /* ── OptionList ── */
-OptionList {{
-    height: 1fr;
-    border: round {border};
-    background: {surface};
-    scrollbar-background: {surface};
-    scrollbar-color: {border};
-    scrollbar-color-hover: {accent_alt};
-    scrollbar-color-active: {accent};
+* {
+    scrollbar-background: $scrollbar-background;
+    scrollbar-color: $scrollbar;
+    scrollbar-color-hover: $scrollbar-hover;
+    scrollbar-color-active: $scrollbar-active;
     scrollbar-size-vertical: 1;
-}}
+}
 
-OptionList > .option-list--option {{
+OptionList {
+    height: 1fr;
+    border: round $border-blurred;
+    background: $background;
+    scrollbar-background: $background;
+    scrollbar-color: $panel;
+    scrollbar-color-hover: $secondary;
+    scrollbar-color-active: $primary;
+    scrollbar-size-vertical: 1;
+}
+
+OptionList > .option-list--option {
     padding: 0 2;
-    color: {text};
-}}
+    color: $foreground;
+}
 
-OptionList > .option-list--option-highlighted {{
-    background: {accent_alt} 12%;
-    color: {accent};
+OptionList > .option-list--option-highlighted {
+    background: $secondary 12%;
+    color: $primary;
     text-style: bold;
-}}
+}
 
-OptionList > .option-list--option-hover {{
-    background: {accent_alt} 6%;
-}}
+OptionList > .option-list--option-hover {
+    background: $secondary 6%;
+}
 
-OptionList:focus {{
-    border: round {accent_alt} 40%;
-}}
+OptionList:focus-within {
+    border: round $border;
+}
+
+/* Selected row: let Textual pick a legible foreground for whatever the
+   highlight resolves to instead of hand-picking one per theme. */
+OptionList:focus-within > .option-list--option-highlighted {
+    background: $secondary;
+    color: auto;
+}
+
+/* An empty list is a frame around nothing — the single loudest element on a
+   cold start. Collapse it and let the hint own the space instead. */
+OptionList.is-empty {
+    border: none;
+    height: 0;
+}
 
 /* ── Empty-state hint inside the list area ── */
-#empty-hint {{
+/* Owns the empty area on a cold screen, then gets out of the way entirely so
+   the populated list can expand into it. */
+#empty-hint.is-hidden {
+    height: 0;
+    padding: 0;
+}
+
+#empty-hint {
     width: 100%;
-    height: auto;
+    height: 1fr;
     padding: 1 3;
     text-align: center;
-    color: {text_faint};
-}}
+    content-align: center middle;
+    color: $text-faint;
+}
 
 /* ── Episode header ── */
-#episode-header {{
+#episode-header {
     padding: 1 3;
     height: auto;
-    background: {surface_alt};
-    border-bottom: heavy {border};
-}}
+    background: $surface;
+    border-bottom: solid $panel;
+}
 
-#series-cover {{
+#series-cover {
     height: auto;
     width: auto;
     margin: 0 3;
-}}
+}
 
 /* ── Help bar (docked at bottom) ── */
-#help-text {{
+#help-text {
     text-align: center;
-    color: {text_faint};
+    color: $text-faint;
     padding: 0 1;
     height: 1;
-    background: {surface_alt};
+    background: $surface;
     dock: bottom;
-}}
+}
 
 /* ── Now Playing ── */
-#np-outer {{
+#np-outer {
     width: 100%;
     height: auto;
     padding: 1 3;
-}}
+}
 
-#np-title {{
+#np-title {
     width: 100%;
     text-align: center;
-    color: {text};
+    color: $foreground;
     text-style: bold;
     padding: 1 0 0 0;
-}}
+}
 
-#np-meta {{
+#np-meta {
     width: 100%;
     text-align: center;
-    color: {text_muted};
+    color: $text-muted;
     padding: 0 0 1 0;
-}}
+}
 
-#np-progress-box {{
+#np-progress-box {
     width: 100%;
     height: auto;
     padding: 0 4;
-}}
+}
 
-ProgressBar {{
+ProgressBar {
     padding: 0;
     margin: 0;
-}}
+}
 
-ProgressBar > .bar--bar {{
-    color: {accent_alt};
-    background: {border};
-}}
+ProgressBar > .bar--bar {
+    color: $secondary;
+    background: $panel;
+}
 
-ProgressBar > .bar--complete {{
-    color: {accent_alt};
-}}
+ProgressBar > .bar--complete {
+    color: $secondary;
+}
 
 /* ── Controls strip ── */
-#controls-panel {{
+#controls-panel {
     width: 100%;
     text-align: center;
     padding: 1 0;
-    color: {text};
-}}
+    color: $foreground;
+}
 
 /* ── Footer ── */
-Footer {{
-    background: {surface_alt};
-    color: {text_faint};
-}}
+Footer {
+    background: $surface;
+    color: $text-faint;
+}
 
-Footer > .footer--key {{
-    background: {border};
-    color: {accent};
+Footer > .footer--key {
+    background: $panel;
+    color: $primary;
     text-style: bold;
-}}
+}
 
-Footer > .footer--description {{
-    color: {text_muted};
-}}
+Footer > .footer--description {
+    color: $text-muted;
+}
 
-LoadingIndicator {{
-    color: {accent_alt};
-}}
+LoadingIndicator {
+    color: $secondary;
+}
 """
 
-WUXIA_CSS = _CSS_TEMPLATE.format(**PALETTE)
 
 
 # ── Tiny helpers ─────────────────────────────────────────────────────────
@@ -300,11 +346,11 @@ class SearchScreen(Screen):
         Binding("b", "show_bookmarks", "Bookmarks", show=True),
     ]
 
+    # Info scent only. The C/B keys live in the docked help bar; repeating
+    # them here cost a second row and wrapped badly at narrow widths.
     EMPTY_HINT = (
-        f"[{PALETTE['text_faint']}]Type a title and press Enter "
-        f"— try 'Battle Through the Heavens'.  "
-        f"Press [bold {PALETTE['accent']}]C[/] to resume, "
-        f"[bold {PALETTE['accent']}]B[/] for bookmarks.[/]"
+        f"[{PALETTE['text_faint']}]Search for a series — "
+        f"try [italic]Battle Through the Heavens[/italic][/]"
     )
 
     HELP_BAR = (
@@ -324,13 +370,13 @@ class SearchScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield StaticBanner(id="static-banner")
-        yield Rule(line_style="heavy")
+        yield Rule(line_style="solid")
         with Container(id="search-box"):
             yield Input(placeholder="  Search for donghua…", id="search-input")
         yield Static("", id="continue-strip")
         yield Static("", id="status-bar")
         with Container(id="results-container"):
-            yield OptionList(id="results-list")
+            yield OptionList(id="results-list", classes="is-empty")
             yield Static(self.EMPTY_HINT, id="empty-hint")
         yield Static(self.HELP_BAR, id="help-text")
 
@@ -348,9 +394,9 @@ class SearchScreen(Screen):
 
         accent_alt = PALETTE["accent_alt"]
         accent = PALETTE["accent"]
-        muted = PALETTE["text_muted"]
         text = PALETTE["text"]
         faint = PALETTE["text_faint"]
+        muted = PALETTE["text_muted"]
         border = PALETTE["border"]
 
         parts: list[str] = []
@@ -358,7 +404,7 @@ class SearchScreen(Screen):
             top = recent[0]
             parts.append(
                 f"[{accent_alt}]{GLYPH['pending']}[/] [{muted}]Resume[/] "
-                f"[bold {text}]{top.title[:32]}[/] "
+                f"[bold {text}]{_clip(top.title, 32)}[/] "
                 f"[{faint}]ep {top.last_episode}[/]"
             )
         if bookmarks:
@@ -385,7 +431,7 @@ class SearchScreen(Screen):
         self._results = [e.to_series() for e in entries]
         options = []
         for i, entry in enumerate(entries):
-            label = f"[bold {accent}]{i + 1:2d}[/]  [{text}]{entry.title[:60]}[/]"
+            label = f"[bold {accent}]{i + 1:2d}[/]  [{text}]{_clip(entry.title, 60)}[/]"
             extra = getattr(entry, "last_episode", None)
             if extra:
                 label += f"  [{faint}]ep {extra}[/]"
@@ -430,9 +476,9 @@ class SearchScreen(Screen):
         accent_alt = PALETTE["accent_alt"]
         accent = PALETTE["accent"]
         danger = PALETTE["danger"]
-        muted = PALETTE["text_muted"]
         text = PALETTE["text"]
         faint = PALETTE["text_faint"]
+        muted = PALETTE["text_muted"]
         border = PALETTE["border"]
 
         self.app.call_from_thread(
@@ -521,7 +567,7 @@ class SearchScreen(Screen):
 
             label = (
                 f"[bold {accent}]{i + 1:2d}[/]  "
-                f"[{text}]{s.title[:48]}[/]"
+                f"[{text}]{_clip(s.title, 48)}[/]"
                 f"{kind_suffix}  "
                 f"{count_dot}"
             )
@@ -540,8 +586,13 @@ class SearchScreen(Screen):
         rl.clear_options()
         for opt in options:
             rl.add_option(opt)
+        # Restore the frame now that it has contents to frame, and take the
+        # hint's 1fr back so the list can use the full height.
+        rl.set_class(not options, "is-empty")
         try:
-            self.query_one("#empty-hint", Static).update("")
+            hint = self.query_one("#empty-hint", Static)
+            hint.update("")
+            hint.set_class(bool(options), "is-hidden")
         except NoMatches:
             pass
         rl.focus()
@@ -659,8 +710,8 @@ class EpisodeScreen(Screen):
         accent_alt = PALETTE["accent_alt"]
         accent = PALETTE["accent"]
         danger = PALETTE["danger"]
-        muted = PALETTE["text_muted"]
         faint = PALETTE["text_faint"]
+        muted = PALETTE["text_muted"]
         border = PALETTE["border"]
 
         self.app.call_from_thread(
@@ -840,8 +891,8 @@ class PlaybackScreen(Screen):
         accent = PALETTE["accent"]
         accent_alt = PALETTE["accent_alt"]
         text = PALETTE["text"]
-        muted = PALETTE["text_muted"]
         faint = PALETTE["text_faint"]
+        muted = PALETTE["text_muted"]
         border = PALETTE["border"]
 
         self._safe_update(
@@ -884,8 +935,8 @@ class PlaybackScreen(Screen):
     @work(thread=True)
     def _play_current(self) -> None:
         accent_alt = PALETTE["accent_alt"]
-        danger = PALETTE["danger"]
         muted = PALETTE["text_muted"]
+        danger = PALETTE["danger"]
 
         if self.current_idx >= len(self._episodes):
             self.app.call_from_thread(
@@ -1113,5 +1164,21 @@ class DonghuaTUI(App):
         super().__init__()
         self._core = app_core
 
+    @staticmethod
+    def get_theme_variable_defaults() -> dict[str, str]:
+        """App-level tokens Textual does not generate for us.
+
+        Declared as defaults so a theme can override them; the wuxia theme
+        supplies its own values for both.
+        """
+        return {
+            "text-faint": PALETTE["text_faint"],
+            "text-ghost": PALETTE["text_ghost"],
+        }
+
     def on_mount(self) -> None:
+        # Register before the first screen mounts, or the CSS resolves its
+        # $variables against the stock theme for one frame.
+        self.register_theme(build_theme())
+        self.theme = "wuxia-night"
         self.push_screen(SearchScreen(self._core))
