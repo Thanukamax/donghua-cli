@@ -2,6 +2,7 @@
 notify-don't-mutate policy."""
 
 import json
+import sys
 import os
 import time
 
@@ -131,3 +132,49 @@ class TestApply:
                             updater.Install("system", (), note="use your package manager"))
         assert updater.apply([up]) == 1
         assert ran == []
+
+
+class TestScriptInterpreter:
+    """yt-dlp belongs to whichever interpreter built its console script, which
+    is almost never the one running us. Getting this wrong installs a second
+    copy somewhere useless and leaves the real one stale."""
+
+    def _script(self, tmp_path, shebang: str, name: str = "yt-dlp"):
+        f = tmp_path / name
+        f.write_text(f"#!{shebang}\nprint('x')\n")
+        return str(f)
+
+    def test_reads_the_shebang(self, tmp_path):
+        from donghua_cli.updater import _script_interpreter
+        interp, _ = _script_interpreter(self._script(tmp_path, sys.executable))
+        assert interp == sys.executable
+
+    def test_venv_interpreter_does_not_get_user_flag(self, tmp_path):
+        # A venv's python3 is a symlink to the system one, so resolving it
+        # would make every venv look like a --user install. The pyvenv.cfg
+        # beside it is the reliable signal.
+        from donghua_cli.updater import _script_interpreter
+        venv = tmp_path / "venv"
+        (venv / "bin").mkdir(parents=True)
+        (venv / "pyvenv.cfg").write_text("home = /usr\n")
+        py = venv / "bin" / "python3"
+        py.write_text("")
+        script = self._script(venv / "bin", str(py))
+        _, user_site = _script_interpreter(script)
+        assert user_site is False
+
+    def test_unreadable_shebang_falls_back(self, tmp_path):
+        from donghua_cli.updater import _script_interpreter
+        assert _script_interpreter(str(tmp_path / "nope")) == (None, False)
+
+    def test_non_absolute_shebang_falls_back(self, tmp_path):
+        from donghua_cli.updater import _script_interpreter
+        interp, _ = _script_interpreter(self._script(tmp_path, "python3"))
+        assert interp is None
+
+    def test_env_shebang_unwraps_to_the_interpreter(self, tmp_path):
+        from donghua_cli.updater import _script_interpreter
+        interp, _ = _script_interpreter(
+            self._script(tmp_path, f"/usr/bin/env {sys.executable}")
+        )
+        assert interp == sys.executable

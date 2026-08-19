@@ -143,7 +143,51 @@ def _detect_ytdlp_install() -> Install:
         return Install("system", (), note="installed by your package manager — update it there")
     if os.path.realpath(config.BIN_DIR).replace("\\", "/") in real:
         return Install("managed", (), note="fetched by `donghua doctor --fetch` — re-run it to refresh")
-    return Install("pip", (sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp"))
+
+    # A pip-installed yt-dlp belongs to whichever interpreter created it, which
+    # is almost never the one running us: donghua-cli is typically its own pipx
+    # venv while yt-dlp sits in `pip --user` against the system python. Using
+    # `sys.executable` here would install a SECOND yt-dlp inside our venv and
+    # leave the one on PATH untouched — an "update" that changes nothing.
+    # The console script's shebang names its real owner, so use that.
+    interp, user_site = _script_interpreter(real)
+    cmd = [interp or sys.executable, "-m", "pip", "install", "--upgrade"]
+    if user_site:
+        cmd.append("--user")
+    cmd.append("yt-dlp")
+    return Install("pip", tuple(cmd))
+
+
+def _script_interpreter(script_path: str) -> tuple[Optional[str], bool]:
+    """The interpreter a console script was generated for, and whether it looks
+    like a per-user (``pip --user``) install.
+
+    Returns ``(None, ...)`` when the shebang is unreadable or not a real path;
+    callers fall back to ``sys.executable``.
+    """
+    try:
+        with open(script_path, "rb") as f:
+            first = f.readline(512).decode("utf-8", "replace").strip()
+    except OSError:
+        return None, False
+    interp = first[2:].strip() if first.startswith("#!") else ""
+    # `#!/usr/bin/env python3` names the launcher, not the interpreter.
+    if interp.startswith("/usr/bin/env "):
+        interp = interp.split(None, 1)[1].strip()
+    if not interp or not os.path.isabs(interp) or not os.path.exists(interp):
+        return None, False
+    # Do NOT realpath the interpreter: a venv's `python3` is a symlink to the
+    # system one, so resolving it makes every venv look like a --user install.
+    # The reliable signal is a pyvenv.cfg beside the interpreter's directory.
+    venv_marker = os.path.join(os.path.dirname(os.path.dirname(interp)), "pyvenv.cfg")
+    if os.path.exists(venv_marker):
+        return interp, False
+
+    # Not a venv: a script under $HOME on a system interpreter is the classic
+    # `pip install --user` shape, and upgrading it needs --user too.
+    home = os.path.realpath(os.path.expanduser("~"))
+    in_home = os.path.realpath(script_path).startswith(home + os.sep)
+    return interp, in_home
 
 
 def _installed_ytdlp_version() -> Optional[str]:
