@@ -49,7 +49,7 @@ web/
 
 ## Deploying to GitHub Pages
 
-For a project page at `https://thanukamax.github.io/donghua-cli/`, uncomment in
+For a GitHub Pages project page, set `site` + `base` in
 `astro.config.mjs`:
 
 ```js

@@ -11,7 +11,7 @@ import { MagicCircleSVG, RingPolySVG, ArrayBackdrop, type RingPolyKind } from '.
 // ─── Real URLs ──────────────────────────────────────────────────────────────
 const REPO = 'https://github.com/Thanukamax/donghua-cli';
 const LINKS = {
-  home: import.meta.env.BASE_URL,          // '/donghua-cli/' — back to top of this page
+  home: import.meta.env.BASE_URL,          // '/' — back to top of this page
   github: REPO,
   docs: `${REPO}#readme`,
   changelog: `${REPO}/releases`,
