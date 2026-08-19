@@ -175,6 +175,16 @@ def get_auto_next() -> bool:
     return bool(cfg.get("auto_next", True))
 
 
+def get_update_check() -> bool:
+    """Whether to check for donghua-cli / yt-dlp updates in the background.
+
+    Opt-out via ``update_check = false`` in config.toml. The check never blocks
+    startup and never installs anything on its own — it only prints a notice.
+    """
+    cfg = _load_user_config()
+    return bool(cfg.get("update_check", True))
+
+
 def ensure_dirs():
     os.makedirs(CACHE_DIR, exist_ok=True)
     if PLATFORM != "android":
