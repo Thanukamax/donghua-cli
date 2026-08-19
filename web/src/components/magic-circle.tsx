@@ -1,23 +1,34 @@
-/* magic-circle.tsx — parametric wuxia formation-array generator.
-   Inspired by transmutation circles, astrolabes, and 九宫八卦 formation diagrams:
-   layered borders, degree bands, inscription rings, trigram wheels, star lattices,
-   satellite orbs, crescent arcs — every mark computed, nothing hand-drawn. */
+/* magic-circle.tsx — parametric formation-array SVG generator. */
 
+import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import type { CSSProperties, ReactNode } from 'react';
 
-type Pt = [number, number];
+import type { CSSProperties, RefObject } from 'react';
+
+/** A point in the shared 0-100 viewBox, centered on (50,50). */
+export type Pt = [number, number];
+
+type ArrayBackdropProps = {
+  variant?: string;
+  size?: number;
+  opacity?: number;
+  spin?: string;
+  color?: string;
+  settled?: boolean;
+  mark?: boolean;
+  style?: CSSProperties;
+};
 
 // ─── Geometry primitives (0–100 viewBox, centered on 50,50) ──────────────────
-const mcPt = (deg: number, r: number): Pt => [
-  50 + r * Math.cos((deg * Math.PI) / 180),
-  50 + r * Math.sin((deg * Math.PI) / 180),
+export const mcPt = (deg: number, r: number): Pt => [
+  50 + r * Math.cos(deg * Math.PI / 180),
+  50 + r * Math.sin(deg * Math.PI / 180),
 ];
-const mcPts = (n: number, r: number, rot = -90): Pt[] =>
+export const mcPts = (n: number, r: number, rot = -90): Pt[] =>
   Array.from({ length: n }, (_, i) => mcPt(rot + (i * 360) / n, r));
-const mcPoly = (n: number, r: number, rot = -90): string =>
-  mcPts(n, r, rot).map((p) => p.map((v) => v.toFixed(2)).join(',')).join(' ');
-const mcStar = (n: number, k: number, r: number, rot = -90): string => {
+export const mcPoly = (n: number, r: number, rot = -90): string =>
+  mcPts(n, r, rot).map(p => p.map(v => v.toFixed(2)).join(',')).join(' ');
+export const mcStar = (n: number, k: number, r: number, rot = -90): string => {
   const pts = mcPts(n, r, rot);
   let d = '';
   for (let i = 0; i < n; i++) {
@@ -26,7 +37,7 @@ const mcStar = (n: number, k: number, r: number, rot = -90): string => {
   }
   return d;
 };
-const mcTicks = (n: number, r0: number, r1: number, rot = -90): string => {
+export const mcTicks = (n: number, r0: number, r1: number, rot = -90): string => {
   let d = '';
   for (let i = 0; i < n; i++) {
     const a = rot + (i * 360) / n;
@@ -36,7 +47,7 @@ const mcTicks = (n: number, r0: number, r1: number, rot = -90): string => {
   return d;
 };
 // Degree band with a long tick every `every` steps (astrolabe scale)
-const mcTicksAlt = (n: number, rBase: number, rLong: number, rShort: number, every = 4, rot = -90): string => {
+export const mcTicksAlt = (n: number, rBase: number, rLong: number, rShort: number, every = 4, rot = -90): string => {
   let d = '';
   for (let i = 0; i < n; i++) {
     const a = rot + (i * 360) / n;
@@ -50,20 +61,17 @@ const mcTicksAlt = (n: number, rBase: number, rLong: number, rShort: number, eve
 const MC_TRIGRAMS = [[1,1,1],[1,1,0],[1,0,1],[1,0,0],[0,1,1],[0,1,0],[0,0,1],[0,0,0]];
 
 // ─── Compound marks ───────────────────────────────────────────────────────────
-function MCArc({ cx, cy, r, a0, a1, color, large = 1, sweep = 1 }: {
-  cx: number; cy: number; r: number; a0: number; a1: number; color: string; large?: number; sweep?: number;
-}) {
-  const q0 = [cx + r * Math.cos((a0 * Math.PI) / 180), cy + r * Math.sin((a0 * Math.PI) / 180)];
-  const q1 = [cx + r * Math.cos((a1 * Math.PI) / 180), cy + r * Math.sin((a1 * Math.PI) / 180)];
+export function MCArc({ cx, cy, r, a0, a1, color, large = 1, sweep = 1 }: { cx: number; cy: number; r: number; a0: number; a1: number; color: string; large?: number; sweep?: number }) {
+  const p0 = mcPt(0, 0); // unused guard
+  const q0 = [cx + r * Math.cos(a0 * Math.PI / 180), cy + r * Math.sin(a0 * Math.PI / 180)];
+  const q1 = [cx + r * Math.cos(a1 * Math.PI / 180), cy + r * Math.sin(a1 * Math.PI / 180)];
   return <path d={'M ' + q0[0].toFixed(2) + ' ' + q0[1].toFixed(2) + ' A ' + r + ' ' + r + ' 0 ' + large + ' ' + sweep + ' ' + q1[0].toFixed(2) + ' ' + q1[1].toFixed(2)}
     fill="none" stroke={color} strokeWidth="1" vectorEffect="non-scaling-stroke" />;
 }
 
-type Detail = 'dot' | 'ring' | 'both' | 'cres';
-
 // Satellite orb with inner detail — the little "moons" of the reference plates
-function MCOrb({ p, r = 5, color, detail = 'dot' }: { p: Pt; r?: number; color: string; detail?: Detail }) {
-  const S = { fill: 'none', stroke: color, strokeWidth: 1, vectorEffect: 'non-scaling-stroke' as const };
+export function MCOrb({ p, r = 5, color, detail = 'dot' }: { p: Pt; r?: number; color: string; detail?: string }) {
+  const S = { fill: 'none', stroke: color, strokeWidth: 1, vectorEffect: 'non-scaling-stroke' };
   return (
     <g>
       <circle cx={p[0]} cy={p[1]} r={r} {...S} />
@@ -79,9 +87,9 @@ function MCOrb({ p, r = 5, color, detail = 'dot' }: { p: Pt; r?: number; color: 
 }
 
 // Wheel of eight drawn trigrams (solid/broken bars), rotated to face outward
-function MCTrigramWheel({ r, size = 6, color, rot = -90 }: { r: number; size?: number; color: string; rot?: number }) {
+export function MCTrigramWheel({ r, size = 6, color, rot = -90 }: { r: number; size?: number; color: string; rot?: number }) {
   const gap = size * .4, bh = Math.max(size * .14, .8);
-  return <>{MC_TRIGRAMS.map((tg, i) => {
+  return MC_TRIGRAMS.map((tg, i) => {
     const deg = rot + i * 45;
     const [x, y] = mcPt(deg, r);
     return (
@@ -97,15 +105,13 @@ function MCTrigramWheel({ r, size = 6, color, rot = -90 }: { r: number; size?: n
         })}
       </g>
     );
-  })}</>;
+  });
 }
 
 // Inscription ring — characters set around a circle, tangent-rotated
-function MCCharRing({ text, r, size = 4.2, color, rot = -90, opacity = .9, upright = false }: {
-  text: string; r: number; size?: number; color: string; rot?: number; opacity?: number; upright?: boolean;
-}) {
+export function MCCharRing({ text, r, size = 4.2, color, rot = -90, opacity = .9, upright = false }: { text: string; r: number; size?: number; color: string; rot?: number; opacity?: number; upright?: boolean }) {
   const chars = Array.from(text);
-  return <>{chars.map((ch, i) => {
+  return chars.map((ch, i) => {
     const deg = rot + (i * 360) / chars.length;
     const [x, y] = mcPt(deg, r);
     return (
@@ -114,43 +120,54 @@ function MCCharRing({ text, r, size = 4.2, color, rot = -90, opacity = .9, uprig
         textAnchor="middle" dominantBaseline="central"
         transform={upright ? undefined : 'rotate(' + (deg + 90).toFixed(1) + ' ' + x.toFixed(2) + ' ' + y.toFixed(2) + ')'}>{ch}</text>
     );
-  })}</>;
+  });
 }
 
-export type MCVariant = 'grand' | 'square' | 'octa' | 'tri' | 'penta' | 'orbs';
-
 // ─── MagicCircleSVG — full formation plates ───────────────────────────────────
-export function MagicCircleSVG({ size = 300, variant = 'square', color = '#d4af37', opacity = 1, style }: {
-  size?: number; variant?: MCVariant; color?: string; opacity?: number; style?: CSSProperties;
-}) {
-  const S = { fill: 'none', stroke: color, strokeWidth: 1, vectorEffect: 'non-scaling-stroke' as const };
+export function MagicCircleSVG({ size = 300, variant = 'square', color = '#d4af37', opacity = 1, layer, style }: { size?: number; variant?: string; color?: string; opacity?: number; layer?: string; style?: CSSProperties }) {
+  const S = { fill: 'none', stroke: color, strokeWidth: 1, vectorEffect: 'non-scaling-stroke' };
   const D = { fill: color, stroke: 'none' };
   const fine = size >= 80; // tiny renditions keep only the core geometry
-  let art: ReactNode = null;
+  // Layered geometry (grand variant): layer=n renders ONLY that shell (1=outermost
+  // → 6=core) so callers can stack and animate the shells independently.
+  const bg = (n, kids) => (layer === undefined || layer === n) ? <g key={n}>{kids}</g> : null;
+  let art = null;
 
   // 大阵 — the grand nine-palaces plate: every layer of the vocabulary at once
   if (variant === 'grand') art = (
     <>
-      <circle cx="50" cy="50" r="49.6" {...S} />
-      <circle cx="50" cy="50" r="48.2" {...S} />
-      {fine && <path d={mcTicksAlt(72, 45.4, 48.2, 46.6)} {...S} opacity=".8" />}
-      <circle cx="50" cy="50" r="45.4" {...S} />
-      {fine && <MCCharRing text="天地玄黃宇宙洪荒日月盈昃辰宿列張" r={42.3} size={4} color={color} />}
-      {fine && <circle cx="50" cy="50" r="39.6" {...S} />}
-      <circle cx="50" cy="50" r="38.8" {...S} />
-      <polygon points={mcPoly(4, 35.4, -45)} {...S} />
-      <polygon points={mcPoly(4, 35.4, -15)} {...S} />
-      <polygon points={mcPoly(4, 35.4, -75)} {...S} />
-      {fine && <polygon points={mcPoly(12, 35.4, -90)} {...S} opacity=".55" />}
-      {fine && <MCTrigramWheel r={29.8} size={5} color={color} />}
-      <circle cx="50" cy="50" r="25.4" {...S} />
-      <polygon points={mcPoly(3, 24, -90)} {...S} />
-      <polygon points={mcPoly(3, 24, 90)} {...S} />
-      {fine && mcPts(6, 24, -90).map((p, i) => <MCOrb key={i} p={p} r={3.2} color={color} detail="both" />)}
-      {fine && <circle cx="50" cy="50" r="12.6" {...S} />}
-      <path d={mcStar(8, 3, 12, -90)} {...S} />
-      <circle cx="50" cy="50" r="6.2" {...S} />
-      <circle cx="50" cy="50" r="1.7" {...D} />
+      {bg(1, <>
+        <circle cx="50" cy="50" r="49.6" {...S} />
+        <circle cx="50" cy="50" r="48.2" {...S} />
+      </>)}
+      {bg(2, <>
+        {fine && <path d={mcTicksAlt(72, 45.4, 48.2, 46.6)} {...S} opacity=".8" />}
+        <circle cx="50" cy="50" r="45.4" {...S} />
+      </>)}
+      {bg(3, <>
+        {fine && <MCCharRing text="天地玄黃宇宙洪荒日月盈昃辰宿列張" r={42.3} size={4} color={color} />}
+        {fine && <circle cx="50" cy="50" r="39.6" {...S} />}
+        <circle cx="50" cy="50" r="38.8" {...S} />
+      </>)}
+      {bg(4, <>
+        <polygon points={mcPoly(4, 35.4, -45)} {...S} />
+        <polygon points={mcPoly(4, 35.4, -15)} {...S} />
+        <polygon points={mcPoly(4, 35.4, -75)} {...S} />
+        {fine && <polygon points={mcPoly(12, 35.4, -90)} {...S} opacity=".55" />}
+      </>)}
+      {bg(5, <>
+        {fine && <MCTrigramWheel r={29.8} size={5} color={color} />}
+        <circle cx="50" cy="50" r="25.4" {...S} />
+        <polygon points={mcPoly(3, 24, -90)} {...S} />
+        <polygon points={mcPoly(3, 24, 90)} {...S} />
+        {fine && mcPts(6, 24, -90).map((p, i) => <MCOrb key={i} p={p} r={3.2} color={color} detail="both" />)}
+      </>)}
+      {bg(6, <>
+        {fine && <circle cx="50" cy="50" r="12.6" {...S} />}
+        <path d={mcStar(8, 3, 12, -90)} {...S} />
+        <circle cx="50" cy="50" r="6.2" {...S} />
+        <circle cx="50" cy="50" r="1.7" {...D} />
+      </>)}
     </>
   );
 
@@ -281,15 +298,11 @@ export function MagicCircleSVG({ size = 300, variant = 'square', color = '#d4af3
   );
 }
 
-export type RingPolyKind = 'squares' | 'hexagram' | 'orbs' | 'octagram';
-
 // ─── RingPolySVG — inscribed line-work for the seal's orbital rings ───────────
-export function RingPolySVG({ d, kind, color = 'rgba(212,175,55,.22)' }: {
-  d: number; kind: RingPolyKind; color?: string;
-}) {
-  const S = { fill: 'none', stroke: color, strokeWidth: 1, vectorEffect: 'non-scaling-stroke' as const };
+export function RingPolySVG({ d, kind, color = 'rgba(212,175,55,.22)' }: { d: number; kind: string; color?: string }) {
+  const S = { fill: 'none', stroke: color, strokeWidth: 1, vectorEffect: 'non-scaling-stroke' };
   const D = { fill: color, stroke: 'none' };
-  let art: ReactNode = null;
+  let art = null;
   if (kind === 'squares') art = (
     <>
       <polygon points={mcPoly(4, 46, -45)} {...S} />
@@ -336,12 +349,25 @@ export function RingPolySVG({ d, kind, color = 'rgba(212,175,55,.22)' }: {
 }
 
 // ─── ArrayBackdrop — positioned slow-spinning watermark ───────────────────────
-export function ArrayBackdrop({ variant = 'square', size = 500, opacity = .05, spin = 'ringCW 160s linear infinite', color = '#d4af37', style }: {
-  variant?: MCVariant; size?: number; opacity?: number; spin?: string; color?: string; style?: CSSProperties;
-}) {
+// ─── usePauseOffscreen — halts CSS animations while the element is offscreen ─
+export function usePauseOffscreen(ref: RefObject<HTMLElement | null>) {
+    useEffect(() => {
+    const el = ref.current;
+    if (!el || !('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver(([e]) => {
+      el.classList.toggle('om-anim-paused', !e.isIntersecting);
+    }, { rootMargin: '140px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+}
+
+export function ArrayBackdrop({ variant = 'square', size = 500, opacity = .05, spin = 'ringCW 160s linear infinite', color = '#d4af37', settled = false, mark = false, style }: ArrayBackdropProps) {
+      const ref = useRef<HTMLDivElement>(null);
+  usePauseOffscreen(ref);
   return (
-    <motion.div aria-hidden="true"
-      initial={{ opacity: 0, scale: .72, rotate: -12 }}
+    <motion.div ref={ref} aria-hidden="true" {...(mark ? { 'data-hero-array': '' } : {})}
+      initial={settled ? false : { opacity: 0, scale: .72, rotate: -12 }}
       whileInView={{ opacity, scale: 1, rotate: 0 }}
       viewport={{ once: true, margin: '-12% 0px' }}
       transition={{ duration: 1.8, ease: [.16, 1, .3, 1] }}
@@ -353,4 +379,4 @@ export function ArrayBackdrop({ variant = 'square', size = 500, opacity = .05, s
   );
 }
 
-export { mcPt, mcPts, mcPoly, mcStar, mcTicks, mcTicksAlt };
+// ─── Export ───────────────────────────────────────────────────────────────────
