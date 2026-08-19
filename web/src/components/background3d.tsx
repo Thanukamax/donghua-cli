@@ -1,8 +1,7 @@
-/* background3d.tsx — Three.js atmosphere: ink-wash currents · gold embers · jade dust.
-   Ported from the handoff prototype's background3d.jsx (window.THREE → import). */
+/* background3d.tsx — three.js ink-wash shader, ember particles, vortex. */
 
-import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { useEffect, useRef, useState } from 'react';
 
 // ─── Shaders ──────────────────────────────────────────────────────────────────
 const INK_VERT = `void main(){ gl_Position = vec4(position, 1.0); }`;
@@ -17,7 +16,7 @@ float vnoise(vec2 p){
 }
 float fbm(vec2 p){
   float v = 0.; float a = .5; mat2 r = mat2(.8,.6,-.6,.8);
-  for(int i=0;i<5;i++){ v += a*vnoise(p); p = r*p*2.05 + vec2(1.7,9.2); a *= .5; }
+  for(int i=0;i<4;i++){ v += a*vnoise(p); p = r*p*2.05 + vec2(1.7,9.2); a *= .5; }
   return v;
 }
 void main(){
@@ -92,9 +91,36 @@ void main(){
   gl_FragColor = vec4(col, a * (.3 + .7*vTw) * vFade * uAlpha);
 }`;
 
+// Golden ring-galaxy seated on the hero array — particles orbit in a tilted plane
+const VORTEX_VERT = `
+attribute float aR; attribute float aA; attribute float aSp; attribute float aSeed; attribute float aSize;
+uniform float uTime; uniform float uFade; uniform float uDpr;
+varying float vA;
+void main(){
+  float ang = aA + uTime * aSp;
+  float r = aR + sin(uTime*.3 + aSeed*23.) * .14;
+  vec3 p = vec3(cos(ang)*r, sin(ang)*r, sin(uTime*(.35+aSeed*.5)+aSeed*41.)*.16);
+  vec4 mv = modelViewMatrix * vec4(p, 1.);
+  gl_PointSize = min(aSize * (130. / -mv.z), 12.) * uDpr;
+  float tw = .5 + .5*sin(uTime*(1.3+aSeed*2.4)+aSeed*88.);
+  vA = (.35 + .65*tw) * uFade * smoothstep(8.6, 7.2, r) * smoothstep(2.9, 3.8, r);
+  gl_Position = projectionMatrix * mv;
+}`;
+
+const VORTEX_FRAG = `
+varying float vA;
+void main(){
+  vec2 c = gl_PointCoord - .5;
+  float d = length(c);
+  if (d > .5) discard;
+  float a = pow(smoothstep(.5, 0., d), 2.1);
+  vec3 col = mix(vec3(.83,.686,.216), vec3(.99,.95,.77), smoothstep(.3, 0., d));
+  gl_FragColor = vec4(col, a * vA * .5);
+}`;
+
 // ─── Background3D ─────────────────────────────────────────────────────────────
-export function Background3D({ reduced }: { reduced: boolean }) {
-  const wrapRef = useRef<HTMLDivElement>(null);
+export function Background3D({ reduced, lite }: { reduced: boolean; lite?: boolean }) {
+    const wrapRef = useRef<HTMLDivElement>(null);
   const [fallback, setFallback] = useState(false);
 
   useEffect(() => {
@@ -104,15 +130,15 @@ export function Background3D({ reduced }: { reduced: boolean }) {
 
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance' });
+      renderer = new THREE.WebGLRenderer({ antialias:false, alpha:false, powerPreference:'high-performance' });
     } catch (e) { console.warn('WebGL unavailable:', e); setFallback(true); return; }
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const dpr = lite ? 1 : Math.min(window.devicePixelRatio || 1, 1.25);
     renderer.setPixelRatio(dpr);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(0x0a0f0d, 1);
     renderer.autoClear = false;
-    Object.assign(renderer.domElement.style, { display: 'block', width: '100%', height: '100%' });
+    Object.assign(renderer.domElement.style, { display:'block', width:'100%', height:'100%' });
     wrap.appendChild(renderer.domElement);
 
     // Pass 1 — fullscreen ink-wash quad
@@ -126,7 +152,7 @@ export function Background3D({ reduced }: { reduced: boolean }) {
     };
     const inkMat = new THREE.ShaderMaterial({
       vertexShader: INK_VERT, fragmentShader: INK_FRAG,
-      uniforms: inkU, depthWrite: false, depthTest: false,
+      uniforms: inkU, depthWrite:false, depthTest:false,
     });
     const inkMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), inkMat);
     inkMesh.frustumCulled = false;
@@ -137,14 +163,14 @@ export function Background3D({ reduced }: { reduced: boolean }) {
     const cam = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, .1, 140);
     cam.position.set(0, 0, 26);
 
-    const makeField = (count: number, sizeBase: number) => {
-      const pos = new Float32Array(count * 3);
+    const makeField = (count, sizeBase) => {
+      const pos = new Float32Array(count*3);
       const seed = new Float32Array(count);
       const size = new Float32Array(count);
       for (let i = 0; i < count; i++) {
-        pos[i * 3]     = (Math.random() * 2 - 1) * 34;
-        pos[i * 3 + 1] = (Math.random() * 2 - 1) * 28;
-        pos[i * 3 + 2] = 9 - Math.random() * 34;
+        pos[i*3]   = (Math.random()*2 - 1) * 34;
+        pos[i*3+1] = (Math.random()*2 - 1) * 28;
+        pos[i*3+2] = 9 - Math.random()*34;
         seed[i] = Math.random();
         size[i] = sizeBase * (.5 + Math.random());
       }
@@ -154,7 +180,7 @@ export function Background3D({ reduced }: { reduced: boolean }) {
       g.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
       return g;
     };
-    const makeMat = (colA: string, colB: string, alpha: number, speed: number, scrollK: number) => new THREE.ShaderMaterial({
+    const makeMat = (colA, colB, alpha, speed, scrollK) => new THREE.ShaderMaterial({
       vertexShader: PARTICLE_VERT, fragmentShader: PARTICLE_FRAG,
       uniforms: {
         uTime:    { value: 0 },
@@ -166,24 +192,84 @@ export function Background3D({ reduced }: { reduced: boolean }) {
         uCore:    { value: new THREE.Color(colB) },
         uAlpha:   { value: alpha },
       },
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
     });
 
-    const emberGeo = makeField(150, 2.4);
-    const emberMat = makeMat('#d4af37', '#fdf3c4', .95, 1.0, .0042);
+    const emberGeo = makeField(lite ? 70 : 150, 2.0);
+    const emberMat = makeMat('#d4af37', '#fdf3c4', .85, 1.0, .0042);
     const embers = new THREE.Points(emberGeo, emberMat);
     embers.frustumCulled = false;
     scene.add(embers);
 
-    const dustGeo = makeField(260, 1.15);
-    const dustMat = makeMat('#6f9183', '#a8c3b5', .32, .3, .0022);
+    const dustGeo = makeField(lite ? 110 : 260, 1.15);
+    const dustMat = makeMat('#6f9183', '#a8c3b5', .26, .3, .0022);
     const dust = new THREE.Points(dustGeo, dustMat);
     dust.frustumCulled = false;
     scene.add(dust);
 
-    const S = { raf: 0, t0: performance.now(), elapsed: 0, mx: .5, my: .5, tmx: .5, tmy: .5, scroll: 0 };
+    // Ring-galaxy vortex on the hero array's tilted plane (desktop only)
+    let vortexGeo = null, vortexMat = null, placeVortex = null, heroElCache = null;
+    if (!lite) {
+      const N = 440, RMIN = 3.3, RMAX = 8.4;
+      const pos0 = new Float32Array(N * 3);
+      const aR = new Float32Array(N), aA = new Float32Array(N), aSp = new Float32Array(N);
+      const vSeed = new Float32Array(N), vSize = new Float32Array(N);
+      for (let i = 0; i < N; i++) {
+        const t = Math.pow(Math.random(), .85);
+        const r = RMIN + t * (RMAX - RMIN);
+        aR[i] = r;
+        aA[i] = (i % 2) * Math.PI + r * .55 + (Math.random() - .5) * 1.15;
+        aSp[i] = .05 + .17 * (1 - t);
+        vSeed[i] = Math.random();
+        vSize[i] = .32 + Math.random() * .85;
+      }
+      vortexGeo = new THREE.BufferGeometry();
+      vortexGeo.setAttribute('position', new THREE.BufferAttribute(pos0, 3));
+      vortexGeo.setAttribute('aR', new THREE.BufferAttribute(aR, 1));
+      vortexGeo.setAttribute('aA', new THREE.BufferAttribute(aA, 1));
+      vortexGeo.setAttribute('aSp', new THREE.BufferAttribute(aSp, 1));
+      vortexGeo.setAttribute('aSeed', new THREE.BufferAttribute(vSeed, 1));
+      vortexGeo.setAttribute('aSize', new THREE.BufferAttribute(vSize, 1));
+      vortexMat = new THREE.ShaderMaterial({
+        vertexShader: VORTEX_VERT, fragmentShader: VORTEX_FRAG,
+        uniforms: { uTime: { value: 0 }, uFade: { value: 1 }, uDpr: { value: dpr } },
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      });
+      const vortex = new THREE.Points(vortexGeo, vortexMat);
+      vortex.frustumCulled = false;
+      const vGroup = new THREE.Group();
+      vGroup.add(vortex);
+      vGroup.rotation.x = -1.08; // ≈ the CSS orbitals' 62° ring plane
+      scene.add(vGroup);
+      let vCache = null, vCacheAt = 0;
+      placeVortex = (force) => {
+        const dist = 30, halfH = Math.tan(cam.fov * Math.PI / 360) * dist;
+        const worldPerPx = (2 * halfH) / window.innerHeight;
+        const now = performance.now();
+        // layout read at most ~every 600ms; between reads, derive from scrollY
+        if (force || !vCache || now - vCacheAt > 600) {
+          if (!heroElCache || !heroElCache.isConnected) heroElCache = document.querySelector('[data-hero-array]');
+          if (heroElCache) {
+            const r = heroElCache.getBoundingClientRect();
+            if (r.width) vCache = { cx: r.left + r.width / 2, cyDoc: r.top + r.height / 2 + window.scrollY, w: r.width };
+          }
+          vCacheAt = now;
+        }
+        let x = 0, y = (150 / window.innerHeight) * halfH * 2, outerPx = 300;
+        if (vCache) {
+          const cy = vCache.cyDoc - window.scrollY;
+          x = ((vCache.cx / window.innerWidth) * 2 - 1) * halfH * cam.aspect;
+          y = -((cy / window.innerHeight) * 2 - 1) * halfH;
+          outerPx = vCache.w * .26;
+        }
+        vGroup.position.set(x, y, -4);
+        vGroup.scale.setScalar((outerPx * worldPerPx) / RMAX);
+      };
+    }
 
-    const onMouse = (e: MouseEvent) => {
+    const S = { raf:0, t0:performance.now(), elapsed:0, mx:.5, my:.5, tmx:.5, tmy:.5, scroll:0 };
+
+    const onMouse = e => {
       S.tmx = e.clientX / window.innerWidth;
       S.tmy = 1 - e.clientY / window.innerHeight;
     };
@@ -192,12 +278,13 @@ export function Background3D({ reduced }: { reduced: boolean }) {
       cam.aspect = window.innerWidth / window.innerHeight;
       cam.updateProjectionMatrix();
       inkU.uRes.value.set(renderer.domElement.width, renderer.domElement.height);
+      if (placeVortex) placeVortex(true);
     };
     const onVis = () => {
       if (document.hidden) cancelAnimationFrame(S.raf);
-      else { S.t0 = performance.now() - S.elapsed * 1000; loop(); }
+      else { S.t0 = performance.now() - S.elapsed*1000; loop(); }
     };
-    window.addEventListener('mousemove', onMouse, { passive: true });
+    window.addEventListener('mousemove', onMouse, { passive:true });
     window.addEventListener('resize', onResize);
     document.addEventListener('visibilitychange', onVis);
 
@@ -215,6 +302,12 @@ export function Background3D({ reduced }: { reduced: boolean }) {
       emberMat.uniforms.uScroll.value = S.scroll;
       dustMat.uniforms.uTime.value = S.elapsed;
       dustMat.uniforms.uScroll.value = S.scroll;
+      if (vortexMat) {
+        vortexMat.uniforms.uTime.value = S.elapsed;
+        vortexMat.uniforms.uFade.value = Math.max(0, 1 - S.scroll / (window.innerHeight * .85));
+        // re-pin while the hero is anywhere near view (cheap: one rect read)
+        if (placeVortex && S.scroll < window.innerHeight * 1.3) placeVortex();
+      }
 
       cam.position.x = (S.mx - .5) * 2.6;
       cam.position.y = (S.my - .5) * 1.7;
@@ -234,16 +327,20 @@ export function Background3D({ reduced }: { reduced: boolean }) {
       document.removeEventListener('visibilitychange', onVis);
       emberGeo.dispose(); dustGeo.dispose();
       emberMat.dispose(); dustMat.dispose();
+      if (vortexGeo) vortexGeo.dispose();
+      if (vortexMat) vortexMat.dispose();
       inkMesh.geometry.dispose(); inkMat.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
     };
-  }, [reduced]);
+  }, [reduced, lite]);
 
   if (reduced || fallback) return (
-    <div aria-hidden="true" style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-      background: 'radial-gradient(ellipse 130% 80% at 25% 45%, #0e1512 0%, #0a0f0d 65%)' }} />
+    <div aria-hidden="true" style={{ position:'fixed', inset:0, zIndex:0, pointerEvents:'none',
+      background:'radial-gradient(ellipse 130% 80% at 25% 45%, #0e1512 0%, #0a0f0d 65%)' }} />
   );
   return <div ref={wrapRef} aria-hidden="true" style={{
-    position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }} />;
+    position:'fixed', inset:0, zIndex:0, pointerEvents:'none', overflow:'hidden' }} />;
 }
+
+// ─── Export ───────────────────────────────────────────────────────────────────
