@@ -2,6 +2,7 @@
 
 A fast, Wuxia-themed terminal client for streaming and downloading Chinese animation (Donghua). Searches multiple sources simultaneously, auto-selects the best server, and plays via MPV/VLC.
 
+[![Website](https://img.shields.io/badge/site-dcli.pages.dev-c3272b)](https://dcli.pages.dev)
 [![PyPI](https://img.shields.io/pypi/v/donghua-cli)](https://pypi.org/project/donghua-cli/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

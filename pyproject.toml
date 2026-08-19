@@ -27,6 +27,11 @@ dependencies = [
     "platformdirs>=4.0.0",
 ]
 
+[project.urls]
+Homepage = "https://dcli.pages.dev"
+Repository = "https://github.com/Thanukamax/donghua-cli"
+Issues = "https://github.com/Thanukamax/donghua-cli/issues"
+
 [project.optional-dependencies]
 download = ["yt-dlp>=2023.0.0"]
 covers = ["rich-pixels>=2.0.0", "Pillow>=10.0.0"]
