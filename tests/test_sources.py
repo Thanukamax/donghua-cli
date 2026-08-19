@@ -15,12 +15,18 @@ class TestRegistry:
         assert ds is not None
         assert ds.base_url == "https://donghuastream.org"
 
-    def test_hdonghua_repointed_off_dead_xyz(self):
-        hd = next((s for s in ALL_SOURCES if s.key == "hd"), None)
-        assert hd is not None
-        # .xyz TLS-handshake-fails; .com is the live replacement.
-        assert "h-donghua.xyz" not in hd.base_url
-        assert hd.base_url == "https://h-donghua.com"
+    def test_dead_sources_are_not_registered(self):
+        # h-donghua and misterdonghua stopped answering entirely in Aug 2026 --
+        # confirmed over Tor, so it was not a local network block. Leaving them
+        # registered only pads every search with candidates that cannot resolve.
+        keys = {s.key for s in ALL_SOURCES}
+        assert "hd" not in keys
+        assert "md" not in keys
+
+    def test_animekhor_registered(self):
+        ak = next((s for s in ALL_SOURCES if s.key == "ak"), None)
+        assert ak is not None
+        assert ak.base_url == "https://animekhor.org"
 
     def test_every_source_declares_identity(self):
         for s in ALL_SOURCES:

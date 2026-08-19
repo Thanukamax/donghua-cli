@@ -9,8 +9,7 @@ from donghua_cli import config
 from donghua_cli.sources.base import Source, Episode, Series
 from donghua_cli.sources.luciferdonghua import LuciferDonghua
 from donghua_cli.sources.animexin import AnimeXin
-from donghua_cli.sources.misterdonghua import MisterDonghua
-from donghua_cli.sources.hdonghua import HDonghua
+from donghua_cli.sources.animekhor import AnimeKhor
 from donghua_cli.sources.lmanime import LMAnime
 from donghua_cli.sources.donghuastream import DonghuaStream
 
@@ -19,9 +18,8 @@ def _build_registry() -> list[Source]:
     sources: list[Source] = [
         LuciferDonghua(),
         AnimeXin(),
-        MisterDonghua(),
         DonghuaStream(),
-        HDonghua(),
+        AnimeKhor(),
         LMAnime(),
     ]
     disabled = config.get_disabled_sources()
