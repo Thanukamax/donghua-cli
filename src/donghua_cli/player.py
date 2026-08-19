@@ -50,6 +50,35 @@ class Player:
             return self._play_ish(stream_url)
         return self._play_desktop(stream_url, title)
 
+    def wait_until_playing(self, grace: float = 8.0, poll_interval: float = 0.25) -> bool:
+        """Confirm playback actually survived startup.
+
+        ``play()`` only reports that the player *process* spawned — mpv exits 0
+        in well under a second when the URL is a pulled video (a 410, or an
+        embed shell it demuxes as a zero-length file). Without this check the UI
+        announces "Playing" over a window that has already closed, which reads
+        to the user as a broken player rather than dead content.
+
+        Returns True if the process is still alive after ``grace`` seconds, or
+        if there is no process to judge (Android/iSH hand off to an external
+        app and legitimately have nothing to poll). Returns False only when the
+        process we launched exited on its own inside the grace window.
+
+        ``grace`` is generous because a *healthy* start can be slow: mpv shells
+        out to yt-dlp to resolve the page before opening the first segment, and
+        that round trip alone runs several seconds on these hosts.
+        """
+        proc = self._process
+        if proc is None:
+            return True
+        deadline = time.monotonic() + grace
+        while time.monotonic() < deadline:
+            if proc.poll() is not None:
+                self._cleanup_socket()
+                return False
+            time.sleep(poll_interval)
+        return True
+
     def wait_for_end(self, poll_interval: float = 0.5) -> bool:
         """Block until the player process exits.
 
@@ -99,6 +128,11 @@ class Player:
 
     def _play_desktop(self, url: str, title: str) -> bool:
         self._ipc_path = _ipc_socket_path()
+        # Send the same identity the download path does. Several of these hosts
+        # hotlink-protect their segments and answer a naked player with 403 —
+        # the download path has always passed these, playback never did, so the
+        # two disagreed about whether a given episode worked.
+        headers = config.get_headers()
         cmd = [
             "mpv",
             url,
@@ -107,6 +141,8 @@ class Player:
             "--cache=yes",
             "--cache-secs=60",
             "--no-terminal",
+            f"--user-agent={headers['User-Agent']}",
+            f"--referrer={headers.get('Referer', url)}",
             f"--input-ipc-server={self._ipc_path}",
         ]
 

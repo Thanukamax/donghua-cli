@@ -169,9 +169,16 @@ def extract_with_fallback(episode: Episode, probe: bool = True) -> tuple[str, st
     and a speed win (we stop waiting on the slowest mirror the moment a live one
     answers, attacking the <15s-to-play target).
 
-    Fallbacks, in order: a mirror that resolved but failed/​skipped the probe
-    (probes can false-negative on odd hosts), then a sequential yt-dlp pass over
-    every candidate, then the raw primary URL.
+    Fallbacks, in order: a mirror that resolved and was never *authoritatively*
+    rejected (dedup/negative-cache skips, where the probe can false-negative on
+    odd hosts), then a sequential yt-dlp pass over every candidate, then — only
+    if nothing else survived — a mirror the probe positively called dead.
+
+    That last tier is deliberately last. Handing mpv a URL the probe rejected is
+    how a pulled video reaches the player: mpv opens a 410, exits in under a
+    second, and the UI cheerfully reports "Playing" over a window that already
+    closed. A dead mirror is worse than a slow one, so yt-dlp gets its turn
+    first.
     """
     candidates = list(episode.urls.items())
     if not candidates:
@@ -180,6 +187,7 @@ def extract_with_fallback(episode: Episode, probe: bool = True) -> tuple[str, st
     # ── Phase 1: race the cheap resolver across all mirrors ──────────────
     resolved: list[tuple[str, str]] = []  # resolved-but-not-yet-live pool
     probed: set[str] = set()  # canonical targets we've already probed this race
+    rejected: set[str] = set()  # targets the probe positively called dead
     with ThreadPoolExecutor(max_workers=min(len(candidates), MAX_RACE_WORKERS)) as pool:
         futures = {
             pool.submit(_resolve_candidate, key, url): key for key, url in candidates
@@ -211,12 +219,21 @@ def extract_with_fallback(episode: Episode, probe: bool = True) -> tuple[str, st
                 health.mark_alive(source_key)
                 log.info("Live via %s: %s", source_key, stream[:80])
                 return stream, source_key
+            rejected.add(stream)
             cache.mark_target_dead(stream)
 
     # ── Phase 2: something resolved but nothing probed live ──────────────
-    if resolved:
-        source_key, stream = resolved[0]
-        log.info("No live probe hit; using resolved %s: %s", source_key, stream[:80])
+    # Only mirrors we never positively condemned are usable here. A target in
+    # `rejected` (or already in the negative cache) has been *proven* dead this
+    # run — preferring it over the yt-dlp pass below is how 410s reach mpv.
+    unproven = [
+        (key, stream)
+        for key, stream in resolved
+        if stream not in rejected and not cache.is_target_dead(stream)
+    ]
+    if unproven:
+        source_key, stream = unproven[0]
+        log.info("No live probe hit; using unproven %s: %s", source_key, stream[:80])
         return stream, source_key
 
     # ── Phase 3: cheap path found nothing — sequential yt-dlp fallback ───
@@ -225,10 +242,39 @@ def extract_with_fallback(episode: Episode, probe: bool = True) -> tuple[str, st
         stream = extract(ep_url, allow_ytdlp=True)
         if stream and stream != ep_url:
             stream = _canonicalize(stream)
+            # This tier re-scrapes the episode page, so it routinely rediscovers
+            # the very embed phase 1 just condemned. Without re-probing, a dead
+            # mirror walks straight back in through the fallback and lands in
+            # mpv — the failure this whole ladder exists to prevent.
+            # Trust what we already know before paying for another RTT: a
+            # target condemned this race, or one the negative cache flagged
+            # earlier, is dead without re-probing.
+            known_dead = stream in rejected or cache.is_target_dead(stream)
+            if probe and (known_dead or not probe_alive(stream)):
+                log.debug("yt-dlp result for %s is dead: %s", source_key, stream[:80])
+                rejected.add(stream)
+                cache.mark_target_dead(stream)
+                resolved.append((source_key, stream))
+                health.mark_dead(source_key, "resolved but dead")
+                continue
             health.mark_alive(source_key)
             log.info("Extracted via yt-dlp %s: %s", source_key, stream[:80])
             return stream, source_key
         health.mark_dead(source_key, "extract failed")
+
+    # ── Phase 4: last resort — a mirror we know is dead ──────────────────
+    # Nothing live, nothing unproven, yt-dlp struck out. Hand back the least-bad
+    # option so the caller still has something to report, but say plainly in the
+    # log that this is expected to fail; the player layer surfaces it to the UI.
+    if resolved:
+        source_key, stream = resolved[0]
+        log.warning(
+            "No live mirror for ep %s — every candidate probed dead; "
+            "returning %s anyway, playback will likely fail",
+            episode.number,
+            stream[:80],
+        )
+        return stream, source_key
 
     log.warning("All servers failed for ep %d, returning raw URL", episode.number)
     return _canonicalize(episode.primary_url), episode.sources[0]

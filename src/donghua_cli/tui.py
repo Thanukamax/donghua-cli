@@ -933,6 +933,29 @@ class PlaybackScreen(Screen):
         title = f"{self._series_title} - Episode {ep.number}"
 
         if player.play(stream_url, title=title):
+            # `play()` only proves the process spawned. A pulled video (410) or
+            # a dead embed makes mpv exit ~instantly, and announcing "Playing"
+            # over an already-closed window is what reads as a broken player.
+            # Confirm it survived startup before claiming success.
+            if not player.wait_until_playing():
+                if gen != self._play_gen:
+                    return
+                self.app.call_from_thread(
+                    self._safe_update,
+                    "#status-bar",
+                    f"  [{danger}]{GLYPH['fail']}[/] No live source for episode "
+                    f"{ep.number} — every mirror is dead",
+                )
+                self.app.call_from_thread(
+                    self.app.notify,
+                    "Every mirror for this episode is dead (the upload was "
+                    "pulled). Try another episode or server.",
+                    title=f"{GLYPH['fail']} Nothing to play",
+                    severity="error",
+                    timeout=6,
+                )
+                return
+
             self.app.call_from_thread(
                 self._safe_update,
                 "#status-bar",
