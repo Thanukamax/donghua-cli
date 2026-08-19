@@ -303,3 +303,59 @@ class TestRaceAndProbe:
         )
         extract_with_fallback(ep)
         assert probes == []  # skipped the probe entirely
+
+
+class TestExtractServers:
+    """The dub switcher hides servers in base64 <option> values.
+
+    AnimeXin publishes one upload per dub and the dubs rot independently, so the
+    English server going 410 while the Indonesian one still plays is the normal
+    case, not an edge case. A plain iframe scan sees only the single unencoded
+    player and reports a recoverable episode as dead.
+    """
+
+    PAGE = (
+        "<html><body>"
+        '<select>'
+        # base64 of: <iframe src="https://www.dailymotion.com/embed/video/xENG"></iframe>
+        '<option value="PGlmcmFtZSBzcmM9Imh0dHBzOi8vd3d3LmRhaWx5bW90aW9uLmNvbS9lbWJlZC92aWRlby94RU5HIj48L2lmcmFtZT4=">English</option>'
+        # base64 of: <iframe src="https://www.dailymotion.com/embed/video/xIND"></iframe>
+        '<option value="PGlmcmFtZSBzcmM9Imh0dHBzOi8vd3d3LmRhaWx5bW90aW9uLmNvbS9lbWJlZC92aWRlby94SU5EIj48L2lmcmFtZT4=">Indonesia</option>'
+        '</select>'
+        '<iframe src="https://www.dailymotion.com/embed/video/xENG"></iframe>'
+        "</body></html>"
+    )
+
+    def _patch_page(self, monkeypatch, html: str):
+        from selectolax.lexbor import LexborHTMLParser
+        monkeypatch.setattr(extractor, "fetch_html", lambda url, timeout=8: LexborHTMLParser(html))
+
+    def test_decodes_every_dub_server(self, monkeypatch):
+        self._patch_page(monkeypatch, self.PAGE)
+        got = extractor.extract_servers("http://ax/ep")
+        assert got == [
+            "https://www.dailymotion.com/video/xENG",
+            "https://www.dailymotion.com/video/xIND",
+        ]
+
+    def test_dedupes_the_plain_iframe_against_the_encoded_one(self, monkeypatch):
+        # The unencoded player repeats the English server; it must not appear twice.
+        self._patch_page(monkeypatch, self.PAGE)
+        got = extractor.extract_servers("http://ax/ep")
+        assert len(got) == len(set(got))
+
+    def test_survives_undecodable_options(self, monkeypatch):
+        self._patch_page(
+            monkeypatch,
+            '<select><option value="' + "!" * 60 + '">junk</option></select>'
+            '<iframe src="https://www.dailymotion.com/embed/video/xOK"></iframe>',
+        )
+        assert extractor.extract_servers("http://ax/ep") == [
+            "https://www.dailymotion.com/video/xOK"
+        ]
+
+    def test_returns_empty_when_the_page_cannot_be_fetched(self, monkeypatch):
+        def boom(url, timeout=8):
+            raise RuntimeError("network down")
+        monkeypatch.setattr(extractor, "fetch_html", boom)
+        assert extractor.extract_servers("http://ax/ep") == []

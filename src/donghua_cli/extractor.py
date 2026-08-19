@@ -13,6 +13,8 @@ If extraction fails on one server, silently moves to the next.
 from __future__ import annotations
 
 import logging
+import base64
+import binascii
 import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -236,6 +238,26 @@ def extract_with_fallback(episode: Episode, probe: bool = True) -> tuple[str, st
         log.info("No live probe hit; using unproven %s: %s", source_key, stream[:80])
         return stream, source_key
 
+    # ── Phase 2b: same page, the page's OTHER servers ────────────────────
+    # These sites publish one upload per dub and the dubs rot independently, so
+    # a dead English server routinely sits next to a live Indonesian one for the
+    # same episode. Phase 1 only ever saw the first player; enumerate the rest
+    # before writing the episode off. Cheaper than yt-dlp and far more likely to
+    # hit, so it goes first.
+    if probe:
+        for source_key, ep_url in candidates:
+            for stream in extract_servers(ep_url):
+                if stream in probed or stream in rejected or cache.is_target_dead(stream):
+                    continue
+                probed.add(stream)
+                if probe_alive(stream):
+                    health.mark_alive(source_key)
+                    log.info("Live via %s alt server: %s", source_key, stream[:80])
+                    return stream, source_key
+                rejected.add(stream)
+                cache.mark_target_dead(stream)
+                resolved.append((source_key, stream))
+
     # ── Phase 3: cheap path found nothing — sequential yt-dlp fallback ───
     for source_key, ep_url in candidates:
         log.debug("yt-dlp fallback on %s: %s", source_key, ep_url[:80])
@@ -333,6 +355,66 @@ def extract(episode_url: str, allow_ytdlp: bool = True) -> str:
     if not allow_ytdlp:
         return episode_url
     return _ytdlp_extract(episode_url)
+
+
+def extract_servers(episode_url: str) -> list[str]:
+    """Every playable server an episode page offers, best-effort, canonicalized.
+
+    ``extract`` returns only the first match, which silently loses the page's
+    other servers. That matters because these aggregators publish one upload per
+    dub — AnimeXin ships an "English" and an "Indonesia" server for the same
+    episode — and the two rot independently. When the English upload is pulled,
+    the episode still plays fine on the Indonesian one; returning just the first
+    match makes a recoverable episode look dead.
+
+    AnimeXin (and the sites sharing its theme) hide that list in
+    ``<option value="<base64 of an HTML snippet>">``, so a plain iframe scan sees
+    only the single unencoded player. Decoding those options is the difference
+    between one candidate and all of them.
+
+    Order is preserved and duplicates dropped, so callers can probe in the page's
+    own preference order.
+    """
+    out: list[str] = []
+
+    def add(raw: str) -> None:
+        if not raw:
+            return
+        url = _canonicalize(_normalise_scheme(raw))
+        if url and url not in out:
+            out.append(url)
+
+    try:
+        tree = fetch_html(episode_url, timeout=8)
+    except Exception as e:  # network/parse failure — caller falls back
+        log.debug("extract_servers fetch failed for %s: %s", episode_url[:80], e)
+        return out
+
+    html = tree.html or ""
+
+    # Base64-encoded <option> servers (the dub switcher).
+    for m in re.finditer(r"""<option[^>]*value=["']([A-Za-z0-9+/=]{40,})["']""", html):
+        try:
+            decoded = base64.b64decode(m.group(1)).decode("utf-8", "replace")
+        except (ValueError, binascii.Error):
+            continue
+        for hit in re.finditer(r"""(?:src|href)=["']([^"']+)["']""", decoded):
+            src = hit.group(1)
+            if any(host in src for host in VIDEO_HOSTS):
+                add(src)
+
+    # Plain players on the page itself.
+    for script in tree.css("script[data-video]"):
+        if "dailymotion" in (script.attributes.get("src") or ""):
+            vid = script.attributes.get("data-video")
+            if vid:
+                add(f"https://www.dailymotion.com/video/{vid}")
+    for iframe in tree.css("iframe"):
+        src = iframe.attributes.get("src") or iframe.attributes.get("data-src") or ""
+        if src and any(host in src for host in VIDEO_HOSTS):
+            add(src)
+
+    return out
 
 
 def _ytdlp_extract(url: str) -> str:
