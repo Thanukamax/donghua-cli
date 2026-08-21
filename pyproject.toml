@@ -46,3 +46,11 @@ pythonpath = ["src"]
 [tool.ruff]
 src = ["src"]
 target-version = "py39"
+
+[tool.ruff.lint]
+# Pinned explicitly to the set this project has always enforced. Ruff's
+# *default* selection is not stable across minor releases — 0.16 switched on
+# SIM, PLW and others, which turned 125 pre-existing style findings into a red
+# CI on an unchanged codebase. Naming the rules keeps the gate meaning the same
+# thing regardless of which ruff a fresh `pip install -e ".[dev]"` resolves.
+select = ["E4", "E7", "E9", "F"]
