@@ -6,7 +6,8 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { MotionConfig } from 'framer-motion';
 import Lenis from 'lenis';
-import { setLenis } from './lenis-store';
+import { setLenis, getLenis } from './lenis-store';
+import { installUiSfx, SoundToggle } from './sound/ui';
 import { TravelingSeal } from './seal';
 import { ScrollProgress } from './motion';
 import { IntroOverlay } from './intro';
@@ -40,12 +41,30 @@ export default function App() {
   const isMobile = useIsMobile();
   const [phase, setPhase] = useState<Phase>(reduced ? 'live' : 'intro');
   const [kill, setKill] = useState<KillOrigin | null>(null);
+  /* Bumped when the seal reclaims the site. It keys the whole tree, so every
+     component — reveal states, observers, the terminal, the traveling seal —
+     is rebuilt from nothing, exactly as a reload would, minus the reload:
+     the AudioContext survives, so the destroy's gong rings on into the rebuild. */
+  const [gen, setGen] = useState(0);
 
   useEffect(() => {
     const fn = (e: Event) => setKill((e as CustomEvent<KillOrigin>).detail ?? {});
     window.addEventListener('dh-kill', fn);
     return () => window.removeEventListener('dh-kill', fn);
   }, []);
+
+  // Hover / click / tap voices for every control on the page, by delegation.
+  useEffect(installUiSfx, []);
+
+  const rebuild = () => {
+    setKill(null);
+    document.documentElement.style.overflow = '';
+    const l = getLenis();
+    if (l) { l.scrollTo(0, { immediate: true }); l.start(); }
+    window.scrollTo(0, 0);
+    setPhase(reduced ? 'live' : 'intro');
+    setGen(g => g + 1);
+  };
 
   // Lenis smooth scroll — inertial, and it drives native scrollY so the
   // scroll-linked motion values and IntersectionObservers keep working.
@@ -61,7 +80,7 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div style={{ position: 'relative', minHeight: '100vh' }}>
+      <div key={gen} style={{ position: 'relative', minHeight: '100vh' }}>
         {phase !== 'live' && (
           <IntroOverlay
             isMobile={isMobile}
@@ -100,9 +119,11 @@ export default function App() {
               {isMobile ? <MobileFooter /> : <Footer reduced={reduced} />}
             </main>
             {isMobile && <BackToTop />}
-            {kill && <KillOverlay origin={kill} />}
           </>
         )}
+
+        {phase !== 'intro' && <SoundToggle compact={isMobile} />}
+        {kill && <KillOverlay origin={kill} onComplete={rebuild} />}
       </div>
     </MotionConfig>
   );

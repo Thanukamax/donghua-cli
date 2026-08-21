@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useMotionValue, useSpring } from 'framer-motion';
 import { MagicCircleSVG, RingPolySVG } from './magic-circle';
+import { sealTravel } from './sound/cues';
 
 type Ring = {
   id: number; minSec: number; d: number; color: string; dash: boolean; tilt: number;
@@ -132,6 +133,15 @@ export function TravelingSeal({ reduced }: { reduced: boolean }) {
 
   // Fade in after load
   useEffect(() => { const t = setTimeout(() => opacity.set(1), 700); return () => clearTimeout(t); }, []);
+
+  /* The seal restamping in a new section gets a bell, pitched by section index
+     and drowned in reverb — it reads as something happening across the hall,
+     not a UI beep. Skipped for section 0 so arriving doesn't ring. */
+  const rang = useRef(false);
+  useEffect(() => {
+    if (!rang.current) { rang.current = true; return; }
+    sealTravel(section);
+  }, [section]);
 
   // Section detection
   useEffect(() => {

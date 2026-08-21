@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrayBackdrop } from './magic-circle';
 import { KineticText } from './motion';
 import { getLenis } from './lenis-store';
+import { copy as copyCue, faqClose, faqOpen, killInk, killMark, killRing, toTop as toTopCue } from './sound/cues';
+import { at as schedule } from './sound/engine';
 
 export type FaqItem = { cn: string; q: string; a: string };
 /** Viewport point a kill-overlay ripple radiates from. */
@@ -16,10 +18,11 @@ export function CopyCmd({ cmd, full }: { cmd: string; full?: boolean }) {
   const copy = (e: SyntheticEvent) => {
     e.stopPropagation();
     navigator.clipboard.writeText(cmd).catch(() => {});
+    copyCue();
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <div onClick={copy} role="button" tabIndex={0} aria-label={'Copy: ' + cmd}
+    <div onClick={copy} role="button" tabIndex={0} aria-label={'Copy: ' + cmd} data-sfx="none"
       onKeyDown={e => e.key === 'Enter' && copy(e)} className="copy-chip"
       style={{ display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer',
         justifyContent: 'space-between', width: full ? '100%' : 'fit-content', maxWidth: '100%',
@@ -141,7 +144,8 @@ function FAQItem({ item, index }: { item: FaqItem; index: number }) {
       viewport={{ once: true, margin: '-4% 0px' }}
       transition={{ delay: index * .07, duration: .75, ease: [.16, 1, .3, 1] }}
       className="faq-item" style={{ borderTop: '1px solid rgba(212,175,55,.1)' }}>
-      <button onClick={() => setOpen(o => !o)} aria-expanded={open} aria-controls={id}
+      <button data-sfx="none" aria-expanded={open} aria-controls={id}
+        onClick={() => setOpen(o => { const next = !o; (next ? faqOpen : faqClose)(); return next; })}
         style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 'clamp(.9rem,2.5vw,1.6rem)',
           padding: '1.3rem .4rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
         <span aria-hidden="true" style={{ fontFamily: "'ZCOOL XiaoWei',serif",
@@ -210,6 +214,7 @@ export function BackToTop() {
     return () => window.removeEventListener('scroll', fn);
   }, []);
   const toTop = () => {
+    toTopCue();
     const l = getLenis();
     if (l) l.scrollTo(0, { duration: 1.3 });
     else window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -218,7 +223,7 @@ export function BackToTop() {
   return (
     <AnimatePresence>
       {show && (
-        <motion.button key="btt" onClick={toTop} aria-label="Back to top"
+        <motion.button key="btt" onClick={toTop} aria-label="Back to top" data-sfx="none"
           initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }}
           transition={{ duration: .45, ease: [.16, 1, .3, 1] }}
           style={{ position: 'fixed', right: '1rem', bottom: safe ? '2.9rem' : '1.2rem', zIndex: 90,
@@ -238,19 +243,33 @@ export function BackToTop() {
 
 // ─── KillOverlay — the seal reclaims the site: ink floods from the click point,
 // the returning mark stamps, then the realm reloads from the very beginning ───
-export function KillOverlay({ origin }: { origin: KillOrigin }) {
+export function KillOverlay({ origin, onComplete }: { origin: KillOrigin; onComplete: () => void }) {
       const x = origin && origin.x != null ? origin.x : window.innerWidth * .25;
   const y = origin && origin.y != null ? origin.y : window.innerHeight * .8;
   useEffect(() => {
     getLenis()?.stop();
     document.documentElement.style.overflow = 'hidden';
+
+    /* Inverted summoning: the ring leaves at t=0 with the shockwave, the ink
+       arrives under the clip-path flood, and 歸 lands with the gong. Everything
+       falls in pitch — the one sequence on the page that closes instead of opens.
+
+       This used to end in location.reload(). It doesn't any more: a reload kills
+       the AudioContext mid-gong AND hands the new document no user gesture, so
+       the rebuild came back silent. App remounts the tree instead, which is the
+       same visual rebuild from zero — and the gong's tail rings on underneath it. */
+    killRing();
+    const cues = [schedule(0.1, killInk), schedule(0.58, killMark)];
+
+    // 2.2s: the mark has faded (1.6s) and there is a held black beat before the
+    // realm starts reassembling. The gong is still decaying through all of it.
     const t = setTimeout(() => {
       try { sessionStorage.removeItem('dh_intro_seen'); } catch (e) {}
+      try { sessionStorage.setItem('dh_rebuilding', '1'); } catch (e) {}
       try { history.scrollRestoration = 'manual'; } catch (e) {}
-      window.scrollTo(0, 0);
-      location.reload();
-    }, 1600);
-    return () => clearTimeout(t);
+      onComplete();
+    }, 2200);
+    return () => { clearTimeout(t); cues.forEach(c => c()); };
   }, []);
   const at = (x / window.innerWidth * 100).toFixed(1) + '% ' + (y / window.innerHeight * 100).toFixed(1) + '%';
   return (
