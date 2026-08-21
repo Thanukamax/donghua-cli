@@ -112,8 +112,9 @@ export function IntroOverlay({ onMorph, onDone, isMobile }: { onMorph: () => voi
     const stopBed = rebuilding ? rebuildBed() : null;
     if (!seen) {
       INTRO_SHELLS.forEach((_, i) => {
-        // .6s drop, landing bounce peaks around 62% through it
-        timers.push(setTimeout(() => shellDrop(i, rebuilding), (.15 + i * STEP + .38) * 1000));
+        // Fired at the START of each .6s drop — shellDrop plays the fall itself
+        // and schedules its own impact on the landing bounce.
+        timers.push(setTimeout(() => shellDrop(i, rebuilding), (.15 + i * STEP) * 1000));
       });
     }
     timers.push(setTimeout(() => {
