@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "donghua-cli"
-version = "3.2.1"
+version = "4.0.0"
 description = "Wuxia-themed terminal client for streaming Chinese animation"
 readme = "README.md"
 license = "MIT"

@@ -2,6 +2,82 @@
 
 All notable changes to Donghua CLI will be documented in this file.
 
+## [4.0.0] - 2026-08-22
+
+The networking, download, and caching layers were all replaced. Nothing about
+the commands you type changed — but almost everything under them did.
+
+### Added
+- **Candidate-level liveness probing with mirror racing.** Extraction used to
+  react to failures: try a mirror, watch it die, try the next. It now probes
+  candidates concurrently with a ranged `GET` (`Range: bytes=0-1`) and plays the
+  first mirror that returns real bytes. Doubles as a speed win — the fastest
+  live mirror wins the race instead of the first one in the list. For Dailymotion
+  the probe uses an oEmbed check, the one cheap signal that separates a live
+  video from a pulled one (both return `200`).
+- **`donghua doctor`** — reports which external tools are present (`mpv`,
+  `yt-dlp`, `ffmpeg`, `N_m3u8DL-RE`), prints the exact install command for your
+  OS's package manager for anything missing, and runs a real smoke test.
+  `--fetch` auto-downloads verified per-arch static builds of `ffmpeg` and
+  `N_m3u8DL-RE` into a managed bin dir that the app puts on `PATH` for you.
+  `mpv` is always delegated to your package manager — no static build is worth
+  shipping.
+- **`donghua update`** — checks for and installs new versions of donghua-cli and
+  `yt-dlp`, detecting how each was installed (pipx, uv tool, pip, system).
+  `--dry-run` shows the exact commands without running them. A day-cached
+  background check also mentions available updates on startup.
+- **N_m3u8DL-RE download sidecar** — parallel HLS segment fetch with better retry
+  and merge behaviour than the old single-threaded path, for playlists ffmpeg
+  chokes on. Used when the binary is present and the stream resolves to a single
+  HLS URL; falls back to `yt-dlp` transparently otherwise.
+- **Rumble embeds** now resolve, joining Dailymotion, ok.ru, YouTube and the rest.
+- **AnimeKhor (`ak`)** and **DonghuaStream (`ds`)** joined the source registry.
+  DonghuaStream has the largest catalog in the niche and was previously
+  unreachable behind Cloudflare.
+
+### Fixed
+- **Dub servers beyond the first are no longer invisible.** AnimeXin hides its
+  server list in base64-encoded `<option>` values while exposing only one
+  unencoded `<iframe>`. We read the iframe and nothing else — so when an English
+  upload was pulled, playback failed even though the other dubs were fine. The
+  extractor now decodes every server. Playable episode pages in the health check
+  went from 2/11 to 6/11. This was a scraper bug the whole time, not content rot.
+- **Stale signed stream URLs.** The old cache was a hand-rolled JSON LRU with no
+  TTL, so an expired Dailymotion URL sat in the cache until it was evicted by
+  size and failed on every replay until then. Resolved URLs now expire in 90s.
+- **mpv no longer receives mirrors the probe already condemned.**
+- **`update` upgrades `yt-dlp` with the interpreter that owns it**, instead of
+  whichever `pip` happened to be first on `PATH`.
+
+### Changed
+- **HTTP layer: `httpx` → `curl_cffi`.** Every request now impersonates a real
+  browser's TLS/JA3 fingerprint. Anti-bot walls were the single biggest failure
+  mode in this tool, and this addresses them at the layer they actually operate
+  on. It's also why DonghuaStream is reachable at all — it 403s naked clients.
+  The liveness probe deliberately shares the same impersonated client: probing
+  with a plain client while fetching with an impersonated one produces false
+  negatives on any site that blocks the probe but would have served a browser.
+- **Cache backend: hand-rolled JSON LRU → `diskcache`** (SQLite-backed: atomic,
+  process- and thread-safe, size-bound, native per-key TTL). Tiered expiry —
+  search 6h, episode lists 3h, resolved streams 90s, dead mirrors 5m. Dead
+  targets are negative-cached so a mirror group that just failed isn't re-probed
+  once per member.
+- **TUI reskin** onto Textual's own theme system — brand palette and a layout
+  pass, replacing the hand-rolled styling.
+- **MisterDonghua (`md`) and H-Donghua (`hd`) were removed.** Both domains
+  stopped answering entirely, verified over Tor to rule out a local block. They
+  were revived earlier in this cycle and died during it.
+- **Textual pinned to `>=8.2.7,<9`**, up from an open `>=1.0.0` floor.
+
+### Known issues
+- **LuciferDonghua (`ld`) resolves 0 servers** on every page — it still returns
+  search hits and episode lists, so it costs time in the fan-out without
+  contributing anything playable. Removal or repair is the next source decision.
+- **kisskh.co is not a viable source.** Its search and episode APIs are open, but
+  the endpoint that returns the stream is token-gated and `403`s without a
+  signature the site's obfuscated JS mints client-side (confirmed not a geo
+  block — it `403`s over Tor too, and yt-dlp has no extractor for it).
+
 ## [3.2.1] - 2026-06-22
 
 ### Fixed
