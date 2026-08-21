@@ -145,6 +145,18 @@ def search_all(
     """
     import time
 
+    from donghua_cli import cache
+
+    # Serve repeat searches from cache — but only when nobody's driving the live
+    # per-source progress UI (the TUI passes on_progress). A cache hit resolves
+    # instantly and would leave those indicators unfired, so the live path always
+    # re-scrapes; classic/direct mode gets the speed-up.
+    if on_progress is None:
+        cached = cache.get_search(query)
+        if cached is not None:
+            log.debug("Search cache hit for '%s' (%d results)", query, len(cached))
+            return cached
+
     raw: list[tuple[str, str, str, str | None]] = []
     search_sources = get_search_sources()
     if not search_sources:
@@ -193,7 +205,10 @@ def search_all(
     filtered = [(sk, t, u, c) for sk, t, u, c in raw if _is_relevant(t, query)]
     log.debug("Search raw=%d filtered=%d for query='%s'", len(raw), len(filtered), query)
 
-    return _merge_results(filtered)
+    merged = _merge_results(filtered)
+    if merged:
+        cache.put_search(query, merged)
+    return merged
 
 
 def _search_one(
@@ -249,7 +264,13 @@ def _merge_results(raw: list[tuple[str, str, str, str | None]]) -> List[Series]:
 
 def get_episodes(series: Series) -> List[Episode]:
     """Get episodes from all sources concurrently, merge by episode number."""
+    from donghua_cli import cache
     from donghua_cli.sources import get_source
+
+    cached = cache.get_episode_list(series)
+    if cached is not None:
+        log.debug("Episode-list cache hit for '%s' (%d eps)", series.title, len(cached))
+        return cached
 
     all_raw: list[tuple[str, str, str]] = []
 
@@ -276,7 +297,10 @@ def get_episodes(series: Series) -> List[Episode]:
                 log.warning("Episode fetch failed on %s: %s", source_key, e)
                 health.mark_dead(source_key, reason=str(e)[:120])
 
-    return _merge_episodes(all_raw)
+    merged = _merge_episodes(all_raw)
+    if merged:
+        cache.put_episode_list(series, merged)
+    return merged
 
 
 def _merge_episodes(raw: list[tuple[str, str, str]]) -> List[Episode]:

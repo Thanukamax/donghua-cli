@@ -2,7 +2,9 @@
 
 import re
 
-from donghua_cli.extractor import _canonicalize
+import donghua_cli.extractor as extractor
+from donghua_cli.extractor import _canonicalize, extract_with_fallback
+from donghua_cli.sources.base import Episode
 
 
 class TestCanonicalize:
@@ -90,6 +92,18 @@ class TestCanonicalize:
         # to https unconditionally.
         assert _canonicalize("//streamtape.com/e/abc").startswith("https://")
 
+    def test_rumble_embed_normalised(self):
+        # yt-dlp's RumbleEmbed extractor pins rumble.com/embed/<id>/ — strip any
+        # .html suffix / query string down to that canonical form.
+        assert (
+            _canonicalize("https://rumble.com/embed/v6xyz12.html?autoplay=1")
+            == "https://rumble.com/embed/v6xyz12/"
+        )
+        assert (
+            _canonicalize("//rumble.com/embed/v6xyz12/")
+            == "https://rumble.com/embed/v6xyz12/"
+        )
+
 
 # Test the regex patterns used in extractor.py without making real HTTP calls.
 
@@ -128,6 +142,22 @@ class TestExtractionPatterns:
         assert m is not None
         assert "ok.ru" in m.group(1)
 
+    def test_rumble_iframe_matched_by_host_sniff(self):
+        # A rumble embed must be picked up by the generic VIDEO_HOSTS regex the
+        # extractor builds — otherwise it falls through to yt-dlp and usually
+        # fails. Reproduces extractor.extract's host_alt construction.
+        from donghua_cli.extractor import VIDEO_HOSTS
+
+        assert "rumble" in VIDEO_HOSTS
+        html = '<iframe src="https://rumble.com/embed/v6xyz12/"></iframe>'
+        host_alt = "|".join(re.escape(h) for h in VIDEO_HOSTS)
+        m = re.search(
+            rf'src\s*=\s*["\']((?:https?:)?//[^"\']*(?:{host_alt})[^"\']*)["\']',
+            html,
+        )
+        assert m is not None
+        assert "rumble.com/embed/v6xyz12" in m.group(1)
+
 
 class TestDirectUrlDetection:
     def test_m3u8(self):
@@ -141,3 +171,191 @@ class TestDirectUrlDetection:
     def test_html_page_not_detected(self):
         url = "https://example.com/watch/episode-1"
         assert not url.endswith((".m3u8", ".mp4", ".mkv"))
+
+
+class TestRaceAndProbe:
+    """extract_with_fallback races every mirror concurrently, then keeps the
+    first that both resolves AND passes the liveness probe. These tests stub the
+    network-touching helpers so we exercise pure control flow."""
+
+    def _patch(self, monkeypatch, resolves: dict, alive: set):
+        """Stub extract() to map an episode URL -> resolved stream (or itself
+        for a miss) and probe_alive() to accept only URLs in `alive`. health is
+        stubbed to a no-op so we don't touch the real cache file."""
+        monkeypatch.setattr(
+            extractor, "extract", lambda url, allow_ytdlp=True: resolves.get(url, url)
+        )
+        monkeypatch.setattr(extractor, "probe_alive", lambda url, timeout=4: url in alive)
+
+        class _NoHealth:
+            def mark_alive(self, *a, **k):
+                pass
+
+            def mark_dead(self, *a, **k):
+                pass
+
+        monkeypatch.setattr(extractor, "health", _NoHealth())
+
+    def test_picks_a_live_mirror_over_a_dead_one(self, monkeypatch):
+        ep = Episode(number=1, title="ep", urls={"dead": "http://dead/ep", "live": "http://live/ep"})
+        self._patch(
+            monkeypatch,
+            resolves={"http://dead/ep": "http://s/dead", "http://live/ep": "http://s/live"},
+            alive={"http://s/live"},
+        )
+        stream, key = extract_with_fallback(ep)
+        assert (stream, key) == ("http://s/live", "live")
+
+    def test_falls_back_to_resolved_when_nothing_probes_live(self, monkeypatch):
+        # A mirror resolves to a stream but the probe rejects it (e.g. a dead
+        # dailymotion the oEmbed check catches). We still hand back the resolved
+        # URL rather than the raw episode page — the probe can false-negative.
+        ep = Episode(number=2, title="ep", urls={"a": "http://a/ep"})
+        self._patch(
+            monkeypatch, resolves={"http://a/ep": "http://s/a"}, alive=set()
+        )
+        stream, key = extract_with_fallback(ep)
+        assert (stream, key) == ("http://s/a", "a")
+
+    def test_probe_false_disables_liveness_gate(self, monkeypatch):
+        # With probe=False the first resolved mirror wins immediately, no probe.
+        ep = Episode(number=3, title="ep", urls={"a": "http://a/ep"})
+        self._patch(monkeypatch, resolves={"http://a/ep": "http://s/a"}, alive=set())
+        stream, key = extract_with_fallback(ep, probe=False)
+        assert (stream, key) == ("http://s/a", "a")
+
+    def test_ytdlp_fallback_when_cheap_resolve_finds_nothing(self, monkeypatch):
+        # Cheap path (allow_ytdlp=False) resolves nothing; the sequential
+        # yt-dlp phase (allow_ytdlp=True) then succeeds on one mirror.
+        ep = Episode(number=4, title="ep", urls={"a": "http://a/ep"})
+
+        def fake_extract(url, allow_ytdlp=True):
+            if url == "http://a/ep" and allow_ytdlp:
+                return "http://s/ytdlp"
+            return url  # cheap miss
+
+        monkeypatch.setattr(extractor, "extract", fake_extract)
+        monkeypatch.setattr(extractor, "probe_alive", lambda url, timeout=4: True)
+
+        class _NoHealth:
+            def mark_alive(self, *a, **k):
+                pass
+
+            def mark_dead(self, *a, **k):
+                pass
+
+        monkeypatch.setattr(extractor, "health", _NoHealth())
+        stream, key = extract_with_fallback(ep)
+        assert (stream, key) == ("http://s/ytdlp", "a")
+
+    def test_all_dead_returns_raw_primary(self, monkeypatch):
+        ep = Episode(number=5, title="ep", urls={"a": "http://a/ep", "b": "http://b/ep"})
+        # Nothing resolves on either the cheap or yt-dlp pass.
+        monkeypatch.setattr(extractor, "extract", lambda url, allow_ytdlp=True: url)
+        monkeypatch.setattr(extractor, "probe_alive", lambda url, timeout=4: False)
+
+        class _NoHealth:
+            def mark_alive(self, *a, **k):
+                pass
+
+            def mark_dead(self, *a, **k):
+                pass
+
+        monkeypatch.setattr(extractor, "health", _NoHealth())
+        stream, key = extract_with_fallback(ep)
+        # Raw primary URL, canonicalised, attributed to the first source.
+        assert stream == "http://a/ep"
+        assert key == "a"
+
+    def test_mirror_group_dedup_probes_shared_target_once(self, monkeypatch):
+        # Two "mirrors" resolve to the SAME canonical target (the shared
+        # Dailymotion backend case). The race must probe that target once, not
+        # twice — otherwise we pay a redundant RTT and hammer one host.
+        ep = Episode(number=6, title="ep", urls={"a": "http://a/ep", "b": "http://b/ep"})
+        self._patch(
+            monkeypatch,
+            resolves={"http://a/ep": "http://s/shared", "http://b/ep": "http://s/shared"},
+            alive=set(),  # nobody probes live → both would be probed without dedup
+        )
+        probes: list[str] = []
+        monkeypatch.setattr(
+            extractor,
+            "probe_alive",
+            lambda url, timeout=4: probes.append(url) or False,
+        )
+        extract_with_fallback(ep)
+        assert probes.count("http://s/shared") == 1
+
+    def test_negative_cache_skips_known_dead_target(self, monkeypatch):
+        # A target the negative cache already flagged dead is never re-probed.
+        from donghua_cli import cache
+
+        cache.mark_target_dead("http://s/known-dead")
+        ep = Episode(number=7, title="ep", urls={"a": "http://a/ep"})
+        self._patch(
+            monkeypatch, resolves={"http://a/ep": "http://s/known-dead"}, alive=set()
+        )
+        probes: list[str] = []
+        monkeypatch.setattr(
+            extractor,
+            "probe_alive",
+            lambda url, timeout=4: probes.append(url) or True,
+        )
+        extract_with_fallback(ep)
+        assert probes == []  # skipped the probe entirely
+
+
+class TestExtractServers:
+    """The dub switcher hides servers in base64 <option> values.
+
+    AnimeXin publishes one upload per dub and the dubs rot independently, so the
+    English server going 410 while the Indonesian one still plays is the normal
+    case, not an edge case. A plain iframe scan sees only the single unencoded
+    player and reports a recoverable episode as dead.
+    """
+
+    PAGE = (
+        "<html><body>"
+        '<select>'
+        # base64 of: <iframe src="https://www.dailymotion.com/embed/video/xENG"></iframe>
+        '<option value="PGlmcmFtZSBzcmM9Imh0dHBzOi8vd3d3LmRhaWx5bW90aW9uLmNvbS9lbWJlZC92aWRlby94RU5HIj48L2lmcmFtZT4=">English</option>'
+        # base64 of: <iframe src="https://www.dailymotion.com/embed/video/xIND"></iframe>
+        '<option value="PGlmcmFtZSBzcmM9Imh0dHBzOi8vd3d3LmRhaWx5bW90aW9uLmNvbS9lbWJlZC92aWRlby94SU5EIj48L2lmcmFtZT4=">Indonesia</option>'
+        '</select>'
+        '<iframe src="https://www.dailymotion.com/embed/video/xENG"></iframe>'
+        "</body></html>"
+    )
+
+    def _patch_page(self, monkeypatch, html: str):
+        from selectolax.lexbor import LexborHTMLParser
+        monkeypatch.setattr(extractor, "fetch_html", lambda url, timeout=8: LexborHTMLParser(html))
+
+    def test_decodes_every_dub_server(self, monkeypatch):
+        self._patch_page(monkeypatch, self.PAGE)
+        got = extractor.extract_servers("http://ax/ep")
+        assert got == [
+            "https://www.dailymotion.com/video/xENG",
+            "https://www.dailymotion.com/video/xIND",
+        ]
+
+    def test_dedupes_the_plain_iframe_against_the_encoded_one(self, monkeypatch):
+        # The unencoded player repeats the English server; it must not appear twice.
+        self._patch_page(monkeypatch, self.PAGE)
+        got = extractor.extract_servers("http://ax/ep")
+        assert len(got) == len(set(got))
+
+    def test_survives_undecodable_options(self, monkeypatch):
+        self._patch_page(
+            monkeypatch,
+            '<select><option value="' + "!" * 60 + '">junk</option></select>'
+            '<iframe src="https://www.dailymotion.com/embed/video/xOK"></iframe>',
+        )
+        assert extractor.extract_servers("http://ax/ep") == [
+            "https://www.dailymotion.com/video/xOK"
+        ]
+
+    def test_returns_empty_when_the_page_cannot_be_fetched(self, monkeypatch):
+        def boom(url, timeout=8):
+            raise RuntimeError("network down")
+        monkeypatch.setattr(extractor, "fetch_html", boom)
+        assert extractor.extract_servers("http://ax/ep") == []

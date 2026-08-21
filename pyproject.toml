@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "donghua-cli"
-version = "3.2.1"
+version = "4.0.0"
 description = "Wuxia-themed terminal client for streaming Chinese animation"
 readme = "README.md"
 license = "MIT"
@@ -19,10 +19,12 @@ classifiers = [
     "Topic :: Multimedia :: Video",
 ]
 dependencies = [
-    "httpx>=0.27.0",
+    "curl_cffi>=0.7.0",
     "selectolax>=0.3.21",
     "rich>=13.0.0",
-    "textual>=1.0.0",
+    "textual>=8.2.7,<9",
+    "diskcache>=5.6.0",
+    "platformdirs>=4.0.0",
 ]
 
 [project.optional-dependencies]

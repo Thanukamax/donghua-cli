@@ -49,9 +49,38 @@ dhua "Soul Land" -q 1080
 # Download instead of stream
 dhua "Perfect World" -d
 
+# Update donghua-cli and yt-dlp
+dhua update
+
+# ...or just show what it would run
+dhua update --dry-run
+
+# Check dependencies + run a smoke test
+dhua doctor
+
+# ...and auto-fetch missing static builds (ffmpeg, N_m3u8DL-RE)
+dhua doctor --fetch
+
 # Show version
 dhua -V
 ```
+
+### `doctor` — dependency check
+
+`dhua doctor` reports which external tools are present (`mpv`, `yt-dlp`,
+`ffmpeg`, `N_m3u8DL-RE`), prints the exact install command for your OS's package
+manager for anything missing, and runs a quick smoke test (a real search + a
+player check). Add `--fetch` to auto-download the clean per-arch static builds
+(`ffmpeg`, `N_m3u8DL-RE`) into a managed bin dir that the app puts on `PATH`
+automatically — `mpv` is always installed via your package manager.
+
+### `update` — keep it current
+
+`dhua update` checks for newer versions of donghua-cli and `yt-dlp` and installs
+them, detecting how each was installed (pipx, uv tool, pip, system package) so
+it upgrades with the tool that actually owns it. `--dry-run` prints the exact
+commands without running them. A day-cached background check also mentions
+available updates on startup.
 
 ### Aliases
 
@@ -174,15 +203,38 @@ dhua
 
 ---
 
+## Sources
+
+Every search fans out across all five concurrently and merges the results by
+fuzzy title match, so one series usually ends up with several mirrors behind it.
+More mirrors means more candidates for the liveness race below.
+
+| Key | Source | Notes |
+|-----|--------|-------|
+| `ds` | DonghuaStream | Largest catalog. Behind Cloudflare -- reachable only via TLS impersonation |
+| `ax` | AnimeXin | Multiple dub servers per episode |
+| `ak` | AnimeKhor | Same, ~9 servers on a typical page |
+| `lm` | LMAnime | |
+| `ld` | LuciferDonghua | Currently returns listings but resolves no playable servers |
+
+Silence any of them with `disabled_sources` in `config.toml`.
+
+---
+
 ## How It Works
 
-1. **Search** -- queries LuciferDonghua + AnimeXin concurrently, merges results by fuzzy title match
-2. **Episodes** -- fetches episode lists from all available servers, merges by episode number
-3. **Extraction** -- fast regex on partial HTML, falls back to full parse, then yt-dlp
-4. **Playback** -- launches MPV/VLC with the resolved stream URL
-5. **Preloading** -- background thread resolves the next 2-3 episodes while you watch
-6. **Cache** -- LRU cache makes repeat plays instant
-7. **Fallback** -- if one server fails, silently tries the next
+1. **Search** -- queries all five sources concurrently, merges results by fuzzy title match
+2. **Episodes** -- fetches episode lists from every mirror, merges by episode number
+3. **Extraction** -- decodes every server an episode page offers, not just the first player
+4. **Liveness race** -- probes those candidates in parallel with a ranged `GET` and takes the first mirror returning real bytes, so a dead mirror costs a probe instead of a failed playback
+5. **Playback** -- launches MPV/VLC with the resolved stream URL
+6. **Preloading** -- background thread resolves the next 2-3 episodes while you watch
+7. **Cache** -- tiered TTLs: search results 6h, episode lists 3h, resolved streams 90s
+
+Requests impersonate a real browser's TLS fingerprint (`curl_cffi`), which is
+what gets past the anti-bot walls these sites sit behind. Resolved stream URLs
+are signed and short-lived, which is why that tier expires in seconds rather
+than hours.
 
 Movies and series are detected automatically. Movie parts (PT-01, Part 01) are handled correctly.
 
@@ -191,11 +243,12 @@ Movies and series are detected automatically. Movie parts (PT-01, Part 01) are h
 ## All CLI Options
 
 ```
-donghua [query] [-q QUALITY] [-d] [--classic] [--logs] [--verbose]
-                [--clear-cache] [--features] [-V]
+donghua [query|doctor|update] [-q QUALITY] [-d] [--classic] [--logs] [--verbose]
+                              [--clear-cache] [--features] [--doctor] [--fetch]
+                              [--update] [--dry-run] [-V]
 
 positional:
-  query              Series to search for
+  query              Series to search for, or the bare subcommand `doctor` / `update`
 
 options:
   -q, --quality      Video quality (360, 480, 720, 1080)
@@ -205,6 +258,10 @@ options:
   --verbose          Print debug output to stderr
   --clear-cache      Clear the stream cache
   --features         Show features and capabilities
+  --doctor           Check dependencies + run a smoke test
+  --fetch            With doctor: auto-fetch missing static builds
+  --update           Check for and install updates (donghua-cli + yt-dlp)
+  --dry-run          With --update: show what would run, change nothing
   -V, --version      Show version
 ```
 
@@ -218,7 +275,9 @@ options:
 | No video plays | Install mpv: see platform table above |
 | Search returns nothing | Try a simpler query, or check your internet |
 | Slow search | Normal -- source sites take 3-4s to respond |
-| Download fails | Install yt-dlp: `pip install yt-dlp` |
+| Download fails | Run `dhua doctor` -- it names the missing tool and how to install it |
+| Episode won't play | Usually a pulled upload. The liveness race tries other mirrors automatically; if all are dead, try another episode or source |
+| Anything dependency-shaped | `dhua doctor --fetch` |
 | TUI looks broken | Your terminal needs 256-color support. Try `--classic` mode |
 | Windows colors broken | Use Windows Terminal (not cmd.exe) |
 

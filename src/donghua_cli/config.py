@@ -43,7 +43,23 @@ else:
     CACHE_DIR = os.path.expanduser("~/.cache/donghua")
 
 CONFIG_FILE = os.path.join(_CONFIG_DIR, "config.toml")
-STREAM_CACHE_FILE = os.path.join(CACHE_DIR, "stream_cache.json")
+STREAM_CACHE_FILE = os.path.join(CACHE_DIR, "stream_cache.json")  # legacy JSON (pre-diskcache)
+
+# diskcache lives in a subdir of CACHE_DIR so the platform-aware base (incl.
+# the Termux/Android special-casing above) is preserved instead of handing the
+# whole decision to platformdirs, which doesn't know about Termux.
+CACHE_DB_DIR = os.path.join(CACHE_DIR, "dc")
+
+# Where the doctor drops auto-fetched binaries (mpv/ffmpeg/N_m3u8DL-RE). Kept out
+# of CACHE_DIR on purpose: these are durable tools, not disposable cache. Falls
+# back to the config dir if platformdirs isn't importable for some reason.
+try:
+    import platformdirs as _pd
+
+    DATA_DIR = _pd.user_data_dir("donghua-cli", appauthor=False)
+except Exception:  # pragma: no cover - platformdirs is a hard dep, belt & braces
+    DATA_DIR = _CONFIG_DIR
+BIN_DIR = os.path.join(DATA_DIR, "bin")
 
 # ── defaults ─────────────────────────────────────────────────────────────
 
@@ -75,6 +91,11 @@ def _default_download_dir() -> str:
 
 
 DOWNLOAD_DIR = _default_download_dir()
+
+# curl_cffi TLS-fingerprint impersonation target. "chrome" tracks the latest
+# stable Chrome profile curl_cffi ships; override in config.toml if a site
+# starts fingerprinting a specific build.
+IMPERSONATE = "chrome"
 
 HEADERS = {
     "User-Agent": (
@@ -154,10 +175,35 @@ def get_auto_next() -> bool:
     return bool(cfg.get("auto_next", True))
 
 
+def get_update_check() -> bool:
+    """Whether to check for donghua-cli / yt-dlp updates in the background.
+
+    Opt-out via ``update_check = false`` in config.toml. The check never blocks
+    startup and never installs anything on its own — it only prints a notice.
+    """
+    cfg = _load_user_config()
+    return bool(cfg.get("update_check", True))
+
+
 def ensure_dirs():
     os.makedirs(CACHE_DIR, exist_ok=True)
     if PLATFORM != "android":
         os.makedirs(get_download_dir(), exist_ok=True)
+
+
+def ensure_bin_on_path() -> None:
+    """Prepend BIN_DIR to ``PATH`` so doctor-fetched binaries are found.
+
+    The player/downloader invoke ``mpv``/``yt-dlp``/``N_m3u8DL-RE`` by bare name,
+    which only resolves against ``PATH``. Binaries the doctor drops in BIN_DIR
+    would otherwise be invisible. Idempotent; a no-op when BIN_DIR is already
+    present or doesn't exist yet.
+    """
+    if not os.path.isdir(BIN_DIR):
+        return
+    parts = os.environ.get("PATH", "").split(os.pathsep)
+    if BIN_DIR not in parts:
+        os.environ["PATH"] = BIN_DIR + os.pathsep + os.environ.get("PATH", "")
 
 
 def create_default_config() -> str:
