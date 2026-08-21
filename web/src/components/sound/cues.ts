@@ -34,7 +34,7 @@ export function shellDrop(i: number, heavy = false) {
   const weight = Math.min(1 + i * 0.1, 1.35);
 
   // The fall — air rushing past, pitched down as it comes toward you.
-  whoosh(FALL + 0.1, -1, { gain: 0.5 * weight, pan, width: 0.7, send: 0.4 });
+  whoosh(FALL + 0.1, -1, { gain: 0.4 * weight, pan, width: 0.7, send: 0.4 });
 
   at(FALL, () => {
     // Each landing shoves the drone bed down for a moment. On the rebuild that
@@ -45,11 +45,11 @@ export function shellDrop(i: number, heavy = false) {
     // the page — these land on a drone bed with the destroy gong still decaying.
     const lvl = heavy ? 0.72 : 1;
     const f = (heavy ? 74 : 92) - i * 6;
-    stone(f, { gain: 0.82 * weight * lvl, pan });
-    wood(300 - i * 22, { gain: 0.55 * lvl, pan, send: 0.35 });
-    sub(f * 1.5, 30, 0.5 + i * 0.05, { gain: 0.5 * weight * lvl });
+    stone(f, { gain: 0.55 * weight * lvl, pan });
+    wood(300 - i * 22, { gain: 0.42 * lvl, pan, send: 0.35 });
+    sub(f * 1.5, 30, 0.5 + i * 0.05, { gain: 0.34 * weight * lvl });
     // Struck-stone resonance, low and short — the ring itself ringing.
-    bell(degree(1) * 0.5, 1.1 + i * 0.1, { gain: 0.3, send: 0.55, pan: -pan * 0.5 });
+    bell(degree(1) * 0.5, 1.1 + i * 0.1, { gain: 0.24, send: 0.55, pan: -pan * 0.5 });
     // Debris/dust scattering off the impact.
     whoosh(0.5, 1, { gain: 0.2, pan: -pan, width: 0.85, send: 0.6 });
   });
@@ -59,10 +59,10 @@ export function shellDrop(i: number, heavy = false) {
 export function sealStamp(heavy = false) {
   duck(0.5, 0.3);
   whoosh(0.26, -1, { gain: 0.55, width: 0.5 });          // the seal coming down
-  stone(heavy ? 58 : 68, { gain: heavy ? 1.15 : 1.5 });
-  wood(heavy ? 400 : 540, { gain: 0.85 });
-  sub(heavy ? 82 : 100, 26, heavy ? 1.5 : 1.05, { gain: heavy ? 0.9 : 1.15 });
-  at(0.04, () => bell(degree(heavy ? 0 : 2), heavy ? 4 : 3, { gain: 0.7, send: 0.75 }));
+  stone(heavy ? 58 : 68, { gain: heavy ? 0.82 : 1.05 });
+  wood(heavy ? 400 : 540, { gain: 0.62 });
+  sub(heavy ? 82 : 100, 26, heavy ? 1.5 : 1.05, { gain: heavy ? 0.62 : 0.8 });
+  at(0.04, () => bell(degree(heavy ? 0 : 2), heavy ? 4 : 3, { gain: 0.55, send: 0.75 }));
   at(0.06, () => airBed(1.9, { gain: 0.42, send: 0.8 })); // the room reacting
 }
 
@@ -143,9 +143,9 @@ export function killInk() {
 /** 歸 stamps. A temple gong with a minor second inside it — the page's only
  *  deliberately ugly interval, because this is the only destructive action. */
 export function killMark() {
-  gong(degree(0) * 0.5, 5.5, { gain: 1.15 });
-  at(0.02, () => gong(degree(0) * 0.53, 4.2, { gain: 0.5, pan: 0.3 }));
-  sub(60, 24, 2.2, { gain: 1.0 });
+  gong(degree(0) * 0.5, 5.5, { gain: 0.85 });
+  at(0.02, () => gong(degree(0) * 0.53, 4.2, { gain: 0.38, pan: 0.3 }));
+  sub(60, 24, 2.2, { gain: 0.75 });
 }
 
 /* ── 用 · interaction ────────────────────────────────────────────────────── */

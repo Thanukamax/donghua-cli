@@ -14,10 +14,11 @@
 
 const FLOOR = 0.0001;          // exponentialRamp can't reach 0
 /** One knob for the whole page's loudness. Every cue gain is relative to it.
- *  Held just under unity: the rebuild stacks heavy impacts on a drone bed while
- *  the destroy gong is still decaying, and at 1.0 that combination put a couple
- *  of samples over full scale. */
-const MASTER = 0.92;
+ *  0.55 is -4.5 dB off the ceiling, landing between the first mix (too quiet at
+ *  about -16 dBFS) and the loud one. Everything below stays in proportion, and
+ *  the set-pieces stop leaning on the limiter, so they read as dynamic rather
+ *  than flat-out. Turn this, not the individual cue gains. */
+const MASTER = 0.55;
 /* Polyphony guard — it exists to stop hover spam building a wall of noise, not
    to ration the set-pieces. The intro legitimately runs ~50 voices at once (six
    17-node impacts overlapping, each with a 1.1s bell tail), and at 44 it would
