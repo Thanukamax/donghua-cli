@@ -268,7 +268,7 @@ requires-dist = [
     { name = "rich-pixels", marker = "extra == 'covers'", specifier = ">=2.0.0" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "selectolax", specifier = ">=0.3.21" },
-    { name = "textual", specifier = ">=1.0.0" },
+    { name = "textual", specifier = ">=8.2.7,<9" },
     { name = "yt-dlp", marker = "extra == 'download'", specifier = ">=2023.0.0" },
 ]
 provides-extras = ["download", "covers", "dev"]
