@@ -1,21 +1,21 @@
 /* mobile.jsx — dedicated mobile composition: top bar + ritual menu, condensed
    hero, snap-scroll discipline rail, stacked footer. Same identity, different bones. */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { MagicCircleSVG } from './magic-circle';
 import { CountUp, KineticChars, KineticText } from './motion';
-import { FEATURES, Footer, FooterMagicSeal } from './sections';
-import { getLenis, setLenis } from './lenis-store';
+import { FEATURES, FooterMagicSeal, LINKS, STATS } from './sections';
+import { getLenis } from './lenis-store';
 
 export function useIsMobile() {
     const q = '(max-width: 820px)';
   const [m, setM] = useState(() => window.matchMedia(q).matches);
   useEffect(() => {
     const mq = window.matchMedia(q);
-    const fn = e => setM(e.matches);
-    mq.addEventListener ? mq.addEventListener('change', fn) : mq.addListener(fn);
-    return () => { mq.removeEventListener ? mq.removeEventListener('change', fn) : mq.removeListener(fn); };
+    const fn = (e: MediaQueryListEvent) => setM(e.matches);
+    mq.addEventListener('change', fn);
+    return () => mq.removeEventListener('change', fn);
   }, []);
   return m;
 }
@@ -43,16 +43,18 @@ export function MobileTopBar() {
   }, []);
   useEffect(() => {
     document.documentElement.style.overflow = open ? 'hidden' : '';
-    if (getLenis()) open ? getLenis().stop() : getLenis().start();
+    const l = getLenis();
+    if (l) open ? l.stop() : l.start();
     return () => { document.documentElement.style.overflow = ''; };
   }, [open]);
-  const go = (e, href) => {
+  const go = (e: SyntheticEvent, href: string) => {
     e.preventDefault();
     setOpen(false);
     setTimeout(() => {
-      const el = href === '#' ? null : document.querySelector(href);
+      const el = href === '#' ? null : document.querySelector<HTMLElement>(href);
       if (!el) return;
-      if (getLenis()) getLenis().scrollTo(el, { duration: 1.1 });
+      const l = getLenis();
+      if (l) l.scrollTo(el, { duration: 1.1 });
       else window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY, behavior: 'smooth' });
     }, 80);
   };
@@ -66,7 +68,7 @@ export function MobileTopBar() {
         backdropFilter: scrolled || open ? 'blur(16px)' : 'none',
         borderBottom: '1px solid ' + (scrolled && !open ? 'rgba(212,175,55,.12)' : 'transparent'),
         transition: 'background .4s, border-color .4s' }}>
-        <a href="#" onClick={e => { e.preventDefault(); getLenis() ? getLenis().scrollTo(0, { duration: 1.1 }) : window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+        <a href="#" onClick={e => { e.preventDefault(); const l = getLenis(); l ? l.scrollTo(0, { duration: 1.1 }) : window.scrollTo({ top: 0, behavior: 'smooth' }); }}
           style={{ display: 'flex', alignItems: 'center', gap: '.55rem', textDecoration: 'none' }}>
           <span aria-hidden="true" style={{ width: 26, height: 26, border: '1.5px solid #c3272b',
             background: 'rgba(195,39,43,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -136,7 +138,8 @@ export function MobileHero({ settled }: { settled?: boolean }) {
   const goEnter = () => {
     const el = document.getElementById('enter');
     if (!el) return;
-    getLenis() ? getLenis().scrollTo(el, { duration: 1.2 })
+    const l = getLenis();
+    l ? l.scrollTo(el, { duration: 1.2 })
       : window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY, behavior: 'smooth' });
   };
   return (
@@ -186,8 +189,11 @@ export function MobileHero({ settled }: { settled?: boolean }) {
 
       <KineticChars text="DONGHUA-CLI" as="h1" shimmer style={{
         fontFamily: "'Cinzel',serif", fontWeight: 600,
-        fontSize: 'clamp(2rem,10.5vw,3.2rem)', letterSpacing: '.16em',
+        fontSize: 'clamp(1.6rem,8.4vw,3.2rem)', letterSpacing: '.16em',
         color: '#d4af37', marginBottom: '.9rem', lineHeight: 1,
+        // KineticChars puts every glyph in its own inline-block, so the wordmark
+        // is breakable anywhere — pin it to one line and size it to fit 320px up.
+        whiteSpace: 'nowrap',
       }} delay={.25} stagger={.05} />
 
       <motion.p initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
@@ -262,18 +268,13 @@ export function MobileAbout() {
           ))}
         </motion.div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.1rem 1rem', marginTop: '.4rem' }}>
-          {[
-            { n: 12, suffix: '+', label: 'Sources' },
-            { text: '4K', label: 'Quality' },
-            { n: 100, suffix: '+', label: 'Series' },
-            { text: 'Free', label: 'Forever' },
-          ].map((s, i) => (
+          {STATS.map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }} transition={{ delay: i * .09, duration: .65, ease: [.16, 1, .3, 1] }}
               style={{ display: 'flex', flexDirection: 'column', gap: '.15rem',
                 borderTop: '1px solid rgba(212,175,55,.14)', paddingTop: '.7rem' }}>
               <span style={{ fontFamily: "'Cinzel',serif", fontSize: '1.35rem', color: '#d4af37' }}>
-                {s.text || <CountUp to={s.n} suffix={s.suffix} />}
+                {s.text || <CountUp to={s.n ?? 0} suffix={s.suffix} />}
               </span>
               <span style={{ fontFamily: "'Fira Code',monospace", fontSize: '.6rem',
                 letterSpacing: '.2em', color: '#6f9183', textTransform: 'uppercase' }}>{s.label}</span>
@@ -290,7 +291,7 @@ export function MobileFeatureRail() {
         const NUMS = ['壹', '贰', '叁', '肆', '伍', '陆'];
   const [active, setActive] = useState(0);
   const railRef = useRef<HTMLDivElement>(null);
-  const cardRefs = useRef([]);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   // Coverflow: each card scales/turns by its distance from rail center
   const applyFlow = () => {
     const el = railRef.current; if (!el) return;
@@ -305,8 +306,10 @@ export function MobileFeatureRail() {
     });
   };
   const onScroll = () => {
-    const el = railRef.current; if (!el || !el.firstChild) return;
-    const w = el.firstChild.offsetWidth + 14;
+    const el = railRef.current;
+    const first = el?.firstElementChild as HTMLElement | null | undefined;
+    if (!el || !first) return;
+    const w = first.offsetWidth + 14;
     setActive(Math.max(0, Math.min(FEATURES.length - 1, Math.round(el.scrollLeft / w))));
     requestAnimationFrame(applyFlow);
   };
@@ -403,8 +406,10 @@ export function MobileFooter() {
           The archive answers only to the command line. Search the saga, stream the signal, and keep what is yours.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.6rem 2.6rem', marginTop: '.4rem' }}>
-          {['GitHub', 'Docs', 'Changelog', 'Issues', 'Discussions', 'Blog'].map(l => (
-            <a key={l} href="#" style={{ fontFamily: "'EB Garamond',serif", fontSize: '1rem',
+          {([['GitHub', LINKS.github], ['Docs', LINKS.docs], ['Changelog', LINKS.changelog],
+             ['Issues', LINKS.issues], ['Discussions', LINKS.discussions], ['PyPI', LINKS.pypi]] as const).map(([l, href]) => (
+            <a key={l} href={href} target="_blank" rel="noopener noreferrer"
+              style={{ fontFamily: "'EB Garamond',serif", fontSize: '1rem',
               color: 'rgba(233,228,214,.5)', textDecoration: 'none', padding: '.2rem 0' }}>{l}</a>
           ))}
         </div>
@@ -417,7 +422,7 @@ export function MobileFooter() {
       <div style={{ borderTop: '1px solid rgba(212,175,55,.08)', padding: '1.1rem 1.5rem',
         display: 'flex', flexDirection: 'column', gap: '.3rem' }}>
         <span style={{ fontFamily: "'Fira Code',monospace", fontSize: '.6rem',
-          color: 'rgba(111,145,131,.4)', letterSpacing: '.1em' }}>v1.0.0 · MIT License · Python 3.9+</span>
+          color: 'rgba(111,145,131,.4)', letterSpacing: '.1em' }}>v3.2.1 · MIT License · Python 3.9+</span>
         <span style={{ fontFamily: "'EB Garamond',serif", fontStyle: 'italic', fontSize: '.88rem',
           color: 'rgba(245,239,226,.28)' }}>Made for those who know where to look.</span>
       </div>

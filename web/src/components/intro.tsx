@@ -6,15 +6,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { MagicCircleSVG } from './magic-circle';
-import { getLenis, setLenis } from './lenis-store';
+import { getLenis } from './lenis-store';
 
 const INTRO_SHELLS = [1, 2, 3, 4, 5, 6];
+
+/** Live-measured landing geometry the intro formation morphs onto. */
+type MorphTarget = { y: number; arrScale: number; sealScale: number; op: number };
 
 export function IntroOverlay({ onMorph, onDone, isMobile }: { onMorph: () => void; onDone: () => void; isMobile: boolean }) {
         const seen = (() => { try { return sessionStorage.getItem('dh_intro_seen') === '1'; } catch (e) { return false; } })();
   const [stamped, setStamped] = useState(false);
   const [morphing, setMorphing] = useState(false);
-  const [tgt, setTgt] = useState(null);
+  const [tgt, setTgt] = useState<MorphTarget | null>(null);
   const doneRef = useRef(false), morphRef = useRef(false);
 
   const STEP = seen ? .07 : .36;
@@ -39,7 +42,7 @@ export function IntroOverlay({ onMorph, onDone, isMobile }: { onMorph: () => voi
     doneRef.current = true;
     try { sessionStorage.setItem('dh_intro_seen', '1'); } catch (e) {}
     document.documentElement.style.overflow = '';
-    if (getLenis()) getLenis().start();
+    getLenis()?.start();
     onDone();
   };
   const startMorph = () => {
@@ -66,8 +69,8 @@ export function IntroOverlay({ onMorph, onDone, isMobile }: { onMorph: () => voi
 
   useEffect(() => {
     document.documentElement.style.overflow = 'hidden';
-    if (getLenis()) getLenis().stop();
-    const timers = [];
+    getLenis()?.stop();
+    const timers: ReturnType<typeof setTimeout>[] = [];
     timers.push(setTimeout(() => setStamped(true), T.stamp * 1000));
     timers.push(setTimeout(startMorph, T.morph * 1000));
     timers.push(setTimeout(finish, T.kill * 1000));
@@ -77,7 +80,7 @@ export function IntroOverlay({ onMorph, onDone, isMobile }: { onMorph: () => voi
       timers.forEach(clearTimeout);
       window.removeEventListener('keydown', onKey);
       document.documentElement.style.overflow = '';
-      if (getLenis()) getLenis().start();
+      getLenis()?.start();
     };
   }, []);
 

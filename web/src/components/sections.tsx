@@ -4,12 +4,33 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { ArrayBackdrop, MagicCircleSVG, RingPolySVG, usePauseOffscreen } from './magic-circle';
 import { CountUp, FromDepth, KineticChars, KineticText, MagneticButton, Parallax, ScrollDrift, useScrollMV } from './motion';
-import { getLenis, setLenis } from './lenis-store';
+import { getLenis } from './lenis-store';
 
 export type Feature = { cn: string; en: string; desc: string };
 
+// ─── Real URLs ───────────────────────────────────────────────────────────────
+const REPO = 'https://github.com/Thanukamax/donghua-cli';
+export const LINKS = {
+  home: '/',
+  github: REPO,
+  docs: `${REPO}#readme`,
+  changelog: `${REPO}/releases`,
+  issues: `${REPO}/issues`,
+  discussions: `${REPO}/discussions`,
+  pypi: 'https://pypi.org/project/donghua-cli/',
+} as const;
+
+/** Stat tile: either a counted number or a literal string. */
+type Stat = { label: string; n?: number; suffix?: string; text?: string };
+export const STATS: Stat[] = [
+  { n: 12,  suffix: '+', label: 'Sources' },
+  { text: '4K',          label: 'Quality' },
+  { n: 100, suffix: '+', label: 'Series' },
+  { text: 'Free',        label: 'Forever' },
+];
+
+
 export function Nav() {
-      const MagicCircleSVG = window.MagicCircleSVG;
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 80);
@@ -26,7 +47,7 @@ export function Nav() {
       backdropFilter: scrolled ? 'blur(18px)' : 'none',
       borderBottom: `1px solid ${scrolled ? 'rgba(212,175,55,.12)' : 'transparent'}`,
     }}>
-      <a href="#" style={{ display:'flex', alignItems:'center', gap:'.6rem',
+      <a href={LINKS.home} style={{ display:'flex', alignItems:'center', gap:'.6rem',
         fontFamily:"'Cinzel',serif", fontSize:'.78rem', letterSpacing:'.3em',
         color:'#d4af37', textDecoration:'none', textTransform:'uppercase', opacity:.9 }}>
         <span aria-hidden="true" style={{ display:'inline-flex', animation:'ringCW 40s linear infinite' }}>
@@ -35,7 +56,7 @@ export function Nav() {
         donghua-cli
       </a>
       <div style={{ display:'flex', gap:'2.5rem' }}>
-        {[['Disciplines','#capabilities'],['Demo','#demo'],['Install','#install'],['FAQ','#faq'],['GitHub','#']].map(([label, href]) => (
+        {([['Disciplines','#capabilities'],['Demo','#demo'],['Install','#install'],['FAQ','#faq'],['GitHub',LINKS.github]] as const).map(([label, href]) => (
           <a key={label} href={href} className="nav-ink" style={{ fontFamily:"'EB Garamond',serif", fontSize:'1.05rem',
             color:'#e9e4d6', textDecoration:'none', opacity:.6 }}
           >{label}</a>
@@ -135,7 +156,8 @@ export function HeroSection({ settled }: { settled?: boolean }) {
         <MagneticButton aria-label="Enter the realm"
           onClick={()=>{ const el=document.getElementById('enter');
             if (!el) return;
-            if (getLenis()) getLenis().scrollTo(el, { duration:1.4 });
+            const l = getLenis();
+            if (l) l.scrollTo(el, { duration:1.4 });
             else window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY, behavior:'smooth' }); }}
           style={{ padding:'.7rem 2.4rem', background:'transparent',
             border:'1px solid #d4af37', borderRadius:'2px', color:'#d4af37',
@@ -238,17 +260,12 @@ export function WhatItIsSection() {
 
         {/* Stat row — numbers count up as they enter */}
         <div style={{ display:'flex', gap:'clamp(1.5rem,4vw,3rem)', flexWrap:'wrap' }}>
-          {[
-            { n:12, suffix:'+', label:'Sources' },
-            { text:'4K', label:'Quality' },
-            { n:100, suffix:'+', label:'Series' },
-            { text:'Free', label:'Forever' },
-          ].map((s, i) => (
+          {STATS.map((s, i) => (
             <motion.div key={s.label} initial={{ opacity:0, y:16 }} whileInView={{ opacity:1, y:0 }}
               viewport={{once:true}} transition={{ delay:.55 + i*.12, duration:.75, ease:[.16,1,.3,1] }}
               style={{ display:'flex', flexDirection:'column', gap:'.2rem' }}>
               <span style={{ fontFamily:"'Cinzel',serif", fontSize:'1.45rem', color:'#d4af37', letterSpacing:'.05em' }}>
-                {s.text || <CountUp to={s.n} suffix={s.suffix} />}
+                {s.text || <CountUp to={s.n ?? 0} suffix={s.suffix} />}
               </span>
               <span style={{ fontFamily:"'Fira Code',monospace", fontSize:'.62rem', letterSpacing:'.2em', color:'#6f9183', textTransform:'uppercase' }}>{s.label}</span>
             </motion.div>
@@ -274,7 +291,7 @@ export function GoldRule() {
     hide: { scale: 0, rotate: 225 },
     show: { scale: 1, rotate: 45, transition: { duration: .8, ease: [.16,1,.3,1], delay: .45 } },
   };
-  const Cloud = ({ flip }) => (
+  const Cloud = ({ flip }: { flip?: boolean }) => (
     <svg width="46" height="14" viewBox="0 0 46 14" aria-hidden="true"
       style={{ transform: flip ? 'scaleX(-1)' : 'none' }}>
       <motion.path variants={cloudV}
@@ -313,7 +330,7 @@ function FeatureRow({ item, index }: { item: Feature; index: number }) {
     const isEven = index % 2 === 1;
   const delay = 0.05 * index;
   const vp = { once:true, margin:'-8% 0px' };
-  const Identity = ({ right }) => (
+  const Identity = ({ right }: { right?: boolean }) => (
     <div style={{ display:'flex', flexDirection:'column', gap:'.5rem',
       alignItems: right ? 'flex-end' : 'flex-start', minWidth:'clamp(90px,14vw,160px)' }}>
       <span style={{ display:'block', overflow:'hidden' }}>
@@ -492,7 +509,7 @@ export function TerminalDemoSection({ compact }: { compact?: boolean }) {
 
   useEffect(() => {
     if (!active) return;
-    const timers = [];
+    const timers: any[] = [];
     TERM_LINES.forEach((line, i) => {
       if (line.type === 'prompt') {
         timers.push(setTimeout(() => {
@@ -516,10 +533,10 @@ export function TerminalDemoSection({ compact }: { compact?: boolean }) {
         timers.push(setTimeout(() => setShown(s => Math.max(s, i + 1)), line.delay));
       }
     });
-    return () => timers.forEach(t => clearTimeout(t) || clearInterval(t));
+    return () => timers.forEach(t => { clearTimeout(t); clearInterval(t); });
   }, [active]);
 
-  const lineColor = t => t==='prompt'?'#f5efe2' : t==='ok'?'#00a86b' : t==='info'?'#6f9183' : t==='result'?'#e9e4d6' : '#3f5d52';
+  const lineColor = (t: string) => t==='prompt'?'#f5efe2' : t==='ok'?'#00a86b' : t==='info'?'#6f9183' : t==='result'?'#e9e4d6' : '#3f5d52';
 
   return (
     <section data-seal-section="3" id="demo" ref={sectionRef} aria-label="Terminal demo"
@@ -745,6 +762,10 @@ export function CTASection() {
   );
 }
 
+/** One orbital in the footer's completed 法印. */
+type FooterRing = { d: number; border: string; tilt: number; prec: string;
+  spin: string | null; poly?: string; deco?: string };
+
 // ─── FooterMagicSeal ───────────────────────────────────────────────────────────
 // The completed 法印 — a static, slowly-rotating magic circle used as the footer mark.
 export function FooterMagicSeal() {
@@ -753,7 +774,7 @@ export function FooterMagicSeal() {
   const C = 160;      // container center (320×320 box)
   const SEAL = 80;    // inner seal square
   // Independent orbitals — own tilt, precession, spin, inscribed line-work
-  const rings = [
+  const rings: FooterRing[] = [
     { d:124, border:'1px solid rgba(212,175,55,.5)',   tilt:62, prec:'ringCW 34s linear infinite',  spin:null },
     { d:162, border:'1px dashed rgba(212,175,55,.36)', tilt:84, prec:'ringCCW 24s linear infinite', spin:'ringCW 26s linear infinite', poly:'squares' },
     { d:205, border:'1px solid rgba(212,175,55,.28)',  tilt:56, prec:'ringCW 28s linear infinite',  spin:'ringCCW 20s linear infinite', deco:'ticks', poly:'hexagram' },
@@ -761,7 +782,7 @@ export function FooterMagicSeal() {
     { d:312, border:'1.5px solid rgba(212,175,55,.4)', tilt:48, prec:'ringCW 48s linear infinite',  spin:'ringCCW 16s linear infinite', deco:'gems', poly:'octagram' },
   ];
   const bagua = ['乾','坎','艮','震','巽','离','坤','兑'];
-  const deco = (ring) => {
+  const deco = (ring: FooterRing) => {
     const c = ring.d/2;
     if (ring.deco === 'ticks') return Array.from({length:8}, (_,i) => {
       const a=(i/8)*2*Math.PI;
@@ -909,15 +930,19 @@ export function Footer({ reduced }: { reduced: boolean }) {
           {/* Grouped links + vertical couplet */}
           <div style={{ display:'flex', gap:'clamp(2rem,5vw,4rem)', flexWrap:'wrap',
             borderTop:'1px solid rgba(212,175,55,.1)', paddingTop:'1.8rem' }}>
-            {[['Project',['GitHub','Docs','Changelog']],['Support',['Issues','Discussions','Blog']]].map(([group, links]) => (
+            {([
+              ['Project', [['GitHub', LINKS.github], ['Docs', LINKS.docs], ['Changelog', LINKS.changelog]]],
+              ['Support', [['Issues', LINKS.issues], ['Discussions', LINKS.discussions], ['PyPI', LINKS.pypi]]],
+            ] as const).map(([group, links]) => (
               <div key={group} style={{ display:'flex', flexDirection:'column', gap:'.7rem' }}>
                 <span style={{ fontFamily:"'Fira Code',monospace", fontSize:'.6rem',
                   letterSpacing:'.25em', color:'rgba(111,145,131,.42)', textTransform:'uppercase', marginBottom:'.2rem' }}>{group}</span>
-                {links.map(l => (
-                  <a key={l} href="#" style={{ fontFamily:"'EB Garamond',serif", fontSize:'1.05rem',
+                {links.map(([l, href]) => (
+                  <a key={l} href={href} target="_blank" rel="noopener noreferrer"
+                    style={{ fontFamily:"'EB Garamond',serif", fontSize:'1.05rem',
                     color:'rgba(233,228,214,.5)', textDecoration:'none', transition:'color .3s, letter-spacing .3s', width:'fit-content' }}
-                    onMouseEnter={e=>{e.target.style.color='#d4af37'; e.target.style.letterSpacing='.04em';}}
-                    onMouseLeave={e=>{e.target.style.color='rgba(233,228,214,.5)'; e.target.style.letterSpacing='0';}}
+                    onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.color='#d4af37'; (e.currentTarget as HTMLElement).style.letterSpacing='.04em';}}
+                    onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.color='rgba(233,228,214,.5)'; (e.currentTarget as HTMLElement).style.letterSpacing='0';}}
                   >{l}</a>
                 ))}
               </div>
@@ -939,7 +964,7 @@ export function Footer({ reduced }: { reduced: boolean }) {
         padding:'1.4rem clamp(2rem,7vw,7rem)' }}>
         <span style={{ fontFamily:"'Fira Code',monospace", fontSize:'.62rem',
           color:'rgba(111,145,131,.4)', letterSpacing:'.1em' }}>
-          v1.0.0 · MIT License · Python 3.9+
+          v3.2.1 · MIT License · Python 3.9+
         </span>
         <span style={{ fontFamily:"'ZCOOL XiaoWei',serif", fontSize:'.82rem',
           letterSpacing:'.3em', color:'rgba(212,175,55,.22)' }}>

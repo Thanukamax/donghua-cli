@@ -163,7 +163,7 @@ export function Background3D({ reduced, lite }: { reduced: boolean; lite?: boole
     const cam = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, .1, 140);
     cam.position.set(0, 0, 26);
 
-    const makeField = (count, sizeBase) => {
+    const makeField = (count: number, sizeBase: number) => {
       const pos = new Float32Array(count*3);
       const seed = new Float32Array(count);
       const size = new Float32Array(count);
@@ -180,7 +180,7 @@ export function Background3D({ reduced, lite }: { reduced: boolean; lite?: boole
       g.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
       return g;
     };
-    const makeMat = (colA, colB, alpha, speed, scrollK) => new THREE.ShaderMaterial({
+    const makeMat = (colA: string, colB: string, alpha: number, speed: number, scrollK: number) => new THREE.ShaderMaterial({
       vertexShader: PARTICLE_VERT, fragmentShader: PARTICLE_FRAG,
       uniforms: {
         uTime:    { value: 0 },
@@ -208,7 +208,11 @@ export function Background3D({ reduced, lite }: { reduced: boolean; lite?: boole
     scene.add(dust);
 
     // Ring-galaxy vortex on the hero array's tilted plane (desktop only)
-    let vortexGeo = null, vortexMat = null, placeVortex = null, heroElCache = null;
+    type VortexCache = { cx: number; cyDoc: number; w: number };
+    let vortexGeo: THREE.BufferGeometry | null = null;
+    let vortexMat: THREE.ShaderMaterial | null = null;
+    let placeVortex: ((force?: boolean) => void) | null = null;
+    let heroElCache: Element | null = null;
     if (!lite) {
       const N = 440, RMIN = 3.3, RMAX = 8.4;
       const pos0 = new Float32Array(N * 3);
@@ -241,8 +245,8 @@ export function Background3D({ reduced, lite }: { reduced: boolean; lite?: boole
       vGroup.add(vortex);
       vGroup.rotation.x = -1.08; // ≈ the CSS orbitals' 62° ring plane
       scene.add(vGroup);
-      let vCache = null, vCacheAt = 0;
-      placeVortex = (force) => {
+      let vCache: VortexCache | null = null, vCacheAt = 0;
+      placeVortex = (force?: boolean) => {
         const dist = 30, halfH = Math.tan(cam.fov * Math.PI / 360) * dist;
         const worldPerPx = (2 * halfH) / window.innerHeight;
         const now = performance.now();
@@ -269,7 +273,7 @@ export function Background3D({ reduced, lite }: { reduced: boolean; lite?: boole
 
     const S = { raf:0, t0:performance.now(), elapsed:0, mx:.5, my:.5, tmx:.5, tmy:.5, scroll:0 };
 
-    const onMouse = e => {
+    const onMouse = (e: MouseEvent) => {
       S.tmx = e.clientX / window.innerWidth;
       S.tmy = 1 - e.clientY / window.innerHeight;
     };

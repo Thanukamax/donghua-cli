@@ -1,19 +1,19 @@
 /* extras.jsx — Install (入门) · FAQ (问答) · BackToTop talisman */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type SyntheticEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrayBackdrop } from './magic-circle';
 import { KineticText } from './motion';
-import { getLenis, setLenis } from './lenis-store';
+import { getLenis } from './lenis-store';
 
-export type FaqItem = { q: string; a: string };
+export type FaqItem = { cn: string; q: string; a: string };
 /** Viewport point a kill-overlay ripple radiates from. */
 export type KillOrigin = { x?: number; y?: number };
 
 // ─── CopyCmd — talisman command chip ─────────────────────────────────────────
-export function CopyCmd({ cmd, full }: { cmd: string; full?: string }) {
+export function CopyCmd({ cmd, full }: { cmd: string; full?: boolean }) {
     const [copied, setCopied] = useState(false);
-  const copy = e => {
+  const copy = (e: SyntheticEvent) => {
     e.stopPropagation();
     navigator.clipboard.writeText(cmd).catch(() => {});
     setCopied(true); setTimeout(() => setCopied(false), 2000);
@@ -210,7 +210,8 @@ export function BackToTop() {
     return () => window.removeEventListener('scroll', fn);
   }, []);
   const toTop = () => {
-    if (getLenis()) getLenis().scrollTo(0, { duration: 1.3 });
+    const l = getLenis();
+    if (l) l.scrollTo(0, { duration: 1.3 });
     else window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const safe = (() => { try { return new URLSearchParams(window.location.search).get('frame') === 'ios'; } catch (e) { return false; } })();
@@ -241,7 +242,7 @@ export function KillOverlay({ origin }: { origin: KillOrigin }) {
       const x = origin && origin.x != null ? origin.x : window.innerWidth * .25;
   const y = origin && origin.y != null ? origin.y : window.innerHeight * .8;
   useEffect(() => {
-    if (getLenis()) getLenis().stop();
+    getLenis()?.stop();
     document.documentElement.style.overflow = 'hidden';
     const t = setTimeout(() => {
       try { sessionStorage.removeItem('dh_intro_seen'); } catch (e) {}

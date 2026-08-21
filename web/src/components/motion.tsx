@@ -3,7 +3,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, useInView, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { HeroSection, Nav } from './sections';
 
 import type { CSSProperties, ElementType, MouseEvent as ReactMouseEvent, ReactNode, RefObject } from 'react';
 import type { HTMLMotionProps, MotionStyle } from 'framer-motion';
