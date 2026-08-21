@@ -3,11 +3,15 @@
    spring-tracks the active anchor so it scrolls WITH the content. */
 
 import { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion, useInView, useMotionValue, useSpring } from 'framer-motion';
+import { AnimatePresence, motion, useMotionValue, useSpring } from 'framer-motion';
 import { MagicCircleSVG, RingPolySVG } from './magic-circle';
-import { Footer } from './sections';
 
-const RING_DATA = [
+type Ring = {
+  id: number; minSec: number; d: number; color: string; dash: boolean; tilt: number;
+  prec: string; spin: string | null; poly?: string; deco?: string;
+};
+
+const RING_DATA: Ring[] = [
   { id:1, minSec:1, d:170, color:'rgba(212,175,55,.52)', dash:false, tilt:62, prec:'ringCW 34s linear infinite',  spin:null },
   { id:2, minSec:2, d:226, color:'rgba(212,175,55,.36)', dash:true,  tilt:84, prec:'ringCCW 24s linear infinite', spin:'ringCW 26s linear infinite', poly:'squares' },
   { id:3, minSec:3, d:286, color:'rgba(212,175,55,.26)', dash:false, tilt:56, prec:'ringCW 28s linear infinite',  spin:'ringCCW 20s linear infinite', deco:'ticks', poly:'hexagram' },

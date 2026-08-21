@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 
-import type { CSSProperties, RefObject } from 'react';
+import type { ReactNode, CSSProperties, RefObject } from 'react';
 
 /** A point in the shared 0-100 viewBox, centered on (50,50). */
 export type Pt = [number, number];
@@ -62,7 +62,6 @@ const MC_TRIGRAMS = [[1,1,1],[1,1,0],[1,0,1],[1,0,0],[0,1,1],[0,1,0],[0,0,1],[0,
 
 // ─── Compound marks ───────────────────────────────────────────────────────────
 export function MCArc({ cx, cy, r, a0, a1, color, large = 1, sweep = 1 }: { cx: number; cy: number; r: number; a0: number; a1: number; color: string; large?: number; sweep?: number }) {
-  const p0 = mcPt(0, 0); // unused guard
   const q0 = [cx + r * Math.cos(a0 * Math.PI / 180), cy + r * Math.sin(a0 * Math.PI / 180)];
   const q1 = [cx + r * Math.cos(a1 * Math.PI / 180), cy + r * Math.sin(a1 * Math.PI / 180)];
   return <path d={'M ' + q0[0].toFixed(2) + ' ' + q0[1].toFixed(2) + ' A ' + r + ' ' + r + ' 0 ' + large + ' ' + sweep + ' ' + q1[0].toFixed(2) + ' ' + q1[1].toFixed(2)}
@@ -124,13 +123,13 @@ export function MCCharRing({ text, r, size = 4.2, color, rot = -90, opacity = .9
 }
 
 // ─── MagicCircleSVG — full formation plates ───────────────────────────────────
-export function MagicCircleSVG({ size = 300, variant = 'square', color = '#d4af37', opacity = 1, layer, style }: { size?: number; variant?: string; color?: string; opacity?: number; layer?: string; style?: CSSProperties }) {
+export function MagicCircleSVG({ size = 300, variant = 'square', color = '#d4af37', opacity = 1, layer, style }: { size?: number; variant?: string; color?: string; opacity?: number; layer?: number; style?: CSSProperties }) {
   const S = { fill: 'none', stroke: color, strokeWidth: 1, vectorEffect: 'non-scaling-stroke' };
   const D = { fill: color, stroke: 'none' };
   const fine = size >= 80; // tiny renditions keep only the core geometry
   // Layered geometry (grand variant): layer=n renders ONLY that shell (1=outermost
   // → 6=core) so callers can stack and animate the shells independently.
-  const bg = (n, kids) => (layer === undefined || layer === n) ? <g key={n}>{kids}</g> : null;
+  const bg = (n: number, kids: ReactNode) => (layer === undefined || layer === n) ? <g key={n}>{kids}</g> : null;
   let art = null;
 
   // 大阵 — the grand nine-palaces plate: every layer of the vocabulary at once
