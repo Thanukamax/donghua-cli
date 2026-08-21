@@ -5,6 +5,7 @@ import { motion, useSpring, useTransform } from 'framer-motion';
 import { ArrayBackdrop, MagicCircleSVG, RingPolySVG, usePauseOffscreen } from './magic-circle';
 import { CountUp, FromDepth, KineticChars, KineticText, MagneticButton, Parallax, ScrollDrift, useScrollMV } from './motion';
 import { getLenis } from './lenis-store';
+import { copy as copyCue, keyTick, ok as okCue, toTop as toTopCue } from './sound/cues';
 
 export type Feature = { cn: string; en: string; desc: string };
 
@@ -71,6 +72,7 @@ export function HeroSection({ settled }: { settled?: boolean }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
     navigator.clipboard.writeText('pip install donghua-cli').catch(()=>{});
+    copyCue();
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
   return (
@@ -139,7 +141,7 @@ export function HeroSection({ settled }: { settled?: boolean }) {
         style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'1.1rem' }}>
 
         {/* Install block */}
-        <div onClick={copy} role="button" tabIndex={0} aria-label="Click to copy install command"
+        <div onClick={copy} role="button" tabIndex={0} aria-label="Click to copy install command" data-sfx="none"
           onKeyDown={e=>e.key==='Enter'&&copy()} className="copy-chip"
           style={{ display:'flex', alignItems:'center', gap:'1rem',
             padding:'.7rem 1.4rem', cursor:'pointer',
@@ -153,8 +155,9 @@ export function HeroSection({ settled }: { settled?: boolean }) {
           </span>
         </div>
 
-        <MagneticButton aria-label="Enter the realm"
+        <MagneticButton aria-label="Enter the realm" data-sfx="none"
           onClick={()=>{ const el=document.getElementById('enter');
+            toTopCue();
             if (!el) return;
             const l = getLenis();
             if (l) l.scrollTo(el, { duration:1.4 });
@@ -518,6 +521,7 @@ export function TerminalDemoSection({ compact }: { compact?: boolean }) {
           const iv = setInterval(() => {
             c++;
             setTyping(line.text.slice(0, c));
+            keyTick();
             if (c >= line.text.length) { clearInterval(iv); setShown(s => Math.max(s, i + 1)); setTypingIdx(-1); }
           }, 45);
           timers.push(iv);
@@ -530,7 +534,10 @@ export function TerminalDemoSection({ compact }: { compact?: boolean }) {
           timers.push(iv);
         }, line.delay));
       } else {
-        timers.push(setTimeout(() => setShown(s => Math.max(s, i + 1)), line.delay));
+        timers.push(setTimeout(() => {
+          setShown(s => Math.max(s, i + 1));
+          if (line.type === 'ok') okCue();
+        }, line.delay));
       }
     });
     return () => timers.forEach(t => { clearTimeout(t); clearInterval(t); });
@@ -643,6 +650,7 @@ export function CTASection() {
       const [copied, setCopied] = useState(false);
   const copy = () => {
     navigator.clipboard.writeText('pip install donghua-cli').catch(()=>{});
+    copyCue();
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
   return (
@@ -722,7 +730,7 @@ export function CTASection() {
           viewport={{once:true}} transition={{delay:.55,duration:.8,ease:[.16,1,.3,1]}}
           style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'1rem', width:'100%' }}>
 
-          <div onClick={copy} role="button" tabIndex={0} aria-label="Click to copy install command"
+          <div onClick={copy} role="button" tabIndex={0} aria-label="Click to copy install command" data-sfx="none"
             onKeyDown={e=>e.key==='Enter'&&copy()} className="copy-chip"
             style={{ display:'flex', alignItems:'center', gap:'1rem', cursor:'pointer',
               padding:'.9rem 1.8rem', width:'100%', maxWidth:'400px', justifyContent:'space-between',
@@ -895,7 +903,7 @@ export function Footer({ reduced }: { reduced: boolean }) {
         {/* LEFT — the seal lands here */}
         <div style={{ display:'flex', justifyContent:'center', alignItems:'center' }}>
           <div id="footer-seal-slot" data-seal-anchor="7" role="button" tabIndex={0}
-            aria-label="歸 — return to the beginning"
+            aria-label="歸 — return to the beginning" data-sfx="none"
             onClick={e => { const r = e.currentTarget.getBoundingClientRect();
               window.dispatchEvent(new CustomEvent('dh-kill', { detail: { x: r.left + r.width / 2, y: r.top + r.height / 2 } })); }}
             onKeyDown={e => { if (e.key === 'Enter') { const r = e.currentTarget.getBoundingClientRect();

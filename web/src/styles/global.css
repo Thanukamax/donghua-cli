@@ -52,6 +52,12 @@
         animation: shimmerSweep 6.5s ease-in-out infinite;
       }
     }
+    /* Sound talisman — a ring leaving the switch while audio is awake */
+    @keyframes sfxPulse {
+      0%   { opacity: .8; transform: scale(1); }
+      100% { opacity: 0;  transform: scale(1.55); }
+    }
+
     /* Magic-ring rotations */
     @keyframes ringCW  { to { transform: rotate(360deg);  } }
     @keyframes ringCCW { to { transform: rotate(-360deg); } }

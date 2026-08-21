@@ -7,6 +7,8 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { MagicCircleSVG } from './magic-circle';
 import { getLenis } from './lenis-store';
+import { isEnabled, isUnlocked, unlock } from './sound/engine';
+import { introSkip, morph as morphCue, rebuildBed, sealStamp, shellDrop, shockwave } from './sound/cues';
 
 const INTRO_SHELLS = [1, 2, 3, 4, 5, 6];
 
@@ -15,10 +17,26 @@ type MorphTarget = { y: number; arrScale: number; sealScale: number; op: number 
 
 export function IntroOverlay({ onMorph, onDone, isMobile }: { onMorph: () => void; onDone: () => void; isMobile: boolean }) {
         const seen = (() => { try { return sessionStorage.getItem('dh_intro_seen') === '1'; } catch (e) { return false; } })();
+  /* Set by KillOverlay just before it reloads. The realm was destroyed, so this
+     run of the intro is a *rebuild*: same choreography, but the audio is a fifth
+     lower, slower, and sits on a drone that swells for the whole sequence. */
+  const [rebuilding] = useState(() => {
+    try {
+      const r = sessionStorage.getItem('dh_rebuilding') === '1';
+      if (r) sessionStorage.removeItem('dh_rebuilding');
+      return r;
+    } catch (e) { return false; }
+  });
   const [stamped, setStamped] = useState(false);
   const [morphing, setMorphing] = useState(false);
   const [tgt, setTgt] = useState<MorphTarget | null>(null);
   const doneRef = useRef(false), morphRef = useRef(false);
+  /* A cold page load has no user gesture, so the browser mutes us — and the
+     only gesture on offer here skips the very thing the sound is for. So the
+     first press on a locked intro WAKES audio instead of skipping; the next
+     one skips as normal. */
+  const [muted, setMuted] = useState(() => isEnabled() && !isUnlocked());
+  const wokeRef = useRef(false);
 
   const STEP = seen ? .07 : .36;
   const T = {
@@ -49,6 +67,7 @@ export function IntroOverlay({ onMorph, onDone, isMobile }: { onMorph: () => voi
     if (morphRef.current) return;
     morphRef.current = true;
     setStamped(true); setMorphing(true);
+    morphCue(rebuilding);
     onMorph();
     // Hero mounts beneath — measure its actual array/seal to land exactly on them
     setTimeout(() => {
@@ -65,19 +84,53 @@ export function IntroOverlay({ onMorph, onDone, isMobile }: { onMorph: () => voi
       });
     }, 80);
   };
-  const skip = () => { startMorph(); setTimeout(finish, 950); };
+  const skip = () => { introSkip(); startMorph(); setTimeout(finish, 950); };
+
+  const press = () => {
+    if (muted && !wokeRef.current) {
+      wokeRef.current = true;
+      unlock();
+      setMuted(false);
+      return;                       // this press bought sound, not a skip
+    }
+    skip();
+  };
 
   useEffect(() => {
     document.documentElement.style.overflow = 'hidden';
     getLenis()?.stop();
+    // A reload has no gesture behind it, so audio may still be locked here.
+    // Ask anyway: a returning visitor often has it already granted, and the
+    // arming listeners in installUiSfx catch everyone else on their first move.
+    unlock();
     const timers: ReturnType<typeof setTimeout>[] = [];
+
+    /* The score, on the same clock as the visuals: each shell's landing, the
+       stamp, its shockwaves. STEP/T come from the animation above, so retiming
+       the intro retimes the sound with it — there is no second set of numbers
+       to keep in sync. */
+    const stopBed = rebuilding ? rebuildBed() : null;
+    if (!seen) {
+      INTRO_SHELLS.forEach((_, i) => {
+        // .6s drop, landing bounce peaks around 62% through it
+        timers.push(setTimeout(() => shellDrop(i, rebuilding), (.15 + i * STEP + .38) * 1000));
+      });
+    }
+    timers.push(setTimeout(() => {
+      if (morphRef.current) return;   // skipped past it — the morph cue owns the moment
+      sealStamp(rebuilding);
+      if (!seen) shockwave();
+    }, T.stamp * 1000));
+    if (stopBed) timers.push(setTimeout(() => stopBed(2.4), (T.morph + .6) * 1000));
+
     timers.push(setTimeout(() => setStamped(true), T.stamp * 1000));
     timers.push(setTimeout(startMorph, T.morph * 1000));
     timers.push(setTimeout(finish, T.kill * 1000));
-    const onKey = () => skip();
+    const onKey = () => press();
     window.addEventListener('keydown', onKey);
     return () => {
       timers.forEach(clearTimeout);
+      stopBed?.(0.4);
       window.removeEventListener('keydown', onKey);
       document.documentElement.style.overflow = '';
       getLenis()?.start();
@@ -87,7 +140,7 @@ export function IntroOverlay({ onMorph, onDone, isMobile }: { onMorph: () => voi
   const morphEase = { duration: 1.05, ease: [.4, 0, .2, 1] };
 
   return (
-    <div onClick={skip} role="button" aria-label="Skip intro" tabIndex={-1}
+    <div onClick={press} role="button" aria-label="Skip intro" tabIndex={-1}
       style={{ position: 'fixed', inset: 0, zIndex: 200, cursor: 'pointer',
         pointerEvents: morphing ? 'none' : 'auto' }}>
 
@@ -169,7 +222,7 @@ export function IntroOverlay({ onMorph, onDone, isMobile }: { onMorph: () => voi
         style={{ position: 'absolute', bottom: '1.6rem', right: '1.8rem',
           fontFamily: "'Fira Code',monospace", fontSize: '.66rem', letterSpacing: '.22em',
           color: '#6f9183', textTransform: 'uppercase' }}>
-        跳过 · tap to skip
+        {muted ? '音 · tap for sound' : '跳过 · tap to skip'}
       </motion.div>
     </div>
   );

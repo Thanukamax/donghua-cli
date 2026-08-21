@@ -7,6 +7,7 @@ import { MagicCircleSVG } from './magic-circle';
 import { CountUp, KineticChars, KineticText } from './motion';
 import { FEATURES, FooterMagicSeal, LINKS, STATS } from './sections';
 import { getLenis } from './lenis-store';
+import { copy as copyCue, toTop as toTopCue } from './sound/cues';
 
 export function useIsMobile() {
     const q = '(max-width: 820px)';
@@ -133,6 +134,7 @@ export function MobileHero({ settled }: { settled?: boolean }) {
         const [copied, setCopied] = useState(false);
   const copy = () => {
     navigator.clipboard.writeText('pip install donghua-cli').catch(() => {});
+    copyCue();
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
   const goEnter = () => {
@@ -211,7 +213,7 @@ export function MobileHero({ settled }: { settled?: boolean }) {
       <motion.div initial={{ opacity: 0, y: 22 }} animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1.15, duration: .7, ease: [.16, 1, .3, 1] }}
         style={{ display: 'flex', flexDirection: 'column', gap: '.85rem', width: '100%', maxWidth: '340px' }}>
-        <div onClick={copy} role="button" tabIndex={0} aria-label="Copy install command"
+        <div onClick={copy} role="button" tabIndex={0} aria-label="Copy install command" data-sfx="none"
           onKeyDown={e => e.key === 'Enter' && copy()} className="copy-chip tap-scale"
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '.8rem',
             padding: '.78rem 1.1rem', cursor: 'pointer', background: 'rgba(111,145,131,.08)',
@@ -222,7 +224,7 @@ export function MobileHero({ settled }: { settled?: boolean }) {
           <span style={{ fontFamily: "'Fira Code',monospace", fontSize: '.7rem',
             color: copied ? '#00a86b' : '#6f9183', transition: 'color .3s' }}>{copied ? '✓' : '⎘'}</span>
         </div>
-        <button onClick={goEnter} aria-label="Enter the realm" className="tap-scale"
+        <button onClick={() => { toTopCue(); goEnter(); }} aria-label="Enter the realm" data-sfx="none" className="tap-scale"
           style={{ padding: '.8rem 1rem', background: 'rgba(212,175,55,.08)', width: '100%',
             border: '1px solid #d4af37', borderRadius: '2px', color: '#d4af37',
             fontFamily: "'Cinzel',serif", fontSize: '.76rem', letterSpacing: '.24em',
@@ -391,7 +393,7 @@ export function MobileFooter() {
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem',
         padding: '2.4rem 1.6rem 2rem' }}>
-        <div role="button" tabIndex={0} aria-label="歸 — return to the beginning"
+        <div role="button" tabIndex={0} aria-label="歸 — return to the beginning" data-sfx="none"
           onClick={e => { const r = e.currentTarget.getBoundingClientRect();
             window.dispatchEvent(new CustomEvent('dh-kill', { detail: { x: r.left + r.width / 2, y: r.top + r.height / 2 } })); }}
           style={{ transform: 'scale(.68)', margin: '-46px 0', cursor: 'pointer' }}>
