@@ -4,8 +4,8 @@ class DonghuaCli < Formula
   desc "Wuxia-themed terminal client for streaming Chinese animation"
   homepage "https://github.com/Thanukamax/donghua-cli"
   # Update URL and sha256 on each release
-  url "https://files.pythonhosted.org/packages/1c/20/d3fab4f7b8029e35d7a05d40686d69f5efb962c446488f1c789a448ca08f/donghua_cli-3.2.1.tar.gz"
-  sha256 "3a810fde870cc521f41745673469874915b122e584dc953d9e811343fb72acda"
+  url "https://files.pythonhosted.org/packages/c8/ef/2421c2e8915832e95597be5a6b0f526ee92c02a1a7814d9a16b1d5cdf83a/donghua_cli-4.0.0.tar.gz"
+  sha256 "65831ea2595da430589c5c0b9e4ddf539e7d6e9da6ddfda2bcf36dbb35931ee5"
   license "MIT"
 
   depends_on "python@3.12"
