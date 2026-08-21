@@ -13,7 +13,17 @@
        required and nothing leaks across an intro→destroy→rebuild cycle. */
 
 const FLOOR = 0.0001;          // exponentialRamp can't reach 0
-const MAX_VOICES = 28;         // polyphony guard — hover spam can't build a wall
+/** One knob for the whole page's loudness. Every cue gain is relative to it.
+ *  Held just under unity: the rebuild stacks heavy impacts on a drone bed while
+ *  the destroy gong is still decaying, and at 1.0 that combination put a couple
+ *  of samples over full scale. */
+const MASTER = 0.92;
+/* Polyphony guard — it exists to stop hover spam building a wall of noise, not
+   to ration the set-pieces. The intro legitimately runs ~50 voices at once (six
+   17-node impacts overlapping, each with a 1.1s bell tail), and at 44 it would
+   have started silently dropping rings on a slow machine. Oscillators are cheap;
+   the ceiling only needs to be below "something is obviously wrong". */
+const MAX_VOICES = 96;
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -35,7 +45,13 @@ export function isEnabled() { return enabled; }
 export function setEnabled(on: boolean) {
   enabled = on;
   try { localStorage.setItem(KEY, on ? 'on' : 'off'); } catch { /* private mode */ }
-  if (on) unlock();
+  if (on) {
+    unlock();
+    if (master && ctx) {
+      master.gain.cancelScheduledValues(ctx.currentTime);
+      master.gain.linearRampToValueAtTime(MASTER, ctx.currentTime + 0.12);
+    }
+  }
   else if (master && ctx) {
     // Fade out rather than cutting, so muting mid-gong isn't itself a noise.
     master.gain.cancelScheduledValues(ctx.currentTime);
@@ -74,15 +90,21 @@ function build() {
   if (!AC) return null;
   const c = new AC();
 
+  /* A safety net, not a loudness tool. At -10 dB / 12:1 it was clamping down on
+     everything above a click and the whole page sat around -16 dBFS. Held back
+     to catch only genuine peaks, so raising the cue gains actually gets louder
+     instead of just more compressed. */
   const limiter = c.createDynamicsCompressor();
-  limiter.threshold.value = -10;
-  limiter.knee.value = 12;
-  limiter.ratio.value = 12;
-  limiter.attack.value = 0.003;
-  limiter.release.value = 0.22;
+  limiter.threshold.value = -5;
+  limiter.knee.value = 8;
+  limiter.ratio.value = 7;
+  // 1 ms, not 3: a stone impact's transient is over before a 3 ms attack has
+  // finished clamping, and six of them stacked pushed the bus past full scale.
+  limiter.attack.value = 0.001;
+  limiter.release.value = 0.25;
 
   master = c.createGain();
-  master.gain.value = enabled ? 0.9 : 0;
+  master.gain.value = enabled ? MASTER : 0;
 
   // The duck sits on the BED only — held drones — not on the whole mix. Put it
   // on the master and a big impact attenuates itself, which is the opposite of
@@ -109,7 +131,19 @@ function build() {
   bedBus.connect(duckGain).connect(master);
   dryBus.connect(master);
   wetBus.connect(wetTone).connect(conv).connect(master);
-  master.connect(limiter).connect(c.destination);
+  /* Second stage: a brickwall, not a tone-shaper. The first limiter does the
+     musical work and lands peaks around -0.03 dBFS, which is close enough to
+     full scale that a browser with slightly different compressor behaviour
+     could tip over into hard clipping. This guarantees the ceiling instead of
+     hoping for it, and only ever engages on the loudest transients. */
+  const brickwall = c.createDynamicsCompressor();
+  brickwall.threshold.value = -3;
+  brickwall.knee.value = 0;
+  brickwall.ratio.value = 20;
+  brickwall.attack.value = 0.0005;
+  brickwall.release.value = 0.08;
+
+  master.connect(limiter).connect(brickwall).connect(c.destination);
 
   return c;
 }
@@ -375,26 +409,66 @@ export function pluck(freq = 196, dur = 1.5, o: VoiceOpts & { damp?: number } = 
   track(n);
 }
 
-/** Air moving: brush, robe, ink. `dir` +1 rises, -1 falls. */
-export function whoosh(dur = 0.5, dir = 1, o: VoiceOpts = {}) {
+/** Air moving: brush, robe, ink. `dir` +1 rises, -1 falls.
+
+ *  Two independent noise sources hard-panned apart. One mono source through a
+ *  narrow bandpass reads as a thin swish down the middle of your head; two
+ *  uncorrelated ones through a wide filter read as air moving past you, which
+ *  is the whole point of the sound. */
+export function whoosh(dur = 0.5, dir = 1, o: VoiceOpts & { width?: number } = {}) {
   const c = ready(); if (!c) return;
   const t = c.currentTime;
-  const g = out(c, { gain: (o.gain ?? 0.4) * 0.4, send: o.send ?? 0.3, pan: o.pan });
-  const n = c.createBufferSource();
-  n.buffer = noiseBuf(c, dur + 0.05);
-  const bp = c.createBiquadFilter();
-  bp.type = 'bandpass';
-  bp.Q.value = 0.9;
-  const lo = 320, hi = 4200;
-  bp.frequency.setValueAtTime(dir > 0 ? lo : hi, t);
-  bp.frequency.exponentialRampToValueAtTime(dir > 0 ? hi : lo, t + dur);
-  const ng = c.createGain();
-  ng.gain.setValueAtTime(FLOOR, t);
-  ng.gain.exponentialRampToValueAtTime(0.7, t + dur * 0.42);
-  ng.gain.exponentialRampToValueAtTime(FLOOR, t + dur);
-  n.connect(bp).connect(ng).connect(g);
-  n.start(t); n.stop(t + dur + 0.05);
-  track(n);
+  const width = o.width ?? 0.55;
+  const lo = 240, hi = 5200;
+  for (let side = 0; side < 2; side++) {
+    const pan = (o.pan ?? 0) + (side ? width : -width);
+    const g = out(c, { gain: (o.gain ?? 0.4) * 0.62, send: o.send ?? 0.35,
+      pan: Math.max(-1, Math.min(1, pan)) });
+    const n = c.createBufferSource();
+    n.buffer = noiseBuf(c, dur + 0.05);
+    const bp = c.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 0.45;                       // wide: this is wind, not a whistle
+    // Detune the two halves slightly so they never collapse back to centre.
+    const k = side ? 1.14 : 0.88;
+    bp.frequency.setValueAtTime((dir > 0 ? lo : hi) * k, t);
+    bp.frequency.exponentialRampToValueAtTime((dir > 0 ? hi : lo) * k, t + dur);
+    const hp = c.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = 130;   // keep it off the low end
+    const ng = c.createGain();
+    ng.gain.setValueAtTime(FLOOR, t);
+    ng.gain.exponentialRampToValueAtTime(0.75, t + dur * 0.45);
+    ng.gain.exponentialRampToValueAtTime(FLOOR, t + dur);
+    n.connect(bp).connect(hp).connect(ng).connect(g);
+    n.start(t); n.stop(t + dur + 0.05);
+    track(n);
+  }
+}
+
+/** Sustained wind — slower and wider than a whoosh, with no sweep to it. The
+ *  bed of air under the big moments. */
+export function airBed(dur = 2.5, o: VoiceOpts = {}) {
+  const c = ready(); if (!c) return;
+  const t = c.currentTime;
+  for (let side = 0; side < 2; side++) {
+    const g = out(c, { gain: (o.gain ?? 0.3) * 0.5, send: o.send ?? 0.6,
+      pan: side ? 0.75 : -0.75 });
+    const n = c.createBufferSource();
+    n.buffer = noiseBuf(c, dur + 0.1);
+    const bp = c.createBiquadFilter();
+    bp.type = 'bandpass'; bp.Q.value = 0.35;
+    bp.frequency.setValueAtTime(side ? 700 : 520, t);
+    bp.frequency.linearRampToValueAtTime(side ? 1500 : 1150, t + dur * 0.6);
+    bp.frequency.linearRampToValueAtTime(side ? 620 : 470, t + dur);
+    const ng = c.createGain();
+    ng.gain.setValueAtTime(FLOOR, t);
+    ng.gain.exponentialRampToValueAtTime(1, t + dur * 0.35);   // swells in
+    ng.gain.setValueAtTime(1, t + dur * 0.62);
+    ng.gain.exponentialRampToValueAtTime(FLOOR, t + dur);
+    n.connect(bp).connect(ng).connect(g);
+    n.start(t); n.stop(t + dur + 0.1);
+    track(n);
+  }
 }
 
 /** Ink spreading through water: brown noise under a closing filter. */
@@ -459,6 +533,54 @@ export function riser(dur = 1.2, base = 110, o: VoiceOpts = {}) {
     osc.connect(vg).connect(lp);
     osc.start(t); osc.stop(t + dur + 0.05);
     track(osc);
+  });
+}
+
+/** A slow-attack sustained chord — the "heavenly" register. Sines and
+ *  triangles a few cents apart with a slow vibrato, opening through a filter
+ *  and sitting deep in the hall. It swells rather than starts, which is what
+ *  separates a choir-like pad from an organ chord.
+ *  Chord voicing matters more than level here: wide spacing low, close on top. */
+export function pad(freqs: number[], dur = 3.2, o: VoiceOpts = {}) {
+  const c = ready(); if (!c) return;
+  const t = c.currentTime;
+  const g = out(c, { gain: (o.gain ?? 0.4) * 0.3, send: o.send ?? 0.85, pan: o.pan });
+
+  const lp = c.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(340, t);
+  lp.frequency.exponentialRampToValueAtTime(3600, t + dur * 0.55);
+  lp.frequency.exponentialRampToValueAtTime(900, t + dur);
+  lp.Q.value = 1.2;
+  lp.connect(g);
+
+  // Shared vibrato so the whole chord breathes together instead of chorusing.
+  const lfo = c.createOscillator();
+  lfo.type = 'sine';
+  lfo.frequency.value = 4.4;
+  const lfoAmt = c.createGain();
+  lfoAmt.gain.value = 3.2;                    // cents
+  lfo.connect(lfoAmt);
+  lfo.start(t); lfo.stop(t + dur + 0.2);
+  track(lfo);
+
+  freqs.forEach((f, i) => {
+    for (let d = 0; d < 2; d++) {             // two detuned layers per note
+      const osc = c.createOscillator();
+      osc.type = d ? 'triangle' : 'sine';
+      osc.frequency.value = f;
+      osc.detune.value = (d ? 6 : -6) + (i - freqs.length / 2) * 2;
+      lfoAmt.connect(osc.detune);
+      const vg = c.createGain();
+      const amp = (d ? 0.42 : 0.7) / (1 + i * 0.35);
+      vg.gain.setValueAtTime(FLOOR, t);
+      vg.gain.exponentialRampToValueAtTime(amp, t + 0.75 + i * 0.06);  // swells
+      vg.gain.setValueAtTime(amp, t + dur * 0.6);
+      vg.gain.exponentialRampToValueAtTime(FLOOR, t + dur);
+      osc.connect(vg).connect(lp);
+      osc.start(t); osc.stop(t + dur + 0.2);
+      track(osc);
+    }
   });
 }
 
