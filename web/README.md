@@ -47,18 +47,28 @@ web/
 └── astro.config.mjs
 ```
 
-## Deploying to GitHub Pages
+## Deploying
 
-For a project page at `https://thanukamax.github.io/donghua-cli/`, uncomment in
-`astro.config.mjs`:
+Live at **https://dcli.pages.dev** (Cloudflare Pages project `dcli`).
 
-```js
-site: 'https://thanukamax.github.io',
-base: '/donghua-cli',
+Pushing to `main` with changes under `web/**` triggers
+`.github/workflows/deploy-web.yml`, which builds and runs
+`wrangler pages deploy`. It needs two repo secrets:
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+
+To deploy by hand:
+
+```bash
+bun run build
+CLOUDFLARE_ACCOUNT_ID=<id> bunx wrangler pages deploy dist --project-name dcli
 ```
 
-Then `bun run build` and publish `dist/`. Left root-relative by default so
-`bun run preview` and root/custom-domain hosting work without config.
+Use `wrangler pages deploy` — never bare `wrangler deploy`, which treats
+this as a Worker, runs `astro add cloudflare`, and fails on `_worker.js`.
+
+The site is served from the root of its own hostname, so `astro.config.mjs`
+sets `site` and no `base`. To move it back under a path, add
+`base: '/<path>'`.
 
 ## Notes
 
