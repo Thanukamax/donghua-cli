@@ -2,6 +2,17 @@
 
 All notable changes to Donghua CLI will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Update from inside the app.** Type `/update` in the search box, or click the
+  "Update available" line that appears when the startup check finds a new
+  version. Installer output is captured so it can't paint over the TUI.
+
+### Fixed
+- The Windows `donghua.exe` no longer tries to run pip on itself during an
+  update; it points you at the new release instead.
+
 ## [4.1.0] - 2026-10-19
 
 First release since 4.0.0. It carries the v4.1 feature work and the fixes for

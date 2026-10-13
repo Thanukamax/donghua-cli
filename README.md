@@ -82,6 +82,12 @@ it upgrades with the tool that actually owns it. `--dry-run` prints the exact
 commands without running them. A day-cached background check also mentions
 available updates on startup.
 
+Inside the app you don't need to quit: type `/update` in the search box. When
+the startup check finds a new version, an "Update available" line appears under
+the search box — click it to update in place. Restart `dhua` afterwards to run
+the new version. The Windows `donghua.exe` can't update itself; download the new
+one from Releases.
+
 ### Aliases
 
 The install scripts set up shortcuts:
