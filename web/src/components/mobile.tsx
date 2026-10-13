@@ -424,7 +424,7 @@ export function MobileFooter() {
       <div style={{ borderTop: '1px solid rgba(212,175,55,.08)', padding: '1.1rem 1.5rem',
         display: 'flex', flexDirection: 'column', gap: '.3rem' }}>
         <span style={{ fontFamily: "'Fira Code',monospace", fontSize: '.6rem',
-          color: 'rgba(111,145,131,.4)', letterSpacing: '.1em' }}>v3.2.1 · MIT License · Python 3.9+</span>
+          color: 'rgba(111,145,131,.4)', letterSpacing: '.1em' }}>v4.0.0 · MIT License · Python 3.9+</span>
         <span style={{ fontFamily: "'EB Garamond',serif", fontStyle: 'italic', fontSize: '.88rem',
           color: 'rgba(245,239,226,.28)' }}>Made for those who know where to look.</span>
       </div>

@@ -972,7 +972,7 @@ export function Footer({ reduced }: { reduced: boolean }) {
         padding:'1.4rem clamp(2rem,7vw,7rem)' }}>
         <span style={{ fontFamily:"'Fira Code',monospace", fontSize:'.62rem',
           color:'rgba(111,145,131,.4)', letterSpacing:'.1em' }}>
-          v3.2.1 · MIT License · Python 3.9+
+          v4.0.0 · MIT License · Python 3.9+
         </span>
         <span style={{ fontFamily:"'ZCOOL XiaoWei',serif", fontSize:'.82rem',
           letterSpacing:'.3em', color:'rgba(212,175,55,.22)' }}>
