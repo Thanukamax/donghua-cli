@@ -1164,8 +1164,7 @@ class DonghuaTUI(App):
         super().__init__()
         self._core = app_core
 
-    @staticmethod
-    def get_theme_variable_defaults() -> dict[str, str]:
+    def get_theme_variable_defaults(self) -> dict[str, str]:
         """App-level tokens Textual does not generate for us.
 
         Declared as defaults so a theme can override them; the wuxia theme
