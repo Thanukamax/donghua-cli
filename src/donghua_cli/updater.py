@@ -106,6 +106,14 @@ def _detect_self_install() -> Install:
     inside a pipx venv half-breaks it — so anything unrecognised returns a hint
     instead of a guess.
     """
+    # A PyInstaller build has no pip inside it; sys.executable is the exe itself,
+    # so "<exe> -m pip install" would just relaunch donghua.
+    if getattr(sys, "frozen", False):
+        return Install(
+            "exe", (),
+            note="standalone build — download the new donghua.exe from GitHub Releases",
+        )
+
     prefix = os.path.realpath(sys.prefix).replace("\\", "/")
     exe = sys.executable
 
@@ -341,10 +349,55 @@ def format_notice(updates: list[Update]) -> str:
     lines = []
     for u in updates:
         lines.append(f"{u.package} {u.current} → {u.latest}")
-    return "update available: " + "; ".join(lines) + "  ·  run `donghua --update`"
+    return ("update available: " + "; ".join(lines)
+            + "  ·  run `donghua --update`, or type /update in the app")
 
 
 # ── applying ──────────────────────────────────────────────────────────────
+
+
+#: Upper bound on one upgrade command. pip resolving a fresh dependency set on
+#: a slow link takes a while; anything past this is a hang, not progress.
+APPLY_TIMEOUT = 600
+
+
+@dataclass
+class Result:
+    """Outcome of applying one :class:`Update`."""
+
+    update: Update
+    ok: bool
+    message: str
+
+
+def run_one(u: Update, capture: bool = False) -> Result:
+    """Run one package's upgrade command.
+
+    ``capture`` keeps the installer's output off the terminal — required inside
+    the TUI, where stray pip output would paint over the screen. On failure the
+    last line the installer printed becomes the message.
+    """
+    if not u.install.updatable:
+        return Result(u, False, u.install.note)
+    try:
+        proc = subprocess.run(
+            u.install.command, check=False, timeout=APPLY_TIMEOUT,
+            capture_output=capture, text=capture,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        return Result(u, False, str(e))
+    if proc.returncode == 0:
+        return Result(u, True, f"{u.package} updated to {u.latest}")
+    tail = ""
+    if capture:
+        lines = [ln for ln in (proc.stderr or proc.stdout or "").splitlines() if ln.strip()]
+        tail = lines[-1].strip() if lines else ""
+    return Result(u, False, tail or f"exit {proc.returncode}")
+
+
+def apply_quiet(updates: list[Update]) -> list[Result]:
+    """Apply every update with output captured. For callers that own the screen."""
+    return [run_one(u, capture=True) for u in updates]
 
 
 def apply(updates: list[Update], dry_run: bool = False) -> int:
@@ -374,16 +427,11 @@ def apply(updates: list[Update], dry_run: bool = False) -> int:
             console.print(f"  {GLYPH['pending']} would run: {shown}")
             continue
         console.print(f"  {GLYPH['pending']} {head}  ({shown})")
-        try:
-            rc = subprocess.run(u.install.command, check=False).returncode
-        except (OSError, subprocess.SubprocessError) as e:
-            console.print(f"  {GLYPH['fail']} {u.package}: {e}")
-            failed += 1
-            continue
-        if rc == 0:
+        r = run_one(u)
+        if r.ok:
             console.print(f"  {GLYPH['ok']} {u.package} updated")
         else:
-            console.print(f"  {GLYPH['fail']} {u.package}: exit {rc}")
+            console.print(f"  {GLYPH['fail']} {u.package}: {r.message}")
             failed += 1
     return 1 if failed else 0
 
