@@ -1,7 +1,7 @@
 name: Deploy landing page
 
-# Builds the Astro landing page in web/ and publishes it to GitHub Pages
-# at https://thanukamax.github.io/donghua-cli/.
+# Builds the Astro landing page in web/ and publishes it to Cloudflare Pages
+# at https://dcli.pages.dev (project `dcli`).
 on:
   push:
     branches: [main]
@@ -10,11 +10,8 @@ on:
       - ".github/workflows/deploy-web.yml"
   workflow_dispatch:
 
-# Allow the GITHUB_TOKEN to deploy to Pages.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # One in-flight deploy at a time; don't cancel a running publish.
 concurrency:
@@ -22,11 +19,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: web
+    environment:
+      name: cloudflare-pages
+      url: https://dcli.pages.dev
     steps:
       - uses: actions/checkout@v4
 
@@ -41,18 +41,14 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: web/dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      # `pages deploy`, NOT bare `wrangler deploy` — the latter treats this as
+      # a Worker, runs `astro add cloudflare`, and fails on _worker.js assets.
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          bunx wrangler pages deploy dist \
+            --project-name dcli \
+            --branch main \
+            --commit-hash "$GITHUB_SHA"

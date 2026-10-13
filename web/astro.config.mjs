@@ -10,10 +10,9 @@ export default defineConfig({
   // so there is nothing to prerender per-route. Static output ships one HTML shell.
   output: 'static',
 
-  // ── GitHub Pages ─────────────────────────────────────────────────────────────
-  // Project page at https://thanukamax.github.io/donghua-cli/
-  site: 'https://thanukamax.github.io',
-  base: '/donghua-cli',
+  // ── Cloudflare Pages ─────────────────────────────────────────────────────────
+  // Served from its own hostname, so the site lives at the root (no `base`).
+  site: 'https://dcli.pages.dev',
 
   vite: {
     // three.js is large; keep it a warning, not a hard build failure.
