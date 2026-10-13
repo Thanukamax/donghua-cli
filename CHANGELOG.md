@@ -2,6 +2,16 @@
 
 All notable changes to Donghua CLI will be documented in this file.
 
+## [4.0.1] - 2026-10-13
+
+### Fixed
+- **Fresh installs crashed on the first search.** selectolax 1.0 (released
+  2026-10-03) deleted the `selectolax.parser` module that every scraper went
+  through, and the `>=0.3.21` pin let it in. Parsing now uses the Lexbor
+  backend, which works on both old and new selectolax.
+- Type-check failure against Textual 8, which turned
+  `App.get_theme_variable_defaults` into an instance method.
+
 ## [4.0.0] - 2026-08-22
 
 The networking, download, and caching layers were all replaced. Nothing about
