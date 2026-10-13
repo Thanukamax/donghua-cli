@@ -145,6 +145,21 @@ Rule {
     color: $text-muted;
 }
 
+/* ── Update strip (hidden until there is something to say) ── */
+#update-strip {
+    height: auto;
+    padding: 0 3;
+    display: none;
+}
+
+#update-strip.shown {
+    display: block;
+}
+
+#update-strip.actionable:hover {
+    background: $surface;
+}
+
 /* ── Results / Episodes container ── */
 #results-container {
     height: 1fr;
@@ -337,6 +352,18 @@ def _source_pills(sources: list[str]) -> str:
 # ── Screens ──────────────────────────────────────────────────────────────
 
 
+class UpdateStrip(Static):
+    """One line under the search box: "update available", progress, or result.
+
+    Clickable only while it is offering an update.
+    """
+
+    def on_click(self) -> None:
+        screen = self.screen
+        if self.has_class("actionable") and isinstance(screen, SearchScreen):
+            screen.start_update()
+
+
 class SearchScreen(Screen):
     """Search screen with static banner + live per-source progress."""
 
@@ -372,7 +399,8 @@ class SearchScreen(Screen):
         yield StaticBanner(id="static-banner")
         yield Rule(line_style="solid")
         with Container(id="search-box"):
-            yield Input(placeholder="  Search for donghua…", id="search-input")
+            yield Input(placeholder="  Search for donghua…  (or /update)", id="search-input")
+        yield UpdateStrip("", id="update-strip")
         yield Static("", id="continue-strip")
         yield Static("", id="status-bar")
         with Container(id="results-container"):
@@ -380,9 +408,112 @@ class SearchScreen(Screen):
             yield Static(self.EMPTY_HINT, id="empty-hint")
         yield Static(self.HELP_BAR, id="help-text")
 
+    #: How long to keep looking for the background update check's verdict.
+    #: The check has a 6s network budget; past this it has failed quietly.
+    UPDATE_POLL_SECONDS = 15
+
     def on_mount(self) -> None:
         self.query_one("#search-input", Input).focus()
         self._refresh_continue_strip()
+        self._update_busy = False
+        self._update_poll = self.set_interval(
+            1.0, self._poll_update, repeat=self.UPDATE_POLL_SECONDS
+        )
+
+    # ── self-update ──────────────────────────────────────────────────────
+
+    def _set_update_strip(self, markup: str, actionable: bool = False) -> None:
+        try:
+            strip = self.query_one("#update-strip", UpdateStrip)
+        except NoMatches:
+            return
+        strip.update(markup)
+        strip.set_class(bool(markup), "shown")
+        strip.set_class(actionable, "actionable")
+
+    def _poll_update(self) -> None:
+        from donghua_cli import updater
+
+        found = updater.pending()
+        if not found or self._update_busy:
+            return
+        self._update_poll.stop()
+        names = ", ".join(f"{u.package} {u.latest}" for u in found)
+        self._set_update_strip(
+            f"[bold {PALETTE['accent']}]{GLYPH['star']}[/] "
+            f"[{PALETTE['text']}]Update available: {names}[/]  "
+            f"[{PALETTE['text_faint']}]click here or type[/] "
+            f"[bold {PALETTE['accent']}]/update[/]",
+            actionable=True,
+        )
+
+    def start_update(self) -> None:
+        if self._update_busy:
+            self.app.notify("Already updating", timeout=2)
+            return
+        self._update_busy = True
+        self._update_poll.stop()
+        self._run_update()
+
+    @work(thread=True, exclusive=True, group="update")
+    def _run_update(self) -> None:
+        from donghua_cli import updater
+
+        accent_alt = PALETTE["accent_alt"]
+        faint = PALETTE["text_faint"]
+        strip = self._set_update_strip
+        try:
+            self.app.call_from_thread(
+                strip, f"[{accent_alt}]{GLYPH['pending']}[/] [{faint}]Checking for updates…[/]"
+            )
+            found = updater.check(force=True)
+            if not found:
+                self.app.call_from_thread(strip, "")
+                self.app.call_from_thread(
+                    self.app.notify, f"You're on the latest version ({__version__}).",
+                    title="Up to date", timeout=4,
+                )
+                return
+
+            heads = ", ".join(f"{u.package} {u.current} → {u.latest}" for u in found)
+            self.app.call_from_thread(
+                strip, f"[{accent_alt}]{GLYPH['pending']}[/] [{faint}]Updating {heads}…[/]"
+            )
+            results = updater.apply_quiet(found)
+        except Exception as e:  # never let an update failure take the app down
+            self.app.call_from_thread(strip, "")
+            self.app.call_from_thread(
+                self.app.notify, str(e), title="Update failed", severity="error", timeout=8
+            )
+            return
+        finally:
+            self._update_busy = False
+
+        self.app.call_from_thread(strip, "")
+        for r in results:
+            if r.ok:
+                msg = r.message
+                if r.update.package == "donghua-cli":
+                    msg += ". Restart dhua to use it."
+                self.app.call_from_thread(
+                    self.app.notify, msg, title="Updated", timeout=8
+                )
+            else:
+                self.app.call_from_thread(
+                    self.app.notify, f"{r.update.package}: {r.message}",
+                    title="Update failed", severity="error", timeout=10,
+                )
+
+    def _run_command(self, raw: str) -> None:
+        """Slash commands typed into the search box."""
+        cmd = raw.lstrip("/").strip().lower()
+        if cmd in ("update", "upgrade"):
+            self.start_update()
+        else:
+            self.app.notify(
+                f"Unknown command /{cmd}. Try /update.",
+                title="Command", severity="warning", timeout=4,
+            )
 
     def _refresh_continue_strip(self) -> None:
         from donghua_cli import library
@@ -461,6 +592,10 @@ class SearchScreen(Screen):
     def on_search(self, event: Input.Submitted) -> None:
         query = event.value.strip()
         if not query:
+            return
+        if query.startswith("/"):
+            event.input.value = ""
+            self._run_command(query)
             return
         self._do_search(query)
 
