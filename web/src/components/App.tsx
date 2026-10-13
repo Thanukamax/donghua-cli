@@ -11,7 +11,8 @@ import { installUiSfx, SoundToggle } from './sound/ui';
 import { TravelingSeal } from './seal';
 import { ScrollProgress } from './motion';
 import { IntroOverlay } from './intro';
-import { InstallSection, FAQSection, BackToTop, KillOverlay } from './extras';
+import { FAQSection, BackToTop, KillOverlay } from './extras';
+import { InstallSection } from './install';
 import type { KillOrigin } from './extras';
 import {
   useIsMobile, MobileTopBar, MobileHero, MobileAbout, MobileFeatureRail, MobileFooter,

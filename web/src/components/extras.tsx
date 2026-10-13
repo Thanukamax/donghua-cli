@@ -13,7 +13,7 @@ export type FaqItem = { cn: string; q: string; a: string };
 export type KillOrigin = { x?: number; y?: number };
 
 // ─── CopyCmd — talisman command chip ─────────────────────────────────────────
-export function CopyCmd({ cmd, full }: { cmd: string; full?: boolean }) {
+export function CopyCmd({ cmd, full, wrap }: { cmd: string; full?: boolean; wrap?: boolean }) {
     const [copied, setCopied] = useState(false);
   const copy = (e: SyntheticEvent) => {
     e.stopPropagation();
@@ -29,7 +29,8 @@ export function CopyCmd({ cmd, full }: { cmd: string; full?: boolean }) {
         padding: '.62rem 1.1rem', background: 'rgba(111,145,131,.07)',
         border: '1px solid rgba(212,175,55,.22)', borderRadius: '3px' }}>
       <span style={{ fontFamily: "'Fira Code',monospace", fontSize: 'clamp(.78rem,1.5vw,.92rem)',
-        color: '#f5efe2', letterSpacing: '.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        color: '#f5efe2', letterSpacing: '.01em', ...(wrap ? { overflowWrap: 'anywhere', lineHeight: 1.55 }
+          : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }) }}>
         <span style={{ color: '#6f9183', marginRight: '.5em' }}>$</span>{cmd}
       </span>
       <span style={{ fontFamily: "'Fira Code',monospace", fontSize: '.7rem', flexShrink: 0,
@@ -37,88 +38,6 @@ export function CopyCmd({ cmd, full }: { cmd: string; full?: boolean }) {
         {copied ? '✓ 已录' : '⎘'}
       </span>
     </div>
-  );
-}
-
-// ─── InstallSection — 入门 three breaths to begin ─────────────────────────────
-const INSTALL_STEPS = [
-  { num: '壹', cn: '结缘', en: 'BIND', cmd: 'pip install donghua-cli',
-    desc: 'One line. No accounts, no keys, no rites of passage.' },
-  { num: '贰', cn: '唤灵', en: 'SUMMON', cmd: 'donghua search "凡人修仙传"',
-    desc: 'Name any saga — hanzi, pinyin, or English. Every source answers as one.' },
-  { num: '叁', cn: '御剑', en: 'ASCEND', cmd: 'donghua watch --latest',
-    desc: 'The stream lands in mpv before the incense burns down.' },
-];
-
-export function InstallSection({ compact }: { compact?: boolean }) {
-      return (
-    <section id="install" data-seal-section="4" aria-label="Install"
-      style={{ position: 'relative', zIndex: 3,
-        padding: 'clamp(5rem,12vh,9rem) clamp(1.5rem,8vw,7rem)' }}>
-
-      {/* Seal anchor — right margin */}
-      <div data-seal-anchor="4" aria-hidden="true" style={{
-        position: 'absolute', top: '50%', left: 'calc(50% + min(34vw, 50% - 150px))' }}></div>
-
-      <ArrayBackdrop variant="octa" size={compact ? 380 : 620} opacity={.05}
-        spin="ringCCW 190s linear infinite" style={{ left: compact ? '50%' : '14%', top: '55%' }} />
-
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: '860px', margin: '0 auto' }}>
-        <motion.div initial={{ opacity: 0, x: -18 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}
-          transition={{ duration: .75, ease: [.16, 1, .3, 1] }}
-          style={{ fontFamily: "'Fira Code',monospace", fontSize: '.72rem',
-            letterSpacing: '.3em', color: '#6f9183', textTransform: 'uppercase', marginBottom: '1.2rem' }}>
-          — 入门 · Begin cultivation
-        </motion.div>
-        <KineticText text="Three Breaths to Begin." as="h2" style={{
-          fontFamily: "'Cinzel',serif", fontWeight: 600,
-          fontSize: 'clamp(1.9rem,4.6vw,3.6rem)', color: '#f5efe2',
-          lineHeight: 1.12, letterSpacing: '.04em', marginBottom: '.9rem',
-        }} delay={.1} stagger={.1} />
-        <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: .55 }} viewport={{ once: true }}
-          transition={{ delay: .3, duration: .8 }}
-          style={{ fontFamily: "'ZCOOL XiaoWei',serif", fontSize: '1rem',
-            letterSpacing: '.4em', color: '#6f9183', marginBottom: 'clamp(2.2rem,5vh,3.6rem)' }}
-          aria-label="Three breaths to enter the way">三息入道</motion.p>
-
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {INSTALL_STEPS.map((s, i) => (
-            <motion.div key={s.en}
-              initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-6% 0px' }}
-              transition={{ delay: i * .1, duration: .85, ease: [.16, 1, .3, 1] }}
-              style={{ display: 'flex', flexDirection: compact ? 'column' : 'row',
-                alignItems: compact ? 'stretch' : 'center', gap: compact ? '.9rem' : '2.2rem',
-                padding: '1.7rem 0', borderTop: '1px solid rgba(212,175,55,.1)', position: 'relative' }}>
-              <div aria-hidden="true" style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
-                fontFamily: "'Long Cang','ZCOOL XiaoWei',serif", fontSize: 'clamp(3.4rem,8vw,6rem)',
-                color: 'rgba(212,175,55,.045)', lineHeight: 1, userSelect: 'none', pointerEvents: 'none' }}>{s.cn}</div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', minWidth: compact ? 'auto' : '218px' }}>
-                <span aria-hidden="true" style={{ fontFamily: "'ZCOOL XiaoWei',serif", fontSize: '.85rem',
-                  color: 'rgba(195,39,43,.75)', border: '1px solid rgba(195,39,43,.4)',
-                  padding: '.18rem .42rem', lineHeight: 1 }}>{s.num}</span>
-                <span style={{ fontFamily: "'ZCOOL XiaoWei',serif", fontSize: 'clamp(1.4rem,2.4vw,1.9rem)',
-                  color: '#d4af37', letterSpacing: '.08em' }}>{s.cn}</span>
-                <span style={{ fontFamily: "'Cinzel',serif", fontSize: '.66rem',
-                  letterSpacing: '.32em', color: '#6f9183' }}>{s.en}</span>
-              </div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '.55rem' }}>
-                <CopyCmd cmd={s.cmd} full={compact} />
-                <span style={{ fontFamily: "'EB Garamond',serif", fontSize: 'clamp(.95rem,1.5vw,1.05rem)',
-                  color: 'rgba(233,228,214,.6)', lineHeight: 1.6, textWrap: 'pretty' }}>{s.desc}</span>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
-          transition={{ delay: .3, duration: .8 }}
-          style={{ marginTop: '1.6rem', fontFamily: "'Fira Code',monospace", fontSize: '.74rem',
-            color: 'rgba(111,145,131,.55)', letterSpacing: '.06em' }}>
-          prefer isolation? <span style={{ color: '#6f9183' }}>pipx install donghua-cli</span>
-        </motion.p>
-      </div>
-    </section>
   );
 }
 
