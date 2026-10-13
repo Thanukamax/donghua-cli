@@ -46,13 +46,13 @@ const FAQ_ITEMS = [
   { cn: '真免费吗', q: 'Is it actually free?',
     a: 'MIT-licensed and open source. No accounts, no keys, no tribute — fork it, ship it, keep it.' },
   { cn: '源自何处', q: 'Where do the streams come from?',
-    a: 'Twelve-plus public sources, ranked by speed and quality. When one falls, the next answers — failover is automatic.' },
+    a: 'Five public donghua sites, searched all at once. Before playing, it checks which mirrors are actually live and takes the first that answers. A site that keeps failing sits out for an hour while the rest carry on.' },
   { cn: '需通中文吗', q: 'Do I need to read Chinese?',
-    a: 'No. Search in English, pinyin, or hanzi; subtitles are fetched and time-synced whenever they exist.' },
+    a: 'No. The sources carry English-subtitled releases. Search by the English title — "Battle Through the Heavens", "Soul Land".' },
   { cn: '何处可修', q: 'What does it run on?',
-    a: 'macOS, Linux, and Windows. Playback goes through mpv or VLC — bring one.' },
+    a: 'macOS, Linux, Windows, and Android through Termux. It plays in mpv and falls back to VLC if mpv is missing. On Android it hands the stream to mpv, VLC, or MX Player.' },
   { cn: '如何求片', q: 'A series is missing.',
-    a: 'Open an issue with the title. Sources refresh nightly; most requests land within a day.' },
+    a: 'It can only find what the five sources carry. Try the English title or a shorter name; if it is still missing, open an issue on GitHub with the title.' },
 ];
 
 function FAQItem({ item, index }: { item: FaqItem; index: number }) {
