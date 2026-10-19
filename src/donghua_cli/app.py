@@ -4,6 +4,8 @@ Wires together sources, extractor (with server fallback), player, cache, and UI.
 The user never picks a source -- search is global, sources become servers.
 """
 
+from __future__ import annotations
+
 import threading
 import time
 from typing import List

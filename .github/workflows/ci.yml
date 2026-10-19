@@ -35,4 +35,3 @@ jobs:
 
       - name: Run tests
         run: pytest tests/ -v --tb=short
-        continue-on-error: true  # tests being added incrementally

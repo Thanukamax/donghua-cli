@@ -1,5 +1,7 @@
 """CLI entry point -- argument parsing and dispatch."""
 
+from __future__ import annotations
+
 import logging
 import sys
 
