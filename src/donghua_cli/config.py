@@ -170,9 +170,12 @@ def get_disabled_sources() -> set[str]:
 
 
 def get_auto_next() -> bool:
-    """Whether to auto-advance to the next episode after MPV finishes one."""
+    """Whether to auto-advance to the next episode after MPV finishes one.
+
+    Defaults to False so users manually press 'N' to play the next episode.
+    """
     cfg = _load_user_config()
-    return bool(cfg.get("auto_next", True))
+    return bool(cfg.get("auto_next", False))
 
 
 def get_update_check() -> bool:
@@ -221,5 +224,9 @@ def create_default_config() -> str:
 
 # Download directory
 # download_dir = "~/Videos/Donghua"
+
+# Auto-advance to next episode when playback finishes (default: false)
+# Set to true to automatically play the next episode without pressing 'N'
+# auto_next = false
 """)
     return CONFIG_FILE

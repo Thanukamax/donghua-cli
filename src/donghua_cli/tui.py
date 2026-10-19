@@ -11,10 +11,11 @@ Screens:
 
 from __future__ import annotations
 
+import logging
 import threading
 from typing import TYPE_CHECKING
 
-from textual import on, work
+from textual import events, on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container
@@ -37,6 +38,8 @@ from donghua_cli.theme import level_for_episode
 if TYPE_CHECKING:
     from donghua_cli.player import Player
     from donghua_cli.sources.base import Episode, Series
+
+log = logging.getLogger("donghua")
 
 # Banner technique is pinned for the lifetime of the app — never reshuffles
 # on every render, so the eye can anchor.
@@ -145,6 +148,12 @@ Rule {
     color: $text-muted;
 }
 
+#filter-strip {
+    height: auto;
+    padding: 0 3;
+    color: $text-muted;
+}
+
 /* ── Results / Episodes container ── */
 #results-container {
     height: 1fr;
@@ -175,6 +184,17 @@ OptionList {
 OptionList > .option-list--option {
     padding: 0 2;
     color: $foreground;
+}
+
+OptionList > .option-list--option-disabled {
+    color: $secondary;
+    background: $background;
+    text-style: bold;
+    padding: 0 2;
+}
+
+OptionList > .option-list--option-disabled:hover {
+    background: $background;
 }
 
 OptionList > .option-list--option-highlighted {
@@ -344,6 +364,8 @@ class SearchScreen(Screen):
         Binding("escape", "quit", "Quit", show=True),
         Binding("c", "resume_recent", "Continue", show=True),
         Binding("b", "show_bookmarks", "Bookmarks", show=True),
+        Binding("tab", "cycle_filter", "Filter", priority=True),
+        Binding("f", "cycle_filter", "Filter", show=False),
     ]
 
     # Info scent only. The C/B keys live in the docked help bar; repeating
@@ -354,7 +376,9 @@ class SearchScreen(Screen):
     )
 
     HELP_BAR = (
-        f"[bold {PALETTE['accent']}]Enter[/] [{PALETTE['text_faint']}]search[/]  "
+        f"[bold {PALETTE['accent']}]Enter[/] [{PALETTE['text_faint']}]select[/]  "
+        f"[{PALETTE['border']}]│[/]  "
+        f"[bold {PALETTE['accent']}]Tab[/] [{PALETTE['text_faint']}]filter[/]  "
         f"[{PALETTE['border']}]│[/]  "
         f"[bold {PALETTE['accent']}]C[/] [{PALETTE['text_faint']}]continue[/]  "
         f"[{PALETTE['border']}]│[/]  "
@@ -367,6 +391,7 @@ class SearchScreen(Screen):
         super().__init__()
         self._core = app_core
         self._results: list[Series] = []
+        self.filter_mode: str = "all"
 
     def compose(self) -> ComposeResult:
         yield StaticBanner(id="static-banner")
@@ -375,6 +400,7 @@ class SearchScreen(Screen):
             yield Input(placeholder="  Search for donghua…", id="search-input")
         yield Static("", id="continue-strip")
         yield Static("", id="status-bar")
+        yield Static("", id="filter-strip")
         with Container(id="results-container"):
             yield OptionList(id="results-list", classes="is-empty")
             yield Static(self.EMPTY_HINT, id="empty-hint")
@@ -424,18 +450,15 @@ class SearchScreen(Screen):
             self.app.notify(f"No {title.lower()} yet", title=title, timeout=2)
             return
 
-        accent = PALETTE["accent"]
-        text = PALETTE["text"]
-        faint = PALETTE["text_faint"]
-
-        self._results = [e.to_series() for e in entries]
-        options = []
-        for i, entry in enumerate(entries):
-            label = f"[bold {accent}]{i + 1:2d}[/]  [{text}]{_clip(entry.title, 60)}[/]"
+        self._results = []
+        for entry in entries:
+            s = entry.to_series()
             extra = getattr(entry, "last_episode", None)
             if extra:
-                label += f"  [{faint}]ep {extra}[/]"
-            options.append(Option(label, id=str(i)))
+                setattr(s, "_last_episode", extra)
+            self._results.append(s)
+
+        self.filter_mode = "all"
         try:
             status = self.query_one("#status-bar", Static)
             status.update(
@@ -445,7 +468,7 @@ class SearchScreen(Screen):
             )
         except NoMatches:
             pass
-        self._populate_results(options)
+        self._populate_results()
 
     def action_resume_recent(self) -> None:
         from donghua_cli import library
@@ -456,6 +479,32 @@ class SearchScreen(Screen):
         from donghua_cli import library
 
         self._show_library("Bookmarks", library.list_bookmarks())
+
+    def action_cycle_filter(self) -> None:
+        try:
+            inp = self.query_one("#search-input", Input)
+            if inp.has_focus:
+                self.query_one("#results-list", OptionList).focus()
+                return
+        except NoMatches:
+            pass
+
+        if not self._results:
+            return
+
+        modes = ["all", "series", "movies"]
+        curr_idx = modes.index(self.filter_mode) if self.filter_mode in modes else 0
+        self.filter_mode = modes[(curr_idx + 1) % len(modes)]
+        self._populate_results()
+
+    @on(events.Click, "#filter-strip")
+    def on_filter_strip_click(self) -> None:
+        if not self._results:
+            return
+        modes = ["all", "series", "movies"]
+        curr_idx = modes.index(self.filter_mode) if self.filter_mode in modes else 0
+        self.filter_mode = modes[(curr_idx + 1) % len(modes)]
+        self._populate_results()
 
     @on(Input.Submitted, "#search-input")
     def on_search(self, event: Input.Submitted) -> None:
@@ -525,6 +574,7 @@ class SearchScreen(Screen):
 
         results = search_all(query, on_progress=on_progress)
         self._results = results
+        self.filter_mode = "all"
 
         if not results:
             self.app.call_from_thread(
@@ -538,6 +588,7 @@ class SearchScreen(Screen):
                     f"[bold {text}]{query}[/][{faint}]'. "
                     f"Try a different spelling or a partial title.[/]",
                 )
+            self.app.call_from_thread(self._populate_results)
             self.app.call_from_thread(
                 self.app.notify,
                 "No results found",
@@ -554,26 +605,7 @@ class SearchScreen(Screen):
             f"[{accent_alt}]{multi}[/] [{faint}]multi-server[/]",
         )
 
-        from donghua_cli.scraper import _is_movie
-        options = []
-        for i, s in enumerate(results):
-            # Demoted MOVIE/SERIES tag: a quiet faint suffix instead of a
-            # high-contrast colored background.
-            kind = "movie" if _is_movie(s.title) else None
-            kind_suffix = f"  [{faint} italic]· {kind}[/]" if kind else ""
-
-            srv_count = len(s.sources)
-            count_dot = f"[{accent_alt}]●[/]" * srv_count + f"[{border}]●[/]" * max(0, 5 - srv_count)
-
-            label = (
-                f"[bold {accent}]{i + 1:2d}[/]  "
-                f"[{text}]{_clip(s.title, 48)}[/]"
-                f"{kind_suffix}  "
-                f"{count_dot}"
-            )
-            options.append(Option(label, id=str(i)))
-
-        self.app.call_from_thread(self._populate_results, options)
+        self.app.call_from_thread(self._populate_results)
         self.app.call_from_thread(
             self.app.notify,
             f"{len(results)} result(s) found",
@@ -581,20 +613,142 @@ class SearchScreen(Screen):
             timeout=3,
         )
 
-    def _populate_results(self, options: list[Option]) -> None:
+    def _populate_results(self, options: list[Option] | None = None) -> None:
+        from donghua_cli.scraper import _is_movie
+
         rl = self.query_one("#results-list", OptionList)
         rl.clear_options()
-        for opt in options:
-            rl.add_option(opt)
-        # Restore the frame now that it has contents to frame, and take the
-        # hint's 1fr back so the list can use the full height.
-        rl.set_class(not options, "is-empty")
+
+        try:
+            filter_strip = self.query_one("#filter-strip", Static)
+        except NoMatches:
+            filter_strip = None
+
         try:
             hint = self.query_one("#empty-hint", Static)
-            hint.update("")
-            hint.set_class(bool(options), "is-hidden")
         except NoMatches:
-            pass
+            hint = None
+
+        if options is not None:
+            for opt in options:
+                rl.add_option(opt)
+            has_options = bool(options)
+            rl.set_class(not has_options, "is-empty")
+            if hint is not None:
+                hint.update("")
+                hint.set_class(has_options, "is-hidden")
+            rl.focus()
+            return
+
+        if not self._results:
+            if filter_strip is not None:
+                filter_strip.update("")
+            rl.set_class(True, "is-empty")
+            if hint is not None:
+                hint.set_class(False, "is-hidden")
+            return
+
+        accent = PALETTE["accent"]
+        accent_alt = PALETTE["accent_alt"]
+        text = PALETTE["text"]
+        faint = PALETTE["text_faint"]
+        muted = PALETTE["text_muted"]
+        border = PALETTE["border"]
+
+        series_items: list[tuple[int, Series]] = []
+        movie_items: list[tuple[int, Series]] = []
+        for i, s in enumerate(self._results):
+            if _is_movie(s.title):
+                movie_items.append((i, s))
+            else:
+                series_items.append((i, s))
+
+        total_cnt = len(self._results)
+        series_cnt = len(series_items)
+        movie_cnt = len(movie_items)
+
+        if filter_strip is not None:
+            if self.filter_mode == "all":
+                p_all = f"[bold {accent}]● All ({total_cnt})[/]"
+                p_series = f"[{muted}]○ Series ({series_cnt})[/]"
+                p_movies = f"[{muted}]○ Movies ({movie_cnt})[/]"
+            elif self.filter_mode == "series":
+                p_all = f"[{muted}]○ All ({total_cnt})[/]"
+                p_series = f"[bold {accent}]● Series ({series_cnt})[/]"
+                p_movies = f"[{muted}]○ Movies ({movie_cnt})[/]"
+            else:  # movies
+                p_all = f"[{muted}]○ All ({total_cnt})[/]"
+                p_series = f"[{muted}]○ Series ({series_cnt})[/]"
+                p_movies = f"[bold {accent}]● Movies ({movie_cnt})[/]"
+
+            filter_strip.update(
+                f"  {p_all}   {p_series}   {p_movies}   [{border}]│[/]   "
+                f"[bold {accent}]Tab[/] [{faint}]filter[/]"
+            )
+
+        def make_option(display_idx: int, orig_idx: int, s: Series) -> Option:
+            kind = "movie" if _is_movie(s.title) else None
+            kind_suffix = f"  [{faint} italic]· {kind}[/]" if kind else ""
+            srv_count = len(s.sources)
+            if srv_count > 0:
+                count_dot = "  " + f"[{accent_alt}]●[/]" * srv_count + f"[{border}]●[/]" * max(0, 5 - srv_count)
+            else:
+                count_dot = ""
+
+            label = (
+                f"[bold {accent}]{display_idx:2d}[/]  "
+                f"[{text}]{_clip(s.title, 48)}[/]"
+                f"{kind_suffix}"
+                f"{count_dot}"
+            )
+            extra = getattr(s, "_last_episode", None)
+            if extra:
+                label += f"  [{faint}]ep {extra}[/]"
+            return Option(label, id=str(orig_idx))
+
+        opts: list[Option] = []
+        counter = 1
+
+        if self.filter_mode in ("all", "series"):
+            if series_cnt > 0 or self.filter_mode == "series":
+                header = (
+                    f"[{border}]──[/] [bold {accent_alt}]SERIES[/] "
+                    f"[{faint}]({series_cnt})[/] [{border}]{'─' * 36}[/]"
+                )
+                opts.append(Option(header, disabled=True))
+                for orig_idx, s in series_items:
+                    opts.append(make_option(counter, orig_idx, s))
+                    counter += 1
+            if self.filter_mode == "series" and series_cnt == 0:
+                opts.append(Option(f"  [{faint}]No series found. Press Tab to switch filter.[/]", disabled=True))
+
+        if self.filter_mode in ("all", "movies"):
+            if movie_cnt > 0 or self.filter_mode == "movies":
+                header = (
+                    f"[{border}]──[/] [bold {accent_alt}]MOVIES & SPECIALS[/] "
+                    f"[{faint}]({movie_cnt})[/] [{border}]{'─' * 26}[/]"
+                )
+                opts.append(Option(header, disabled=True))
+                for orig_idx, s in movie_items:
+                    opts.append(make_option(counter, orig_idx, s))
+                    counter += 1
+            if self.filter_mode == "movies" and movie_cnt == 0:
+                opts.append(Option(f"  [{faint}]No movies found. Press Tab to switch filter.[/]", disabled=True))
+
+        first_selectable_idx = None
+        for idx, opt in enumerate(opts):
+            rl.add_option(opt)
+            if not getattr(opt, "disabled", False) and first_selectable_idx is None:
+                first_selectable_idx = idx
+
+        if first_selectable_idx is not None:
+            rl.highlighted = first_selectable_idx
+
+        has_options = bool(opts)
+        rl.set_class(not has_options, "is-empty")
+        if hint is not None:
+            hint.update("")
+            hint.set_class(has_options, "is-hidden")
         rl.focus()
 
     @on(OptionList.OptionSelected, "#results-list")
@@ -614,13 +768,16 @@ class EpisodeScreen(Screen):
 
     BINDINGS = [
         Binding("escape", "go_back", "Back", show=True),
-        Binding("a", "select_all", "Play All", show=True),
         Binding("enter", "confirm", "Play", show=True),
+        Binding("d", "download", "Download", show=True),
+        Binding("a", "select_all", "Play All", show=True),
         Binding("b", "toggle_bookmark", "Bookmark", show=True),
     ]
 
     HELP_BAR = (
         f"[bold {PALETTE['accent']}]Enter[/] [{PALETTE['text_faint']}]play[/]  "
+        f"[{PALETTE['border']}]│[/]  "
+        f"[bold {PALETTE['accent']}]D[/] [{PALETTE['text_faint']}]download[/]  "
         f"[{PALETTE['border']}]│[/]  "
         f"[bold {PALETTE['accent']}]A[/] [{PALETTE['text_faint']}]play all[/]  "
         f"[{PALETTE['border']}]│[/]  "
@@ -719,7 +876,31 @@ class EpisodeScreen(Screen):
             f"  [{accent_alt}]{GLYPH['pending']}[/] [{muted}]Loading episodes…[/]",
         )
 
-        from donghua_cli.scraper import get_episodes
+        from donghua_cli.scraper import get_episodes, get_search_sources, search_all, _titles_match
+
+        # Enrich series with active sources if any are missing (e.g. opened from history/bookmarks)
+        healthy_keys = {s.key for s in get_search_sources()}
+        missing = healthy_keys - set(self._series.urls.keys())
+        if missing and self._series.title:
+            try:
+                for res in search_all(self._series.title):
+                    if _titles_match(res.title, self._series.title):
+                        for k, u in res.urls.items():
+                            if k not in self._series.urls:
+                                self._series.add_url(k, u)
+                        break
+                try:
+                    header = (
+                        f"[bold {accent}]{self._series.title}[/]\n"
+                        f"{_source_pills(list(self._series.sources))}"
+                    )
+                    hdr = self.query_one("#episode-header", Static)
+                    self.app.call_from_thread(hdr.update, header)
+                except NoMatches:
+                    pass
+            except Exception as e:
+                log.debug("Series source enrichment failed: %s", e)
+
         episodes = get_episodes(self._series)
         self._episodes = episodes
 
@@ -787,21 +968,115 @@ class EpisodeScreen(Screen):
             return
         idx = int(event.option_id)
         if 0 <= idx < len(self._episodes):
-            self.app.push_screen(
-                PlaybackScreen(self._core, self._episodes[idx:], self._series)
-            )
+            self._play_episode(idx)
 
     def action_select_all(self) -> None:
         if self._episodes:
             self.app.push_screen(
-                PlaybackScreen(self._core, self._episodes, self._series)
+                PlaybackScreen(
+                    self._core,
+                    self._episodes,
+                    self._series,
+                )
             )
 
     def action_confirm(self) -> None:
         el = self.query_one("#episode-list", OptionList)
-        if el.highlighted is not None and self._episodes:
-            self.app.push_screen(
-                PlaybackScreen(self._core, self._episodes[el.highlighted:], self._series)
+        if el.highlighted is not None and 0 <= el.highlighted < len(self._episodes):
+            self._play_episode(el.highlighted)
+
+    def action_download(self) -> None:
+        el = self.query_one("#episode-list", OptionList)
+        if el.highlighted is not None and 0 <= el.highlighted < len(self._episodes):
+            self._download_episode(self._episodes[el.highlighted])
+
+    def _play_episode(self, idx: int) -> None:
+        self.app.push_screen(
+            PlaybackScreen(
+                self._core,
+                self._episodes[idx:],
+                self._series,
+            )
+        )
+
+    def _safe_update_status(self, text: str) -> None:
+        try:
+            self.query_one("#status-bar", Static).update(text)
+        except NoMatches:
+            pass
+
+    @work(thread=True)
+    def _download_episode(self, ep: "Episode") -> None:
+        accent_alt = PALETTE["accent_alt"]
+        danger = PALETTE["danger"]
+        muted = PALETTE["text_muted"]
+
+        num = ep.number if ep.number < 999999 else "?"
+        self.app.call_from_thread(
+            self.app.notify,
+            f"Resolving stream for Episode {num}…",
+            title=f"{GLYPH['pending']} Download",
+            timeout=3,
+        )
+        self.app.call_from_thread(
+            self._safe_update_status,
+            f"  [{accent_alt}]{GLYPH['pending']}[/] [{muted}]Resolving download stream…[/]",
+        )
+
+        from donghua_cli.extractor import extract_with_fallback
+        from donghua_cli.player import Downloader
+
+        stream_url, source_key = extract_with_fallback(ep)
+        if not stream_url:
+            self.app.call_from_thread(
+                self._safe_update_status,
+                f"  [{danger}]{GLYPH['fail']}[/] No stream found for download",
+            )
+            self.app.call_from_thread(
+                self.app.notify,
+                f"No stream found for Episode {num}",
+                title="Download Failed",
+                severity="error",
+                timeout=5,
+            )
+            return
+
+        self.app.call_from_thread(
+            self._safe_update_status,
+            f"  [{accent_alt}]{GLYPH['pending']}[/] [{muted}]Downloading Episode {num}…[/]",
+        )
+        self.app.call_from_thread(
+            self.app.notify,
+            f"Downloading Episode {num}…",
+            title=f"{GLYPH['pending']} Downloading",
+            timeout=4,
+        )
+
+        ok = Downloader.download(
+            stream_url, self._series.title, ep.title, self._core._quality
+        )
+        if ok:
+            self.app.call_from_thread(
+                self._safe_update_status,
+                f"  [{accent_alt}]{GLYPH['ok']}[/] Download complete: Episode {num}",
+            )
+            self.app.call_from_thread(
+                self.app.notify,
+                f"Episode {num} saved to downloads",
+                title=f"{GLYPH['ok']} Downloaded",
+                timeout=5,
+            )
+        else:
+            self.app.call_from_thread(
+                self._safe_update_status,
+                f"  [{danger}]{GLYPH['fail']}[/] Download failed: Episode {num}",
+            )
+            self.app.call_from_thread(
+                self.app.notify,
+                f"Failed to download Episode {num}",
+                title="Download Error",
+                severity="error",
+                timeout=5,
             )
 
     def action_toggle_bookmark(self) -> None:
@@ -1042,7 +1317,7 @@ class PlaybackScreen(Screen):
                 if gen != self._play_gen:
                     return
                 elapsed = _time.time() - started_playback
-                if elapsed < 30:
+                if getattr(player, "exit_code", 0) not in (0, None):
                     self.app.call_from_thread(
                         self._safe_update,
                         "#status-bar",
@@ -1051,14 +1326,40 @@ class PlaybackScreen(Screen):
                     )
                     self.app.call_from_thread(
                         self.app.notify,
-                        f"mpv exited after {elapsed:.1f}s. Check the URL "
+                        f"mpv exited with error {player.exit_code} after {elapsed:.1f}s. Check the URL "
                         f"or try Replay (R).",
                         title="Playback failed",
                         severity="error",
                         timeout=6,
                     )
+                elif elapsed < 30:
+                    # User quit playback intentionally; don't auto-advance or show error
+                    self.app.call_from_thread(
+                        self._safe_update,
+                        "#status-bar",
+                        f"  [{accent_alt}]{GLYPH['ok']}[/] Playback stopped",
+                    )
                 else:
                     self.app.call_from_thread(self._advance_after_playback)
+            else:
+                import time as _time
+                started_playback = _time.time()
+                player.wait_for_end()
+                if gen != self._play_gen:
+                    return
+                elapsed = _time.time() - started_playback
+                if getattr(player, "exit_code", 0) not in (0, None):
+                    self.app.call_from_thread(
+                        self._safe_update,
+                        "#status-bar",
+                        f"  [{danger}]{GLYPH['fail']}[/] Playback ended with error {player.exit_code}",
+                    )
+                else:
+                    self.app.call_from_thread(
+                        self._safe_update,
+                        "#status-bar",
+                        f"  [{accent_alt}]{GLYPH['ok']}[/] Playback complete",
+                    )
         else:
             self.app.call_from_thread(
                 self._safe_update,
@@ -1101,8 +1402,6 @@ class PlaybackScreen(Screen):
         self._play_current()
 
     def action_download(self) -> None:
-        if not self._stream_url:
-            return
         self._safe_update(
             "#status-bar",
             f"  [{PALETTE['accent_alt']}]{GLYPH['pending']}[/] Downloading…",
@@ -1116,7 +1415,23 @@ class PlaybackScreen(Screen):
         danger = PALETTE["danger"]
 
         ep = self._episodes[self.current_idx]
-        stream_url = self._stream_url or ""
+        stream_url = self._stream_url
+        if not stream_url:
+            from donghua_cli.extractor import extract_with_fallback
+
+            stream_url, source_key = extract_with_fallback(ep)
+            self._stream_url = stream_url
+
+        if not stream_url:
+            self.app.call_from_thread(
+                self._safe_update,
+                "#status-bar",
+                f"  [{danger}]{GLYPH['fail']}[/] Download failed: no stream found",
+            )
+            self.app.call_from_thread(
+                self.app.notify, "No stream found", title="Error", severity="error"
+            )
+            return
 
         from donghua_cli.player import Downloader
 

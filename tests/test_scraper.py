@@ -62,6 +62,33 @@ class TestTitlesMatch:
             "Battle Through the Heavens Season 5",
         )
 
+    def test_bare_title_does_not_merge_into_bare_number_sequel(self):
+        # Regression: "Soul Land" (S1) must not merge into "Soul Land 2" (S2)
+        assert not _titles_match(
+            "Soul Land",
+            "Soul Land 2 The Peerless Tang Clan",
+        )
+        assert not _titles_match(
+            "Soul Land",
+            "Soul Land 2",
+        )
+
+    def test_different_bare_numbers_do_not_match(self):
+        assert not _titles_match(
+            "Soul Land 2",
+            "Soul Land 5",
+        )
+
+    def test_ordinal_and_roman_seasons_match(self):
+        assert _titles_match(
+            "Battle Through the Heavens 5th Season",
+            "Battle Through the Heavens Season 5",
+        )
+        assert _titles_match(
+            "Battle Through the Heavens Season IV",
+            "Battle Through the Heavens Season 4",
+        )
+
 
 class TestMergeEpisodes:
     def test_merges_same_episode_number(self):

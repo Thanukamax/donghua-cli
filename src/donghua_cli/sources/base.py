@@ -7,8 +7,13 @@ concrete source plugin only declares its selectors and a tiny link filter.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import re
 from typing import List
 
+_EP_KEYWORD_RE = re.compile(
+    r"\b(episode|episodes|ep|part|pt)\b|ep-|part-|pt-",
+    re.IGNORECASE,
+)
 EP_KEYWORDS = ("episode", "ep-", "ep", "part-", "part", "pt-", "pt")
 
 
@@ -80,6 +85,10 @@ class Source:
         ".eplister a",
         ".episodelist a",
         "#chapterlist a",
+        ".lastend a",
+        ".inepcx a",
+        ".bxcl a",
+        ".epcheck a",
         "li a",
     )
 
@@ -168,6 +177,7 @@ class Source:
         seen_urls: set[str] = set()
 
         for sel in self.episode_selectors:
+            matched_any = False
             for a in tree.css(sel):
                 if a.tag != "a":
                     continue
@@ -180,10 +190,11 @@ class Source:
                 seen_urls.add(normalized)
 
                 title = a.text(strip=True)
-                tl = title.lower()
-                hl = href.lower()
-                if any(kw in tl or kw in hl for kw in EP_KEYWORDS):
+                if _EP_KEYWORD_RE.search(title) or _EP_KEYWORD_RE.search(href):
                     episodes.append((title, href))
+                    matched_any = True
+            if matched_any:
+                break
 
         episodes.sort(key=lambda x: extract_episode_number(x[0], x[1]))
         return self.dedup_episodes(episodes)

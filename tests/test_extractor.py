@@ -359,3 +359,32 @@ class TestExtractServers:
             raise RuntimeError("network down")
         monkeypatch.setattr(extractor, "fetch_html", boom)
         assert extractor.extract_servers("http://ax/ep") == []
+
+    def test_resolves_donghuaplanet_wrapper(self, monkeypatch):
+        from selectolax.lexbor import LexborHTMLParser
+
+        wrapper_html = '<html><video><source src="https://cdn.example.com/video.mp4" type="video/mp4"></video></html>'
+        page_html = '<html><iframe src="https://player.donghuaplanet.com/v123"></iframe></html>'
+
+        def fake_fetch_html(url, timeout=8):
+            if "player.donghuaplanet.com" in url:
+                return LexborHTMLParser(wrapper_html)
+            return LexborHTMLParser(page_html)
+
+        monkeypatch.setattr(extractor, "fetch_html", fake_fetch_html)
+        got = extractor.extract_servers("http://dw/ep")
+        assert "https://cdn.example.com/video.mp4" in got
+
+    def test_extract_inspects_base64_options(self, monkeypatch):
+        from selectolax.lexbor import LexborHTMLParser
+
+        # base64 of: <iframe src="https://www.dailymotion.com/video/k3jQk"></iframe>
+        b64 = "PGlmcmFtZSBzcmM9Imh0dHBzOi8vd3d3LmRhaWx5bW90aW9uLmNvbS92aWRlby9rM2pRayI+PC9pZnJhbWU+"
+        page_html = f'<html><iframe src="about:blank"></iframe><select><option value="{b64}"></option></select></html>'
+
+        monkeypatch.setattr(extractor, "fetch_html", lambda url, timeout=8: LexborHTMLParser(page_html))
+        monkeypatch.setattr(extractor, "fetch_partial", lambda url, max_bytes=8192, timeout=5: "")
+
+        res = extractor.extract("http://ds/ep", allow_ytdlp=False)
+        assert res == "https://www.dailymotion.com/video/k3jQk"
+

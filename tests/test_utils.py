@@ -57,3 +57,58 @@ class TestExtractEpisodeNumber:
     def test_case_insensitive(self):
         assert extract_episode_number("EPISODE 99", "") == 99
         assert extract_episode_number("ep 3", "") == 3
+
+
+class TestProbeAlive:
+    def test_dailymotion_published_video_returns_true(self, monkeypatch):
+        from donghua_cli import utils
+
+        class DummyResponse:
+            status_code = 200
+
+            def json(self):
+                return {"id": "x123", "status": "published"}
+
+        monkeypatch.setattr(
+            utils, "get_client", lambda: type("C", (), {"get": lambda s, u, **k: DummyResponse()})()
+        )
+        assert utils.probe_alive("https://www.dailymotion.com/video/k3jQk") is True
+
+    def test_dailymotion_deleted_video_returns_false(self, monkeypatch):
+        from donghua_cli import utils
+
+        class DummyResponse:
+            status_code = 404
+
+            def json(self):
+                return {"error": {"code": 404, "message": "deleted"}}
+
+        monkeypatch.setattr(
+            utils, "get_client", lambda: type("C", (), {"get": lambda s, u, **k: DummyResponse()})()
+        )
+        assert utils.probe_alive("https://www.dailymotion.com/video/k5zvC") is False
+
+    def test_okru_live_video_returns_true(self, monkeypatch):
+        from donghua_cli import utils
+
+        class DummyResponse:
+            status_code = 200
+            text = '<html><div data-module="OKVideo"></div></html>'
+
+        monkeypatch.setattr(
+            utils, "get_client", lambda: type("C", (), {"get": lambda s, u, **k: DummyResponse()})()
+        )
+        assert utils.probe_alive("https://ok.ru/video/14560929319603") is True
+
+    def test_okru_deleted_video_returns_false(self, monkeypatch):
+        from donghua_cli import utils
+
+        class DummyResponse:
+            status_code = 200
+            text = '<html><title>OK</title><body>Video not found</body></html>'
+
+        monkeypatch.setattr(
+            utils, "get_client", lambda: type("C", (), {"get": lambda s, u, **k: DummyResponse()})()
+        )
+        assert utils.probe_alive("https://ok.ru/video/16051238603360") is False
+

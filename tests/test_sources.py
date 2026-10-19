@@ -15,6 +15,16 @@ class TestRegistry:
         assert ds is not None
         assert ds.base_url == "https://donghuastream.org"
 
+    def test_donghuaworld_registered(self):
+        dw = next((s for s in ALL_SOURCES if s.key == "dw"), None)
+        assert dw is not None
+        assert dw.base_url == "https://donghuaworld.com"
+
+    def test_luciferdonghua_registered(self):
+        ld = next((s for s in ALL_SOURCES if s.key == "ld"), None)
+        assert ld is not None
+        assert ld.base_url == "https://luciferdonghua.org"
+
     def test_dead_sources_are_not_registered(self):
         # h-donghua and misterdonghua stopped answering entirely in Aug 2026 --
         # confirmed over Tor, so it was not a local network block. Leaving them

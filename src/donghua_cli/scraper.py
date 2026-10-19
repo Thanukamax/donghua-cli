@@ -49,9 +49,15 @@ def _normalize_title(title: str) -> str:
     t = re.sub(r"\s*[:–\-]\s*(Battle\s+of\s+(the\s+)?Gods|Remake|Director'?s?\s+Cut).*$", "", t, flags=re.IGNORECASE)
     # Strip bracket tags like [Xian Ni]
     t = re.sub(r"\s*[\[\(](Xian\s+Ni|[^)]{1,20})[\]\)]\s*$", "", t)
-    # NORMALIZE season notation (do NOT strip): "Season 04" / "S 5" / "S5" → "season N"
-    t = re.sub(r"\bS\s*(\d+)\b", lambda m: f"season {int(m.group(1))}", t, flags=re.IGNORECASE)
-    t = re.sub(r"\bseason\s*0*(\d+)\b", lambda m: f"season {int(m.group(1))}", t, flags=re.IGNORECASE)
+    # NORMALIZE season notation (do NOT strip): "Season 04" / "S 5" / "S5" / "Season IV" / "5th Season" → "season N"
+    _ROMAN = {"i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5, "vi": 6, "vii": 7, "viii": 8, "ix": 9, "x": 10}
+    t = re.sub(
+        r"\b(?:season|s)\s*(?:0*(\d+)|(i{1,3}|iv|v|vi{0,3}|ix|x))\b",
+        lambda m: f"season {int(m.group(1)) if m.group(1) else _ROMAN[m.group(2).lower()]}",
+        t,
+        flags=re.IGNORECASE,
+    )
+    t = re.sub(r"\b(\d+)(?:st|nd|rd|th)\s+season\b", lambda m: f"season {int(m.group(1))}", t, flags=re.IGNORECASE)
     t = re.sub(r"\s+", " ", t).strip().lower()
     return t
 
@@ -94,7 +100,14 @@ def _titles_match(a: str, b: str, threshold: float = 0.82) -> bool:
         # season (or vice versa).
         return False
 
-    # Neither has a season marker — substring/ratio is fine here.
+    # Neither has an explicit "season" marker — check for numeric differences
+    # (e.g. "Soul Land" vs "Soul Land 2" or "Part 1" vs "Part 2"). If numbers differ,
+    # they are distinct installments and must NEVER merge.
+    nums_a = set(re.findall(r"\b\d+\b", na))
+    nums_b = set(re.findall(r"\b\d+\b", nb))
+    if nums_a != nums_b:
+        return False
+
     if na in nb or nb in na:
         return True
     return SequenceMatcher(None, na, nb).ratio() >= threshold
