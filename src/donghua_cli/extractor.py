@@ -54,7 +54,32 @@ VIDEO_HOSTS: tuple[str, ...] = (
     "feurl",
     "supervideo",
     "rumble",
+    "streamwish",
+    "wishembed",
+    "strwish",
+    "filelions",
+    "vidguard",
+    "vgfplay",
+    "vembed",
+    "turbovid",
+    "emturbovid",
+    "abyssplayer",
+    "listeamed",
+    "donghuaplanet",
 )
+
+
+def _resolve_wrapper(embed_url: str) -> str | None:
+    """Extract direct media URL from player wrappers (e.g. player.donghuaplanet.com)."""
+    if "donghuaplanet.com" in embed_url:
+        try:
+            ptree = fetch_html(embed_url, timeout=5)
+            s = ptree.css_first("source[src], video[src]")
+            if s and s.attributes.get("src"):
+                return s.attributes["src"]
+        except Exception:
+            pass
+    return None
 
 
 def _normalise_scheme(url: str) -> str:
@@ -143,6 +168,20 @@ def _canonicalize(url: str) -> str:
     m = re.search(r"rumble\.com/embed/([0-9a-z]+)", url)
     if m:
         url = f"https://rumble.com/embed/{m.group(1)}/"
+
+    # Streamwish / wishembed / strwish: /e/<id> → /f/<id>
+    url = re.sub(
+        r"((?:streamwish|wishembed|strwish)\.[A-Za-z]{2,8})/e/",
+        r"\1/f/",
+        url,
+    )
+
+    # Vidguard / vgfplay / vembed: /e/<id> → /v/<id>
+    url = re.sub(
+        r"((?:vidguard|vgfplay|vembed)\.[A-Za-z]{2,8})/e/",
+        r"\1/v/",
+        url,
+    )
 
     return url
 
@@ -309,6 +348,13 @@ def extract(episode_url: str, allow_ytdlp: bool = True) -> str:
     Set ``allow_ytdlp=False`` to skip the slow yt-dlp last resort — used by the
     concurrent mirror race, which wants every candidate to stay sub-second.
     """
+    raw = _extract_raw(episode_url, allow_ytdlp=allow_ytdlp)
+    if raw and raw != episode_url:
+        return _canonicalize(raw)
+    return raw
+
+
+def _extract_raw(episode_url: str, allow_ytdlp: bool = True) -> str:
     # 1. Already a direct media URL
     if episode_url.endswith((".m3u8", ".mp4", ".mkv")):
         return episode_url
@@ -349,6 +395,25 @@ def extract(episode_url: str, allow_ytdlp: bool = True) -> str:
     for iframe in tree.css("iframe"):
         src = iframe.attributes.get("src") or iframe.attributes.get("data-src") or ""
         if src and any(host in src for host in VIDEO_HOSTS):
+            resolved = _resolve_wrapper(src)
+            return resolved or src
+
+    # Also inspect base64-encoded <option> values (common server switcher pattern)
+    for m in re.finditer(r"""<option[^>]*value=["']([A-Za-z0-9+/=]{40,})["']""", tree.html or ""):
+        try:
+            decoded = base64.b64decode(m.group(1)).decode("utf-8", "replace")
+        except (ValueError, binascii.Error):
+            continue
+        for hit in re.finditer(r"""(?:src|href)=["']([^"']+)["']""", decoded):
+            src = hit.group(1)
+            if any(host in src for host in VIDEO_HOSTS):
+                resolved = _resolve_wrapper(src)
+                return resolved or src
+
+    # Direct video or source elements
+    for source_el in tree.css("video source, video[src], source[src]"):
+        src = source_el.attributes.get("src") or ""
+        if src.startswith("http") and any(ext in src for ext in (".m3u8", ".mp4", ".mkv")):
             return src
 
     # 4. yt-dlp fallback (skipped in the concurrent race — too slow to block on)
@@ -401,6 +466,9 @@ def extract_servers(episode_url: str) -> list[str]:
         for hit in re.finditer(r"""(?:src|href)=["']([^"']+)["']""", decoded):
             src = hit.group(1)
             if any(host in src for host in VIDEO_HOSTS):
+                resolved = _resolve_wrapper(src)
+                if resolved:
+                    add(resolved)
                 add(src)
 
     # Plain players on the page itself.
@@ -412,6 +480,13 @@ def extract_servers(episode_url: str) -> list[str]:
     for iframe in tree.css("iframe"):
         src = iframe.attributes.get("src") or iframe.attributes.get("data-src") or ""
         if src and any(host in src for host in VIDEO_HOSTS):
+            resolved = _resolve_wrapper(src)
+            if resolved:
+                add(resolved)
+            add(src)
+    for source_el in tree.css("video source, video[src], source[src]"):
+        src = source_el.attributes.get("src") or ""
+        if src.startswith("http") and any(ext in src for ext in (".m3u8", ".mp4", ".mkv")):
             add(src)
 
     return out
