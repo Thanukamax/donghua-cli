@@ -1,0 +1,11 @@
+---
+import Base from '../layouts/Base.astro';
+import InstallPage from '../components/InstallPage';
+---
+
+<Base
+  title="Install — donghua-cli"
+  description="Three breaths to begin: exact install steps for macOS, Windows, Linux and Android."
+>
+  <InstallPage client:only="react" />
+</Base>

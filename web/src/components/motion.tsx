@@ -1,24 +1,20 @@
-/* motion.tsx — reusable scroll/kinetic primitives.
-   Ported from the handoff prototype's app.jsx (window.FM globals → real imports). */
+/* motion.tsx — scroll-linked primitives and kinetic type.
+   Ported from the Claude Design handoff (app.jsx). */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  motion, useInView, useMotionValue, useSpring, useTransform,
-  type MotionValue, type MotionStyle, type HTMLMotionProps,
-} from 'framer-motion';
-import type { CSSProperties, ReactNode, Ref as ReactRef } from 'react';
+import { motion, useInView, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
-type Ref = React.RefObject<HTMLElement | null>;
-// Small set of intrinsic tags the kinetic helpers render as — keeps TS from
-// unioning every element in JSX.IntrinsicElements (which blows the type budget).
-type AsTag = 'div' | 'span' | 'p' | 'h1' | 'h2' | 'h3';
+import type { CSSProperties, ElementType, MouseEvent as ReactMouseEvent, ReactNode, RefObject } from 'react';
+import type { HTMLMotionProps, MotionStyle } from 'framer-motion';
 
-// ─── Parallax ─────────────────────────────────────────────────────────────────
-// FM's useScroll never receives scroll events in this build, so all scroll-
-// linked motion is driven by this hook instead: an own scroll/resize
-// subscription that writes 0→1 progress (enter bottom → leave top) into a MV.
-export function useScrollMV(ref: Ref): MotionValue<number> {
-  const mv = useMotionValue(0);
+type MagneticButtonProps = Omit<HTMLMotionProps<'button'>, 'style' | 'children'> & {
+  children?: ReactNode;
+  style?: CSSProperties;
+  strength?: number;
+};
+
+export function useScrollMV(ref: RefObject<HTMLElement | null>) {
+      const mv = useMotionValue(0);
   useEffect(() => {
     let raf = 0;
     const update = () => {
@@ -46,10 +42,8 @@ export function useScrollMV(ref: Ref): MotionValue<number> {
 }
 
 // Scroll-linked drift for decorative layers; outer div carries only FM transforms.
-export function Parallax({ speed = 50, style, children }: {
-  speed?: number; style?: CSSProperties; children?: ReactNode;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
+export function Parallax({ speed = 50, style, children }: { speed?: number; style?: CSSProperties; children?: ReactNode }) {
+      const ref = useRef<HTMLDivElement>(null);
   const p = useScrollMV(ref);
   const y = useTransform(p, [0, 1], [speed, -speed]);
   return (
@@ -62,7 +56,7 @@ export function Parallax({ speed = 50, style, children }: {
 // ─── ScrollProgress ───────────────────────────────────────────────────────────
 // Hairline gold progress bar along the top edge.
 export function ScrollProgress() {
-  const mv = useMotionValue(0);
+      const mv = useMotionValue(0);
   useEffect(() => {
     const update = () => {
       const max = document.documentElement.scrollHeight - window.innerHeight;
@@ -90,33 +84,83 @@ export function ScrollProgress() {
 // ─── ScrollDrift ───────────────────────────────────────────────────────────────
 // Bidirectional scroll-linked reveal: drifts/fades in while entering the
 // viewport and back out while leaving — works in both scroll directions.
-export function ScrollDrift({ children, style, x = 0, y = 70, blur = 0, fadeBand = .2 }: {
-  children?: ReactNode; style?: CSSProperties; x?: number; y?: number; blur?: number; fadeBand?: number;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
+// (blur prop accepted but ignored — scroll-linked filters repaint whole
+// sections every frame and were the main jank source)
+export function ScrollDrift({ children, style, x = 0, y = 70, fadeBand = .2 }: { children?: ReactNode; style?: CSSProperties; x?: number; y?: number; blur?: number; fadeBand?: number }) {
+      const ref = useRef<HTMLDivElement>(null);
   const p = useScrollMV(ref);
   const opacity = useTransform(p, [0, fadeBand, 1 - fadeBand, 1], [0, 1, 1, 0]);
   const my = useTransform(p, [0, .5, 1], [y, 0, -y]);
   const mx = useTransform(p, [0, .5, 1], [x, 0, -x]);
-  const filter = useTransform(p, [0, fadeBand, 1 - fadeBand, 1],
-    ['blur(' + blur + 'px)', 'blur(0px)', 'blur(0px)', 'blur(' + (blur * .8) + 'px)']);
-  const s: MotionStyle = { ...(style as MotionStyle), opacity, y: my };
+  const s: MotionStyle = { ...style, opacity, y: my };
   if (x) s.x = mx;
-  if (blur) s.filter = filter;
   return <motion.div ref={ref} style={s}>{children}</motion.div>;
+}
+
+// ─── MagicRings ───────────────────────────────────────────────────────────────
+// Concentric 法印 rings that accumulate section-by-section into a full magic seal.
+// Each ring is an independent orbital — own tilt, own axis-precession, own spin,
+// own inscribed array line-work — like the nested wheels of an armillary sphere.
+function KineticWord({ word, delay, index, stagger, hasSpace }: { word: string; delay: number; index: number; stagger: number; hasSpace: boolean }) {
+      const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.05 });
+  return (
+    <span ref={ref} style={{ display:'inline-block', overflow:'hidden',
+      verticalAlign:'bottom', marginRight: hasSpace ? '.28em' : 0 }}>
+      <motion.span
+        style={{ display:'inline-block' }}
+        initial={{ y:'112%', opacity:.001, filter:'blur(6px)' }}
+        animate={ inView ? { y:'0%', opacity:1, filter:'blur(0px)' } : { y:'112%', opacity:.001, filter:'blur(6px)' } }
+        transition={{ delay: inView ? delay + index * stagger : 0, duration:.95, ease:[.16,1,.3,1] }}
+      >{word}</motion.span>
+    </span>
+  );
+}
+
+// ─── KineticText ──────────────────────────────────────────────────────────────
+export function KineticText({ text, as: Tag = 'div', style, delay = 0, stagger = .07 }: { text: string; as?: ElementType; style?: CSSProperties; delay?: number; stagger?: number }) {
+  const words = text.split(' ');
+  return (
+    <Tag style={style} aria-label={text}>
+      {words.map((w, i) => (
+        <KineticWord key={i} word={w} delay={delay} stagger={stagger} index={i} hasSpace={i < words.length-1} />
+      ))}
+    </Tag>
+  );
+}
+
+// ─── KineticChars ─────────────────────────────────────────────────────────────
+// Per-glyph rise + un-blur; optional traveling gold glint via .gold-shimmer.
+export function KineticChars({ text, as: Tag = 'div', style, delay = 0, stagger = .05, shimmer = false }: { text: string; as?: ElementType; style?: CSSProperties; delay?: number; stagger?: number; shimmer?: boolean }) {
+      const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once:true, amount:.1 });
+  const chars = Array.from(text);
+  return (
+    <Tag ref={ref} style={style} aria-label={text}>
+      {chars.map((c, i) => (
+        <span key={i} aria-hidden="true" style={{ display:'inline-block', overflow:'hidden', verticalAlign:'bottom' }}>
+          <motion.span
+            className={shimmer ? 'gold-shimmer' : undefined}
+            initial={{ y:'115%', opacity:.001, filter:'blur(7px)' }}
+            animate={ inView ? { y:'0%', opacity:1, filter:'blur(0px)' } : { y:'115%', opacity:.001, filter:'blur(7px)' } }
+            transition={{ delay: delay + i * stagger, duration:1, ease:[.16,1,.3,1] }}
+            style={{ display:'inline-block', animationDelay: (2.3 + i * .07) + 's' }}
+          >{c === ' ' ? '\u00A0' : c}</motion.span>
+        </span>
+      ))}
+    </Tag>
+  );
 }
 
 // ─── CountUp ────────────────────────────────────────────────────────────────
 // Eased numeric count-up once in view.
-export function CountUp({ to, suffix = '', duration = 1.6 }: {
-  to: number; suffix?: string; duration?: number;
-}) {
-  const ref = useRef<HTMLSpanElement>(null);
+export function CountUp({ to, suffix = '', duration = 1.6 }: { to: number; suffix?: string; duration?: number }) {
+      const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, amount: .6 });
   const [val, setVal] = useState(0);
   useEffect(() => {
     if (!inView) return;
-    let raf: number;
+    let raf = 0;
     const t0 = performance.now();
     const tick = (now: number) => {
       const p = Math.min((now - t0) / (duration * 1000), 1);
@@ -129,81 +173,36 @@ export function CountUp({ to, suffix = '', duration = 1.6 }: {
   return <span ref={ref}>{val}{suffix}</span>;
 }
 
-// ─── KineticWord / KineticText ──────────────────────────────────────────────────
-function KineticWord({ word, delay, index, stagger, hasSpace }: {
-  word: string; delay: number; index: number; stagger: number; hasSpace: boolean;
-}) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.05 });
-  return (
-    <span ref={ref} style={{ display: 'inline-block', overflow: 'hidden',
-      verticalAlign: 'bottom', marginRight: hasSpace ? '.28em' : 0 }}>
-      <motion.span
-        style={{ display: 'inline-block' }}
-        initial={{ y: '112%', opacity: .001, filter: 'blur(6px)' }}
-        animate={inView ? { y: '0%', opacity: 1, filter: 'blur(0px)' } : { y: '112%', opacity: .001, filter: 'blur(6px)' }}
-        transition={{ delay: inView ? delay + index * stagger : 0, duration: .95, ease: [.16, 1, .3, 1] }}
-      >{word}</motion.span>
-    </span>
-  );
-}
-
-export function KineticText({ text, as: Tag = 'div', style, delay = 0, stagger = .07 }: {
-  text: string; as?: AsTag; style?: CSSProperties; delay?: number; stagger?: number;
-}) {
-  const words = text.split(' ');
-  return (
-    <Tag style={style} aria-label={text}>
-      {words.map((w, i) => (
-        <KineticWord key={i} word={w} delay={delay} stagger={stagger} index={i} hasSpace={i < words.length - 1} />
-      ))}
-    </Tag>
-  );
-}
-
-// ─── KineticChars ─────────────────────────────────────────────────────────────
-// Per-glyph rise + un-blur; optional traveling gold glint via .gold-shimmer.
-export function KineticChars({ text, as: Tag = 'div', style, delay = 0, stagger = .05, shimmer = false }: {
-  text: string; as?: AsTag; style?: CSSProperties; delay?: number; stagger?: number; shimmer?: boolean;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, amount: .1 });
-  const chars = Array.from(text);
-  return (
-    <Tag ref={ref as ReactRef<HTMLDivElement>} style={style} aria-label={text}>
-      {chars.map((c, i) => (
-        <span key={i} aria-hidden="true" style={{ display: 'inline-block', overflow: 'hidden', verticalAlign: 'bottom' }}>
-          <motion.span
-            className={shimmer ? 'gold-shimmer' : undefined}
-            initial={{ y: '115%', opacity: .001, filter: 'blur(7px)' }}
-            animate={inView ? { y: '0%', opacity: 1, filter: 'blur(0px)' } : { y: '115%', opacity: .001, filter: 'blur(7px)' }}
-            transition={{ delay: delay + i * stagger, duration: 1, ease: [.16, 1, .3, 1] }}
-            style={{ display: 'inline-block', animationDelay: (2.3 + i * .07) + 's' }}
-          >{c === ' ' ? ' ' : c}</motion.span>
-        </span>
-      ))}
-    </Tag>
-  );
-}
-
 // ─── MagneticButton ───────────────────────────────────────────────────────────
-export function MagneticButton({ children, style, strength = .28, onClick, ...rest }:
-  { strength?: number } & HTMLMotionProps<'button'>) {
+export function MagneticButton({ children, style, strength = .28, onClick, ...rest }: MagneticButtonProps) {
   const ref = useRef<HTMLButtonElement>(null);
   const x = useMotionValue(0), y = useMotionValue(0);
-  const sx = useSpring(x, { stiffness: 300, damping: 28 });
-  const sy = useSpring(y, { stiffness: 300, damping: 28 });
-  const onMove = useCallback((e: React.MouseEvent) => {
+  const sx = useSpring(x, { stiffness:300, damping:28 });
+  const sy = useSpring(y, { stiffness:300, damping:28 });
+  const onMove = useCallback((e: ReactMouseEvent) => {
     if (!ref.current) return;
     const r = ref.current.getBoundingClientRect();
-    x.set((e.clientX - r.left - r.width / 2) * strength);
-    y.set((e.clientY - r.top - r.height / 2) * strength);
+    x.set((e.clientX - r.left - r.width/2) * strength);
+    y.set((e.clientY - r.top  - r.height/2) * strength);
   }, [strength]);
   const onLeave = useCallback(() => { x.set(0); y.set(0); }, []);
   return (
-    <motion.button ref={ref} style={{ x: sx, y: sy, ...(style as MotionStyle) }}
+    <motion.button ref={ref} style={{ x:sx, y:sy, ...style }} whileTap={{ scale:.94 }}
       onMouseMove={onMove} onMouseLeave={onLeave} onClick={onClick} {...rest}>
       {children}
     </motion.button>
   );
 }
+
+// ─── Nav ──────────────────────────────────────────────────────────────────────
+export function FromDepth({ children, delay = 0, style }: { children?: ReactNode; delay?: number; style?: CSSProperties }) {
+    return (
+    <motion.div initial={{ scale: .8, opacity: 0, filter: 'blur(12px)' }}
+      animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
+      transition={{ delay, duration: 1.15, ease: [.16, 1, .3, 1] }} style={style}>
+      {children}
+    </motion.div>
+  );
+}
+
+// ─── HeroSection ─────────────────────────────────────────────────────────────
