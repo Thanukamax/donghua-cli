@@ -5,6 +5,8 @@ fuzzy title matching, filters irrelevant results, and resolves episodes
 with automatic server fallback.
 """
 
+from __future__ import annotations
+
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, TimeoutError, as_completed

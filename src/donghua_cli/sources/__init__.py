@@ -5,6 +5,8 @@ and extract episode lists. Adding a new source = adding one file here and
 registering it in ALL_SOURCES.
 """
 
+from __future__ import annotations
+
 from donghua_cli import config
 from donghua_cli.sources.base import Source, Episode, Series
 from donghua_cli.sources.luciferdonghua import LuciferDonghua

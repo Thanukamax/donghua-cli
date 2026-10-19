@@ -7,6 +7,8 @@ episode ends. ``wait_for_end()`` blocks until MPV exits, which the TUI uses to
 auto-advance to the next episode when ``auto_next`` is enabled.
 """
 
+from __future__ import annotations
+
 import os
 import shutil
 import subprocess
