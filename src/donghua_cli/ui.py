@@ -44,14 +44,39 @@ def select_from_list_with_badges(items: list[tuple[str, str]], title: str) -> in
     table.add_column("Title", min_width=42, max_width=46)
     table.add_column("Servers", width=16, justify="right")
 
-    for i, (item_title, badges) in enumerate(items, 1):
-        display = item_title[:46] + "\u2026" if len(item_title) > 46 else item_title
-        table.add_row(
-            f"[accent.bold]{i}[/]",
-            "[ghost]\u00b7[/]",
-            f"[text]{display}[/]",
-            f"[faint]{badges}[/]",
-        )
+    series_rows = [(i, title, badges) for i, (title, badges) in enumerate(items, 1) if "[SERIES]" in badges or "[MOVIE]" not in badges]
+    movie_rows = [(i, title, badges) for i, (title, badges) in enumerate(items, 1) if "[MOVIE]" in badges]
+
+    if series_rows and movie_rows:
+        table.add_row("", "", f"[accent.alt.bold]── SERIES ({len(series_rows)}) ──[/]", "")
+        for i, item_title, badges in series_rows:
+            display = item_title[:46] + "\u2026" if len(item_title) > 46 else item_title
+            clean_badges = badges.replace("[SERIES] ", "").replace("[SERIES]", "")
+            table.add_row(
+                f"[accent.bold]{i}[/]",
+                "[ghost]\u00b7[/]",
+                f"[text]{display}[/]",
+                f"[faint]{clean_badges}[/]",
+            )
+        table.add_row("", "", f"[accent.alt.bold]── MOVIES & SPECIALS ({len(movie_rows)}) ──[/]", "")
+        for i, item_title, badges in movie_rows:
+            display = item_title[:46] + "\u2026" if len(item_title) > 46 else item_title
+            clean_badges = badges.replace("[MOVIE] ", "").replace("[MOVIE]", "")
+            table.add_row(
+                f"[accent.bold]{i}[/]",
+                "[ghost]\u00b7[/]",
+                f"[text]{display}[/]",
+                f"[faint]{clean_badges}[/]",
+            )
+    else:
+        for i, (item_title, badges) in enumerate(items, 1):
+            display = item_title[:46] + "\u2026" if len(item_title) > 46 else item_title
+            table.add_row(
+                f"[accent.bold]{i}[/]",
+                "[ghost]\u00b7[/]",
+                f"[text]{display}[/]",
+                f"[faint]{badges}[/]",
+            )
 
     console.print(Panel(
         table,

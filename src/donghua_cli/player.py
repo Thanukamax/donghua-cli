@@ -39,6 +39,7 @@ class Player:
         self.quality = quality or config.get_quality()
         self._process: Optional[subprocess.Popen] = None
         self._ipc_path: Optional[str] = None
+        self.exit_code: Optional[int] = None
 
     def play(self, stream_url: str, title: str = "Donghua") -> bool:
         """Launch playback. Returns True if a player started successfully."""
@@ -74,6 +75,7 @@ class Player:
         deadline = time.monotonic() + grace
         while time.monotonic() < deadline:
             if proc.poll() is not None:
+                self.exit_code = proc.poll()
                 self._cleanup_socket()
                 return False
             time.sleep(poll_interval)
@@ -94,6 +96,7 @@ class Player:
             return False
         while proc.poll() is None:
             time.sleep(poll_interval)
+        self.exit_code = proc.poll()
         self._cleanup_socket()
         return True
 
@@ -107,6 +110,8 @@ class Player:
                 self._process.wait(timeout=2)
             except OSError:
                 pass
+        if self._process:
+            self.exit_code = self._process.poll()
         self._process = None
         # Reap the IPC socket too — without this, every superseded player leaks
         # a stale socket file in tmp until reboot.
