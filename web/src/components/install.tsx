@@ -38,8 +38,6 @@ const REALMS: Realm[] = [
     snags: [
       { q: 'dhua: command not found',
         a: 'Open a new terminal tab. pipx ensurepath edits your shell profile, and windows that were already open never re-read it.' },
-      { q: 'Crash on launch with Apple\u2019s Python',
-        a: 'Skip pip install on the stock /usr/bin/python3 (3.9) \u2014 it currently fails on startup. The pipx route above runs on Homebrew\u2019s newer Python and is unaffected.' },
     ] },
   { id: 'win', cn: '视窗', en: 'Windows',
     prepare: { cmd: 'winget install shinchiro.mpv; winget install Python.Python.3.12',
