@@ -19,6 +19,7 @@ type Realm = {
   bind: Step;
   distros?: Distro[];    // Linux only: swaps the prepare command
   aside?: { text: string; href: string; link: string };
+  snags?: { q: string; a: string }[];   // known sharp edges, each reproduced on a real machine
 };
 
 const SUMMON: Step = {
@@ -33,7 +34,13 @@ const PIPX_BIND: Step = {
 const REALMS: Realm[] = [
   { id: 'mac', cn: '苹果', en: 'macOS',
     prepare: { cmd: 'brew install mpv pipx', desc: 'mpv plays the stream. Needs Homebrew.' },
-    bind: PIPX_BIND },
+    bind: PIPX_BIND,
+    snags: [
+      { q: 'dhua: command not found',
+        a: 'Open a new terminal tab. pipx ensurepath edits your shell profile, and windows that were already open never re-read it.' },
+      { q: 'Crash on launch with Apple\u2019s Python',
+        a: 'Skip pip install on the stock /usr/bin/python3 (3.9) \u2014 it currently fails on startup. The pipx route above runs on Homebrew\u2019s newer Python and is unaffected.' },
+    ] },
   { id: 'win', cn: '视窗', en: 'Windows',
     prepare: { cmd: 'winget install shinchiro.mpv; winget install Python.Python.3.12',
       desc: 'mpv and Python, from PowerShell. Reopen the terminal once both land.' },
@@ -293,6 +300,25 @@ export function InstallSection({ compact }: { compact?: boolean }) {
                 })}
               </motion.ol>
             </AnimatePresence>
+
+            {realm.snags && (
+              <div style={{ marginTop: '1.4rem', paddingTop: '1.1rem', borderTop: '1px solid rgba(195,39,43,.28)' }}>
+                <div style={{ fontFamily: "'Fira Code',monospace", fontSize: '.68rem', letterSpacing: '.28em',
+                  color: 'rgba(195,39,43,.85)', textTransform: 'uppercase', marginBottom: '.7rem' }}>
+                  <span aria-hidden="true" style={{ fontFamily: "'ZCOOL XiaoWei',serif", letterSpacing: '.1em', marginRight: '.7em' }}>阻</span>
+                  If the path snags
+                </div>
+                <dl style={{ margin: 0, display: 'grid', gap: '.9rem' }}>
+                  {realm.snags.map(sn => (
+                    <div key={sn.q}>
+                      <dt style={{ fontFamily: "'Fira Code',monospace", fontSize: '.82rem', color: '#d4af37' }}>{sn.q}</dt>
+                      <dd style={{ margin: '.25rem 0 0', fontFamily: "'EB Garamond',serif", fontSize: '1rem',
+                        color: 'rgba(233,228,214,.6)', lineHeight: 1.6, textWrap: 'pretty' }}>{sn.a}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
 
             <p style={{ marginTop: '1rem', fontFamily: "'EB Garamond',serif", fontSize: '1rem',
               color: 'rgba(233,228,214,.55)', lineHeight: 1.6 }}>
