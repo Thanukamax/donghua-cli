@@ -6,7 +6,7 @@ from donghua_cli.sources.base import Source
 class LuciferDonghua(Source):
     key = "ld"
     name = "LuciferDonghua"
-    base_url = "https://luciferdonghua.in"
+    base_url = "https://luciferdonghua.org"
 
     # ld responds quickly; default 8s search budget is plenty.
     search_selectors = ("article.bs",)

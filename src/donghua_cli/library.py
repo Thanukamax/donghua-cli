@@ -75,6 +75,12 @@ def _load() -> LibraryState:
             raise TypeError("library.json 'history' is not a list")
         if not isinstance(raw_bookmarks, list):
             raise TypeError("library.json 'bookmarks' is not a list")
+        for item in raw_history + raw_bookmarks:
+            if isinstance(item, dict) and "urls" in item and isinstance(item["urls"], dict):
+                for k, u in list(item["urls"].items()):
+                    if "luciferdonghua.in" in u:
+                        item["urls"][k] = u.replace("luciferdonghua.in", "luciferdonghua.org")
+
         history = [HistoryEntry(**h) for h in raw_history if isinstance(h, dict)]
         bookmarks = [BookmarkEntry(**b) for b in raw_bookmarks if isinstance(b, dict)]
         _state = LibraryState(history=history, bookmarks=bookmarks)

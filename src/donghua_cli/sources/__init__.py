@@ -12,10 +12,12 @@ from donghua_cli.sources.animexin import AnimeXin
 from donghua_cli.sources.animekhor import AnimeKhor
 from donghua_cli.sources.lmanime import LMAnime
 from donghua_cli.sources.donghuastream import DonghuaStream
+from donghua_cli.sources.donghuaworld import DonghuaWorld
 
 
 def _build_registry() -> list[Source]:
     sources: list[Source] = [
+        DonghuaWorld(),
         LuciferDonghua(),
         AnimeXin(),
         DonghuaStream(),
