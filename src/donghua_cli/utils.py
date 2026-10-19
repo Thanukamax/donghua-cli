@@ -8,7 +8,10 @@ import tempfile
 
 from curl_cffi import requests as cffi
 from curl_cffi.requests.exceptions import RequestException
-from selectolax.parser import HTMLParser
+try:
+    from selectolax.lexbor import LexborHTMLParser as HTMLParser
+except ImportError:
+    from selectolax.parser import HTMLParser  # type: ignore[no-redef]
 
 from donghua_cli import config
 
