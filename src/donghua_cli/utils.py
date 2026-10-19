@@ -86,7 +86,7 @@ def is_valid_episode_url(href: str) -> bool:
         return False
     if "#comment" in href or "#respond" in href:
         return False
-    if any(skip in href for skip in ("/tag/", "/category/", "/author/", "wp-content", "javascript:")):
+    if any(skip in href for skip in ("/tag/", "/category/", "/genre/", "/genres/", "/author/", "wp-content", "javascript:")):
         return False
     return True
 
@@ -197,18 +197,26 @@ def probe_alive(url: str, timeout: int = 4) -> bool:
     ``text/html`` would nuke every live watch page — the exact opposite of the
     goal — so we don't.
 
-    Dailymotion — the dominant host these aggregators resolve to — gets a
-    sharper check via its oEmbed endpoint (see ``_probe_dailymotion``): a live
-    video answers ``application/json`` there while a pulled one answers a
-    ``text/html`` error page, both ``200``, so the generic content-type rule on
-    the watch page can't tell them apart but oEmbed can.
+    Dailymotion — the dominant host these aggregators resolve to — gets an
+    authoritative check via its REST API (see ``_probe_dailymotion``): a live
+    video answers 200 with status 'published' or 'ready', while a removed/deleted
+    video returns 404 (oEmbed caches deleted metadata, returning false positives).
+
+    ok.ru returns 200 HTML for both live and deleted videos, but its embed page
+    contains data-module="OKVideo" only when the video actually exists.
     """
     if not url or not url.startswith("http"):
         return False
 
-    m = re.search(r"dailymotion\.com/video/([A-Za-z0-9]+)", url)
+    m = re.search(
+        r"dailymotion\.com/(?:(?:embed/)?video/|player/.*?video=)([A-Za-z0-9]+)", url
+    ) or re.search(r"[?&]video=([A-Za-z0-9]+)", url)
     if m:
         return _probe_dailymotion(m.group(1), timeout)
+
+    m = re.search(r"ok\.ru/(?:video|videoembed)/(\d+)", url)
+    if m:
+        return _probe_okru(m.group(1), timeout)
 
     try:
         with get_client().stream(
@@ -225,21 +233,39 @@ def probe_alive(url: str, timeout: int = 4) -> bool:
 
 
 def _probe_dailymotion(video_id: str, timeout: int = 4) -> bool:
-    """Liveness check for a Dailymotion video via its oEmbed endpoint.
+    """Authoritative liveness check for a Dailymotion video via its REST API.
 
-    oEmbed is the cheapest authoritative signal Dailymotion exposes: for a live
-    video it returns ``application/json`` metadata; for a removed/geo-blocked one
-    it returns a ``text/html`` error page — both ``200``. Content-type is the
-    discriminator. Runs on the shared impersonated client like every other fetch.
+    Dailymotion's /services/oembed endpoint caches responses indefinitely and
+    returns 200 with JSON metadata even after an upload has been pulled.
+    The REST API /video/<id> is authoritative: it returns 404 for deleted /
+    nonexistent videos, and 200 with status 'published' or 'ready' when live.
     """
-    oembed = (
-        "https://www.dailymotion.com/services/oembed?url="
-        f"https://www.dailymotion.com/video/{video_id}"
-    )
+    api_url = f"https://api.dailymotion.com/video/{video_id}?fields=id,status"
     try:
-        resp = get_client().get(oembed, timeout=timeout)
-        ctype = (resp.headers.get("content-type") or "").lower()
-        return resp.status_code == 200 and "application/json" in ctype
+        resp = get_client().get(api_url, timeout=timeout)
+        if resp.status_code != 200:
+            return False
+        data = resp.json()
+        if "error" in data:
+            return False
+        return data.get("status") in ("published", "ready") or bool(data.get("id"))
+    except (RequestException, ValueError, Exception):
+        return False
+
+
+def _probe_okru(video_id: str, timeout: int = 4) -> bool:
+    """Liveness check for an ok.ru video via its embed page.
+
+    ok.ru returns HTTP 200 HTML even for deleted / nonexistent video IDs.
+    The embed page https://ok.ru/videoembed/<id> contains data-module="OKVideo"
+    only when the video exists and is ready for playback.
+    """
+    embed_url = f"https://ok.ru/videoembed/{video_id}"
+    try:
+        resp = get_client().get(embed_url, timeout=timeout)
+        if resp.status_code != 200:
+            return False
+        return 'data-module="OKVideo"' in resp.text
     except RequestException:
         return False
 
