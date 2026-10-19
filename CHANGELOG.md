@@ -2,15 +2,42 @@
 
 All notable changes to Donghua CLI will be documented in this file.
 
-## [4.0.1] - 2026-10-13
+## [4.1.0] - 2026-10-19
+
+First release since 4.0.0. It carries the v4.1 feature work and the fixes for
+installs that were broken on PyPI.
+
+### Added
+- **DonghuaWorld source** (`dw`), the sixth source. LuciferDonghua moved to its
+  new `.org` domain and existing bookmarks/history URLs are migrated.
+- **TUI: series / movies split.** Results are visually separated and a filter
+  cycles between them.
+- **TUI: download from the episode and playback screens**, and the player's
+  exit code now tells a user quit apart from a playback failure.
+- Extractor: Streamwish and Vidguard wrapper URLs are canonicalised, base64
+  server-switcher options are decoded, and direct `<video>`/`<source>` elements
+  are inspected.
 
 ### Fixed
 - **Fresh installs crashed on the first search.** selectolax 1.0 (released
   2026-10-03) deleted the `selectolax.parser` module that every scraper went
   through, and the `>=0.3.21` pin let it in. Parsing now uses the Lexbor
   backend, which works on both old and new selectolax.
+- **`dhua` crashed on startup under Python 3.9** (Apple's stock
+  `/usr/bin/python3`) with `TypeError: unsupported operand type(s) for |`.
+  `X | None` annotations are evaluated at import time before 3.10; the modules
+  that lacked `from __future__ import annotations` now have it.
+- Liveness checks for Dailymotion (authoritative REST API instead of a cached
+  oEmbed response) and ok.ru, which stopped dead videos looking alive.
+- Sequel/season title collisions: Roman-numeral and ordinal season notations
+  ("Season IV", "5th Season") are normalised, so distinct installments no
+  longer merge.
 - Type-check failure against Textual 8, which turned
   `App.get_theme_variable_defaults` into an instance method.
+
+### Changed
+- CI: the test step now gates the build. It had `continue-on-error: true`,
+  which let a failing 3.9 job show green.
 
 ## [4.0.0] - 2026-08-22
 

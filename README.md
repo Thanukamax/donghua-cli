@@ -205,7 +205,7 @@ dhua
 
 ## Sources
 
-Every search fans out across all five concurrently and merges the results by
+Every search fans out across all six concurrently and merges the results by
 fuzzy title match, so one series usually ends up with several mirrors behind it.
 More mirrors means more candidates for the liveness race below.
 
@@ -215,6 +215,7 @@ More mirrors means more candidates for the liveness race below.
 | `ax` | AnimeXin | Multiple dub servers per episode |
 | `ak` | AnimeKhor | Same, ~9 servers on a typical page |
 | `lm` | LMAnime | |
+| `dw` | DonghuaWorld | Dailymotion / Ok.ru embeds |
 | `ld` | LuciferDonghua | Currently returns listings but resolves no playable servers |
 
 Silence any of them with `disabled_sources` in `config.toml`.
@@ -223,7 +224,7 @@ Silence any of them with `disabled_sources` in `config.toml`.
 
 ## How It Works
 
-1. **Search** -- queries all five sources concurrently, merges results by fuzzy title match
+1. **Search** -- queries all six sources concurrently, merges results by fuzzy title match
 2. **Episodes** -- fetches episode lists from every mirror, merges by episode number
 3. **Extraction** -- decodes every server an episode page offers, not just the first player
 4. **Liveness race** -- probes those candidates in parallel with a ranged `GET` and takes the first mirror returning real bytes, so a dead mirror costs a probe instead of a failed playback
